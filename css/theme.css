@@ -622,3 +622,5 @@ tr[data-rnc] {
 .rl-bar span { width: 0; height: 100%; border-radius: 3px; transform: none; background: var(--grad-accent); box-shadow: 0 0 12px rgba(92,225,230,.55); animation: none; }
 .route-loader.show .rl-bar span { animation: rlFill 1.3s cubic-bezier(.45, .05, .25, 1) .05s forwards; }
 @keyframes rlFill { from { width: 0; } to { width: 100%; } }
+/* atualização silenciosa (dados novos da nuvem): sem animações de entrada */
+body.quiet .view, body.quiet .view * { animation: none !important; transition: none !important; }

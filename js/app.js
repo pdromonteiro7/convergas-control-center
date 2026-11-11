@@ -4479,6 +4479,23 @@
     hxIntro();
   }
 
+  // atualiza só os números da Home (selos nos botões e índice lateral), sem refazer a roda
+  function homeRefreshStats() {
+    const mount = $('#wheelMount'); if (!mount || !mount.children.length) return;
+    HX.stats = HOME_AREAS.map((a) => { try { return a.stat(); } catch (e) { return { v: '—', l: '', tone: '' }; } });
+    HX.stats.forEach((st, i) => {
+      const orb = $(`.hx-node[data-i="${i}"] .hx-orb`, mount);
+      if (orb) {
+        let flag = $('.hx-flag', orb);
+        const alert = st.tone === 'warn' || st.tone === 'danger';
+        if (alert) { if (!flag) { flag = document.createElement('span'); orb.appendChild(flag); } flag.className = 'hx-flag t-' + st.tone; flag.textContent = String(st.v); }
+        else if (flag) flag.remove();
+      }
+      const s = $(`#homeIndex .hx-ix[data-i="${i}"] .hx-ix-s`);
+      if (s) { s.className = 'hx-ix-s t-' + (st.tone || 'none'); s.textContent = String(st.v); }
+    });
+  }
+
   // conteúdo do núcleo (crossfade a cada troca)
   function hxHub(i) {
     const host = $('#hxHubIn'); if (!host) return;
@@ -5547,9 +5564,21 @@ void main(){
     if (!window.Store || !Store.syncFromCloud) return;
     Store.syncFromCloud((changed) => {
       if (!changed) return;
-      // reflete os dados novos: home (roda/alertas), sidebar e página atual
-      try { buildHome(); } catch (e) {}
-      try { if (!$('#homeScreen').classList.contains('show') && PAGES[currentRoute]) { view.innerHTML = ''; PAGES[currentRoute](); } } catch (e) {}
+      // reflete os dados novos SEM redesenhar a tela (antes isso dava uma "piscada" segundos após abrir):
+      // na Home só atualiza os números; numa página, re-renderiza em silêncio (sem animação de entrada,
+      // mantendo a rolagem) e só se não houver formulário aberto.
+      try { homeRefreshStats(); } catch (e) {}
+      try {
+        const onHome = $('#homeScreen').classList.contains('show');
+        const editing = $('#modalRoot').classList.contains('open') || currentRoute === 'pv-novo' || currentRoute === 'prog-form' || (document.activeElement && /input|textarea|select/i.test(document.activeElement.tagName));
+        if (!onHome && !editing && PAGES[currentRoute]) {
+          const y = window.scrollY;
+          document.body.classList.add('quiet');
+          view.innerHTML = ''; PAGES[currentRoute]();
+          window.scrollTo(0, y);
+          requestAnimationFrame(() => requestAnimationFrame(() => document.body.classList.remove('quiet')));
+        }
+      } catch (e) {}
       try { refreshSysPulse(); } catch (e) {}
     }).catch(() => {});
   }
