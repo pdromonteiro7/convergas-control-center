@@ -1259,7 +1259,7 @@
     informacao: { label: 'Dúvida / informação', short: 'Informação', icon: 'mail', desc: 'Pedido de informação ou documento' },
   };
   const PV_STATUS = {
-    aberto: { label: 'Aguardando triagem', cls: 'info' },
+    aberto: { label: 'Em triagem', cls: 'info' },
     tratativa: { label: 'Em tratativa', cls: 'warn' },
     verificacao: { label: 'Em verificação', cls: 'info' },
     encerrado: { label: 'Encerrado', cls: 'ok' },
@@ -1277,7 +1277,7 @@
     nao: { label: 'Não requer RNC', short: 'Sem RNC' },
   };
   const PV_RNC_ST = {
-    pendente: { label: 'Aguardando Qualidade', cls: 'danger' },
+    pendente: { label: 'RNC pendente', cls: 'danger' },
     anexada: { label: 'RNC anexada', cls: 'warn' },
     respondida: { label: 'Respondida ao cliente', cls: 'info' },
     fechada: { label: 'RNC encerrada', cls: 'ok' },
@@ -1570,14 +1570,13 @@
       if (pvFilt.rnc) l = l.filter(pvPrecisaRnc);
       if (pvFilt.q) { const q = pvFilt.q.toLowerCase(); l = l.filter((c) => (c.numero + ' ' + pvClienteNome(c) + ' ' + JSON.stringify(c.produto || {}) + ' ' + (c.descricao || '') + ' ' + ((c.rncCliente || {}).numero || '') + ' ' + ((c.rnc || {}).numero || '')).toLowerCase().includes(q)); }
       l.sort((a, b) => (pvAtrasado(b) - pvAtrasado(a)) || String(b.criadoEm).localeCompare(String(a.criadoEm)));
-      holder.innerHTML = l.length ? `<div class="tbl-wrap"><table class="data pvx-table"><thead><tr><th>Chamado</th><th>Cliente</th><th>Tipo</th><th>Produto</th><th>Prioridade</th><th>Prazo</th><th>RNC</th><th>Status</th></tr></thead><tbody>${l.map((c) => {
+      holder.innerHTML = l.length ? `<div class="tbl-wrap"><table class="data pvx-table"><thead><tr><th>Chamado</th><th>Cliente</th><th>Ocorrência</th><th>Prioridade</th><th>Prazo</th><th>RNC</th><th>Status</th></tr></thead><tbody>${l.map((c) => {
         const t = PV_TIPOS[c.tipo] || PV_TIPOS.reclamacao; const pr = c.produto || {};
         return `<tr data-pvid="${c.id}" class="pvx-tr">
           <td><div class="cell-main mono">${esc(c.numero)}</div><div class="cell-sub">${fmtDate(pvDay(c.criadoEm))}</div></td>
           <td><div class="cell-main">${esc(pvClienteNome(c))}</div><div class="cell-sub">${esc([(c.local || {}).cidade, (c.local || {}).uf].filter(Boolean).join(' / ') || '—')}</div></td>
-          <td><span class="pvx-tipo">${ic(t.icon)}${esc(t.short)}</span></td>
-          <td><div class="cell-main">${esc(pr.descricao || '—')}</div><div class="cell-sub">${esc([pr.codigo, pr.lote ? 'Lote ' + pr.lote : ''].filter(Boolean).join(' · ') || '')}</div></td>
-          <td>${pvBadge(PV_PRIO, c.prioridade || 'media')}${c.seguranca ? ` <span class="badge danger plain" title="Afeta segurança ou requisito legal">Segurança</span>` : ''}</td>
+          <td><div class="cell-main pvx-tipo">${ic(t.icon)}${esc(t.short)}</div><div class="cell-sub">${esc([pr.descricao, pr.lote ? 'Lote ' + pr.lote : ''].filter(Boolean).join(' · ') || '—')}</div></td>
+          <td><div class="pvx-stack">${pvBadge(PV_PRIO, c.prioridade || 'media')}${c.seguranca ? `<span class="badge danger plain" title="Afeta segurança ou requisito legal">Segurança</span>` : ''}</div></td>
           <td>${pvPrazoBadge(c)}</td>
           <td>${pvRncBadge(c)}</td>
           <td>${pvBadge(PV_STATUS, c.status)}</td></tr>`;
@@ -4334,7 +4333,7 @@
       g.items.map((it) => `<a class="nav-item" data-route="${it.r}"><span class="ni-ico" data-icon="${it.i}"></span><span class="ni-tx">${esc(it.t)}</span></a>`).join('')).join('');
     $('#brandArea').textContent = cfg.label;
     Icons.apply(nav);
-    $$('.nav-item', nav).forEach((a) => (a.onclick = (e) => { e.preventDefault(); go(a.dataset.route); }));
+    $$('.nav-item', nav).forEach((a) => (a.onclick = (e) => { e.preventDefault(); navTo(a.dataset.route); }));
   }
 
   /* ---------- navegação mobile: tab bar + bottom sheet (ref. LifeGas) ---------- */
@@ -4350,7 +4349,7 @@
     mnav.innerHTML = tabs.map((it) => `<button class="mtab${it.r === route ? ' on' : ''}" data-route="${it.r}"><span class="mt-ico" data-icon="${it.i}"></span><span class="mt-tx">${esc(it.s || it.t)}</span></button>`).join('')
       + `<button class="mtab mtab-menu" id="mtabMenu"><span class="mt-ico" data-icon="menu"></span><span class="mt-tx">Menu</span></button>`;
     Icons.apply(mnav);
-    $$('.mtab[data-route]', mnav).forEach((b) => (b.onclick = () => go(b.dataset.route)));
+    $$('.mtab[data-route]', mnav).forEach((b) => (b.onclick = () => navTo(b.dataset.route)));
     $('#mtabMenu').onclick = openSheet;
     // bottom sheet: navegação completa da área + trocar de área + tema
     const body = $('#msheetBody');
@@ -4361,7 +4360,7 @@
            <button id="msTheme"><span data-icon="moon"></span>Tema</button>
          </div>`;
     Icons.apply(body);
-    $$('.ms-item', body).forEach((b) => (b.onclick = () => { closeSheet(); go(b.dataset.route); }));
+    $$('.ms-item', body).forEach((b) => (b.onclick = () => { closeSheet(); navTo(b.dataset.route); }));
     $('#msArea').onclick = () => { closeSheet(); goHome(); };
     $('#msTheme').onclick = () => { setTheme(document.documentElement.getAttribute('data-theme') === 'dark' ? 'light' : 'dark'); };
   }
@@ -4374,7 +4373,7 @@
     $('.app-shell').style.display = 'none';
     if (location.hash !== '#home') history.replaceState(null, '', '#home');
   }
-  function enterArea(area) { currentArea = area; renderSidebar(area); go(AREA_HOME[area]); }
+  function enterArea(area) { currentArea = area; renderSidebar(area); navTo(AREA_HOME[area], area); }
 
   function go(route) {
     if (!PAGES[route]) route = AREA_HOME[currentArea] || 'dashboard';
@@ -4506,6 +4505,7 @@
     HX.sel = i;
     const a = HOME_AREAS[i];
     const scr = $('#homeScreen'); if (scr) scr.style.setProperty('--hx-sel', a.color);
+    bgTint(a.color);
     $$('#homeIndex .hx-ix').forEach((n) => n.classList.toggle('on', +n.dataset.i === i));
     mount.classList.add('has-sel');
     $$('.hx-node', mount).forEach((n) => {
@@ -4653,11 +4653,137 @@
 
 
   /* ---------- particle background ---------- */
-  // fundo animado: aurora suave em CSS (substitui as partículas). Desligado = fundo estático.
-  function toggleBgfx(on) {
-    const cv = $('#bgfx'); if (cv) cv.style.display = 'none';
-    document.documentElement.classList.toggle('fx-off', !on);
+  /* ---------- Fundo animado (WebGL) ----------
+     Malha de cores fluida nas cores da marca, com linhas de contorno sutis (lembram um
+     fluxo de gás). Roda em baixa resolução e é ampliada pelo CSS (o desenho é suave), a
+     ~30 fps, pausa com a aba oculta. "Fundo animado" desligado em Settings ou "reduzir
+     movimento" no sistema = imagem parada. Sem WebGL, cai para a aurora em CSS. */
+  const BG = { gl: null, prog: null, u: {}, raf: null, t0: performance.now(), last: 0, on: true, tint: [0.36, 0.88, 0.90], tintTo: [0.36, 0.88, 0.90], ok: false };
+  const BG_VS = 'attribute vec2 p;void main(){gl_Position=vec4(p,0.,1.);}';
+  const BG_FS = `precision mediump float;
+uniform vec2 r;uniform float t;uniform float lt;uniform vec3 tint;
+float h(vec2 p){return fract(sin(dot(p,vec2(127.1,311.7)))*43758.5453);}
+float n(vec2 p){vec2 i=floor(p),f=fract(p);vec2 u=f*f*(3.-2.*f);return mix(mix(h(i),h(i+vec2(1.,0.)),u.x),mix(h(i+vec2(0.,1.)),h(i+vec2(1.,1.)),u.x),u.y);}
+float fbm(vec2 p){float v=0.,a=.5;for(int i=0;i<5;i++){v+=a*n(p);p=p*2.03+vec2(1.7,9.2);a*=.5;}return v;}
+void main(){
+  vec2 uv=gl_FragCoord.xy/r;vec2 p=uv;p.x*=r.x/r.y;
+  float T=t*.028;
+  vec2 q=vec2(fbm(p*1.5+vec2(0.,T)),fbm(p*1.5+vec2(5.2,1.3)-T*.8));
+  vec2 w=vec2(fbm(p*1.3+2.2*q+vec2(1.7,9.2)+T*.6),fbm(p*1.3+2.2*q+vec2(8.3,2.8)-T*.5));
+  float f=fbm(p*1.15+2.6*w);
+  vec3 col;
+  if(lt<.5){
+    vec3 base=vec3(.022,.036,.062),c1=vec3(.035,.15,.30),c2=vec3(.09,.38,.62),c4=vec3(.17,.11,.36);
+    col=base;
+    col=mix(col,c1,smoothstep(.28,.78,f));
+    col=mix(col,c2,smoothstep(.55,1.05,length(q))*.6);
+    col=mix(col,c4,smoothstep(.48,.92,w.y)*.42);
+    col=mix(col,tint*.55,smoothstep(.58,.98,w.x)*.30);
+    col+=vec3(.25,.80,.85)*pow(smoothstep(.6,1.,f),2.)*.38;
+    float l=abs(fract(f*8.+T*.6)-.5);col+=vec3(.45,.9,.95)*smoothstep(.035,0.,l)*.045;
+    col*=mix(.72,1.12,smoothstep(1.25,.15,length(uv-vec2(.5,.42))));
+  } else {
+    vec3 base=vec3(.952,.962,.978),c1=vec3(.83,.90,.975),c2=vec3(.74,.91,.94),c4=vec3(.89,.86,.975);
+    col=base;
+    col=mix(col,c1,smoothstep(.3,.8,f)*.85);
+    col=mix(col,c2,smoothstep(.55,1.05,length(q))*.55);
+    col=mix(col,c4,smoothstep(.48,.92,w.y)*.5);
+    col=mix(col,mix(base,tint,.35),smoothstep(.58,.98,w.x)*.35);
+    float l=abs(fract(f*8.+T*.6)-.5);col-=vec3(.10,.06,.02)*smoothstep(.035,0.,l)*.10;
   }
+  gl_FragColor=vec4(col,1.);
+}`;
+  function bgInit() {
+    const cv = $('#bgfx'); if (!cv) return false;
+    let gl = null;
+    try { gl = cv.getContext('webgl', { antialias: false, alpha: false, premultipliedAlpha: false, powerPreference: 'low-power' }); } catch (e) {}
+    if (!gl) return false;
+    const sh = (type, src) => { const s = gl.createShader(type); gl.shaderSource(s, src); gl.compileShader(s); if (!gl.getShaderParameter(s, gl.COMPILE_STATUS)) { console.warn(gl.getShaderInfoLog(s)); return null; } return s; };
+    const vs = sh(gl.VERTEX_SHADER, BG_VS), fs = sh(gl.FRAGMENT_SHADER, BG_FS);
+    if (!vs || !fs) return false;
+    const pr = gl.createProgram(); gl.attachShader(pr, vs); gl.attachShader(pr, fs); gl.linkProgram(pr);
+    if (!gl.getProgramParameter(pr, gl.LINK_STATUS)) return false;
+    gl.useProgram(pr);
+    const buf = gl.createBuffer(); gl.bindBuffer(gl.ARRAY_BUFFER, buf);
+    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1, -1, 3, -1, -1, 3]), gl.STATIC_DRAW);
+    const loc = gl.getAttribLocation(pr, 'p'); gl.enableVertexAttribArray(loc); gl.vertexAttribPointer(loc, 2, gl.FLOAT, false, 0, 0);
+    BG.gl = gl; BG.prog = pr; BG.u = { r: gl.getUniformLocation(pr, 'r'), t: gl.getUniformLocation(pr, 't'), lt: gl.getUniformLocation(pr, 'lt'), tint: gl.getUniformLocation(pr, 'tint') };
+    const resize = () => { const s = 0.38; cv.width = Math.max(64, Math.round(innerWidth * s)); cv.height = Math.max(64, Math.round(innerHeight * s)); gl.viewport(0, 0, cv.width, cv.height); bgDraw(performance.now()); };
+    addEventListener('resize', resize); resize();
+    document.addEventListener('visibilitychange', () => { if (!document.hidden) bgLoop(); });
+    cv.addEventListener('webglcontextlost', (e) => { e.preventDefault(); document.documentElement.classList.add('no-webgl'); });
+    return true;
+  }
+  function bgDraw(now) {
+    const gl = BG.gl; if (!gl) return;
+    // cor da área atual entra devagar (transição de ~2s)
+    for (let i = 0; i < 3; i++) BG.tint[i] += (BG.tintTo[i] - BG.tint[i]) * 0.035;
+    gl.uniform2f(BG.u.r, gl.canvas.width, gl.canvas.height);
+    gl.uniform1f(BG.u.t, (now - BG.t0) / 1000 + 40);
+    gl.uniform1f(BG.u.lt, document.documentElement.getAttribute('data-theme') === 'light' ? 1 : 0);
+    gl.uniform3f(BG.u.tint, BG.tint[0], BG.tint[1], BG.tint[2]);
+    gl.drawArrays(gl.TRIANGLES, 0, 3);
+  }
+  function bgLoop() {
+    if (BG.raf || !BG.gl) return;
+    const still = !BG.on || hxReduce();
+    const step = (now) => {
+      BG.raf = null;
+      if (document.hidden) return;
+      if (now - BG.last >= 33) { BG.last = now; bgDraw(now); }
+      if (!still) BG.raf = requestAnimationFrame(step);
+    };
+    BG.raf = requestAnimationFrame(step);
+  }
+  // cor de fundo acompanha a área (hex '#RRGGBB')
+  function bgTint(hex) {
+    const m = /^#?([0-9a-f]{2})([0-9a-f]{2})([0-9a-f]{2})$/i.exec(hex || ''); if (!m) return;
+    BG.tintTo = [parseInt(m[1], 16) / 255, parseInt(m[2], 16) / 255, parseInt(m[3], 16) / 255];
+    if (!BG.raf) { // fundo parado: aplica direto
+      if (!BG.on || hxReduce()) { BG.tint = BG.tintTo.slice(); bgDraw(performance.now()); }
+    }
+  }
+  window.ccBgTint = bgTint;
+  function toggleBgfx(on) {
+    BG.on = on !== false;
+    document.documentElement.classList.toggle('fx-off', !BG.on);
+    if (!BG.ok) BG.ok = bgInit();
+    document.documentElement.classList.toggle('no-webgl', !BG.ok);
+    if (!BG.ok) return;
+    if (BG.raf) { cancelAnimationFrame(BG.raf); BG.raf = null; }
+    bgDraw(performance.now());
+    bgLoop();
+  }
+
+  /* ---------- Tela de carregamento entre abas ----------
+     navTo(): cobre a tela atual (fade-in), troca a página por baixo e revela com a
+     página entrando em cascata. As chamadas internas de go() continuam instantâneas. */
+  const RL = { busy: false, timer: null };
+  function rlShow(areaLabel, pageLabel) {
+    const el = $('#routeLoader'); if (!el) return;
+    $('#rlArea').textContent = areaLabel || 'Control Center';
+    $('#rlPage').textContent = pageLabel || '';
+    el.classList.remove('out'); el.classList.add('show'); el.setAttribute('aria-hidden', 'false');
+    document.body.classList.add('rl-on');
+  }
+  function rlHide() {
+    const el = $('#routeLoader'); if (!el) return;
+    el.classList.add('out');
+    document.body.classList.remove('rl-on');
+    clearTimeout(RL.timer);
+    RL.timer = setTimeout(() => { el.classList.remove('show', 'out'); el.setAttribute('aria-hidden', 'true'); RL.busy = false; }, 520);
+  }
+  function navTo(route, areaHint) {
+    if (RL.busy) return;
+    if (route === currentRoute && !$('#homeScreen').classList.contains('show')) return;
+    const area = areaHint || ROUTE_AREA[route] || currentArea;
+    if (hxReduce()) { go(route); return; }
+    RL.busy = true;
+    rlShow((NAV[area] || {}).label, TITLES[route] || '');
+    const hc = HOME_AREAS.find((a) => a.area === area); if (hc) bgTint(hc.color);
+    setTimeout(() => { try { go(route); } catch (e) { console.error(e); } setTimeout(rlHide, 420); }, 260);
+  }
+  window.navTo = navTo;
 
   /* =====================================================================
      PROGRAMAÇÃO (PCP / Gestão) — Fase 1: atividades (3 vistas) + RNC + cadastros
@@ -5407,6 +5533,8 @@
     }
     // tela definida — liberar a renderização (remove o estado de carregamento)
     document.body.classList.remove('booting');
+    // tela de abertura: logo por um instante e revela o app
+    setTimeout(rlHide, 700);
     // offline-first: já renderizou do cache local; agora sincroniza com a nuvem por cima
     syncCloud();
   }

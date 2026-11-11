@@ -11,7 +11,7 @@
 <link rel="stylesheet" href="css/styles.css" />
 <link rel="stylesheet" href="css/theme.css" />
 </head>
-<body class="booting">
+<body class="booting rl-on">
 <canvas id="bgfx" aria-hidden="true"></canvas>
 <div class="fx-bg" aria-hidden="true"><span class="fx-aur a1"></span><span class="fx-aur a2"></span><span class="fx-grain"></span></div>
 
@@ -114,6 +114,16 @@
   <span class="msheet-grab" aria-hidden="true"></span>
   <div class="msheet-body" id="msheetBody"></div>
 </section>
+
+<!-- ===== TELA DE CARREGAMENTO (abertura e troca de abas) ===== -->
+<div class="route-loader show" id="routeLoader" aria-hidden="false" role="status" aria-live="polite">
+  <div class="rl-core">
+    <svg class="rl-ring" viewBox="0 0 120 120" aria-hidden="true"><circle class="rl-track" cx="60" cy="60" r="54"/><circle class="rl-arc" cx="60" cy="60" r="54"/></svg>
+    <img src="assets/logo-icone.png" alt="" />
+  </div>
+  <div class="rl-tx"><span id="rlArea">Convergas</span><b id="rlPage">Control Center</b></div>
+  <div class="rl-bar"><span></span></div>
+</div>
 
 <!-- ===== TOASTS ===== -->
 <div class="toast-wrap" id="toastWrap"></div>
