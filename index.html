@@ -4,7 +4,7 @@
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title>Convergas · Control Center</title>
-<meta name="app-build" content="2026-07-16-pdfviewer2" />
+<meta name="app-build" content="2026-11-11-posvendas" />
 <meta name="description" content="Convergas Control Center — Qualidade e T.I. Single source of truth da operação." />
 <link rel="icon" href="assets/logo-icone.png" />
 <link rel="stylesheet" href="css/fonts.css" />
@@ -64,30 +64,38 @@
   <div class="modal-card" id="modalCard" role="dialog" aria-modal="true"></div>
 </div>
 
-<!-- ===== HOME (roda de áreas, estilo GTA) ===== -->
+<!-- ===== HOME — painel de entrada por área ===== -->
 <div class="home-screen" id="homeScreen" aria-hidden="true">
-  <header class="home-head">
-    <span class="home-logo"><img src="assets/logo-icone.png" alt="Convergas" /></span>
-    <div class="home-tt">
-      <h1>Control Center</h1>
-      <p>Convergas · Qualidade e T.I</p>
-    </div>
-  </header>
-  <button class="home-fs" id="fsToggleHome" aria-label="Tela cheia" title="Tela cheia" data-icon="maximize"></button>
+  <div class="hm-wrap">
+    <header class="hm-top">
+      <div class="hm-brand">
+        <img src="assets/logo-icone.png" alt="Convergas" />
+        <div class="hm-brand-tx"><b>Convergas</b><span>Control Center</span></div>
+      </div>
+      <div class="hm-tools">
+        <span class="hm-clock" id="homeClock"></span>
+        <button class="hm-tool" id="themeToggleHome" aria-label="Alternar tema" title="Alternar tema" data-icon="moon"></button>
+        <button class="hm-tool" id="fsToggleHome" aria-label="Tela cheia" title="Tela cheia" data-icon="maximize"></button>
+      </div>
+    </header>
 
-  <div class="home-stage" id="homeStage">
-    <aside class="home-info" id="homeInfo" aria-live="polite"><!-- preview da área sob o cursor --></aside>
-    <div class="wheel" id="wheelMount"><!-- roda construída via JS (desktop) --></div>
-  </div>
+    <section class="hm-hero">
+      <span class="hm-kicker">Qualidade · Pós-vendas · Operações · T.I</span>
+      <h1 id="homeGreet">Bem-vindo</h1>
+      <p>Escolha uma área para começar. Os números de cada cartão são atualizados automaticamente.</p>
+    </section>
 
-  <!-- versão mobile: grade de cards (populada via JS) -->
-  <div class="home-cards" id="homeCards"><!-- cards de área no celular --></div>
+    <section class="hm-grid" id="homeGrid" aria-label="Áreas"><!-- cartões das áreas (via JS) --></section>
 
-  <!-- redes sociais + site (canto inferior direito) -->
-  <div class="home-social">
-    <a href="https://www.instagram.com/convergasfuelsystems/" target="_blank" rel="noopener noreferrer" title="Instagram" aria-label="Instagram da Convergas"><span data-icon="instagram"></span></a>
-    <a href="https://br.linkedin.com/company/convergas" target="_blank" rel="noopener noreferrer" title="LinkedIn" aria-label="LinkedIn da Convergas"><span data-icon="linkedin"></span></a>
-    <a href="https://www.convergas.com.br/" target="_blank" rel="noopener noreferrer" title="Site da Convergas" aria-label="Site da Convergas"><span data-icon="globe"></span></a>
+    <footer class="hm-foot">
+      <span class="hm-copy">Convergas Fuel Systems · Control Center v1.1</span>
+      <div class="hm-links">
+        <button class="hm-link" id="homeGuideline"><span data-icon="book"></span>Manual da marca</button>
+        <a href="https://www.convergas.com.br/" target="_blank" rel="noopener noreferrer" class="hm-link"><span data-icon="globe"></span>convergas.com.br</a>
+        <a href="https://www.instagram.com/convergasfuelsystems/" target="_blank" rel="noopener noreferrer" class="hm-soc" title="Instagram" aria-label="Instagram da Convergas"><span data-icon="instagram"></span></a>
+        <a href="https://br.linkedin.com/company/convergas" target="_blank" rel="noopener noreferrer" class="hm-soc" title="LinkedIn" aria-label="LinkedIn da Convergas"><span data-icon="linkedin"></span></a>
+      </div>
+    </footer>
   </div>
 </div>
 

@@ -344,6 +344,9 @@
     if (!Array.isArray(d.progFamilias)) d.progFamilias = [];
     if (!Array.isArray(d.progFornecedores)) d.progFornecedores = [];
     if (!Array.isArray(d.progEstoque)) d.progEstoque = [];
+    // PÓS-VENDAS — chamados de clientes (IATF 16949 / ISO 9001) e cadastro de clientes
+    if (!Array.isArray(d.pvChamados)) d.pvChamados = [];
+    if (!Array.isArray(d.pvClientes)) d.pvClientes = [];
     if (!Array.isArray(d.progPedidos)) d.progPedidos = [];
     if (!Array.isArray(d.progConfig)) d.progConfig = [];
     if (!d._progSeed) {
@@ -797,6 +800,13 @@
   const idbDel = (id) => openDB().then((db) => new Promise((res) => { const tx = db.transaction(IDB_STORE, 'readwrite'); tx.objectStore(IDB_STORE).delete(id); tx.oncomplete = () => res(true); tx.onerror = () => res(false); }));
 
   // PDFs de certificados: IndexedDB local (cache/offline) + bucket `files` na nuvem (fonte compartilhada).
+  // arquivos genéricos (anexos de chamados etc.): cache local em IndexedDB; a nuvem é tratada por quem chama
+  Store.blobs = {
+    put: (id, blob, meta) => idbPut(id, blob, meta).then(() => true).catch(() => false),
+    get: (id) => idbGet(id).catch(() => null),
+    del: (id) => idbDel(id).catch(() => false),
+  };
+
   Store.files = {
     async put(id, blob, meta) {
       meta = meta || {};

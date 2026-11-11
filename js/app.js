@@ -1244,29 +1244,900 @@
     view.appendChild(w); Icons.apply(view);
   };
 
-  /* ============ PÓS-VENDAS — relacionamento e suporte ao cliente ============ */
-  const POSVENDAS = [
-    { icon: 'phone', name: 'Atendimento & Acompanhamento', desc: 'Canal direto com o cliente após a entrega.', tag: 'Relacionamento', color: 'var(--accent)' },
-    { icon: 'activity', name: 'Pesquisas de Satisfação', desc: 'Medir a experiência e o NPS dos clientes.', tag: 'Satisfação', color: 'var(--ok)' },
-    { icon: 'shield', name: 'Garantias & Chamados', desc: 'Registro e tratamento de garantias e ocorrências.', tag: 'Suporte', color: 'var(--warn)' },
-    { icon: 'users', name: 'Histórico do Cliente', desc: 'Visão completa de cada cliente e suas interações.', tag: 'Cadastro', color: 'var(--blue-future)' },
-  ];
-  PAGES['posvendas-home'] = () => {
-    pageShell('Pós-Vendas', 'Pós-Vendas', 'Relacionamento e suporte ao cliente após a entrega.', '');
-    const w = document.createElement('div');
-    w.className = 'sys-grid';
-    w.innerHTML = POSVENDAS.map((s) => `
-      <div class="sys-card is-soon" style="--sc:${s.color}">
-        <span class="sys-glow"></span>
-        <div class="sys-top">
-          <span class="sys-ico">${ic(s.icon)}</span>
-          <span class="sys-tag">${esc(s.tag)}</span>
-        </div>
-        <h3>${esc(s.name)}</h3>
-        <p>${esc(s.desc)}</p>
-        <span class="sys-cta sys-soon">Em breve</span>
+  /* =====================================================================
+     PÓS-VENDAS — gestão de chamados de clientes (IATF 16949 · ISO 9001)
+     Fluxo: 1 Abertura (Comercial) → 2 Triagem → 3 Tratativa (contenção + atendimento)
+            → 4 RNC (só quando necessária — a Qualidade anexa) → 5 Verificação e encerramento
+     A RNC não é criada aqui: o chamado só registra se ela é necessária e guarda o arquivo.
+     ===================================================================== */
+  const PV_TIPOS = {
+    reclamacao: { label: 'Reclamação de qualidade', short: 'Reclamação', icon: 'alert', desc: 'Defeito ou produto fora do especificado' },
+    falha_campo: { label: 'Falha em campo', short: 'Falha em campo', icon: 'activity', desc: 'Produto instalado que falhou em uso' },
+    garantia: { label: 'Solicitação de garantia', short: 'Garantia', icon: 'shield', desc: 'Pedido de reparo ou troca na garantia' },
+    assistencia: { label: 'Assistência técnica', short: 'Assistência', icon: 'wrench', desc: 'Correção, ajuste ou instalação em campo' },
+    devolucao: { label: 'Devolução / logística', short: 'Devolução', icon: 'box', desc: 'Material errado, avaria ou falta' },
+    informacao: { label: 'Dúvida / informação', short: 'Informação', icon: 'mail', desc: 'Pedido de informação ou documento' },
+  };
+  const PV_STATUS = {
+    aberto: { label: 'Aguardando triagem', cls: 'info' },
+    tratativa: { label: 'Em tratativa', cls: 'warn' },
+    verificacao: { label: 'Em verificação', cls: 'info' },
+    encerrado: { label: 'Encerrado', cls: 'ok' },
+    cancelado: { label: 'Cancelado', cls: 'neutral' },
+  };
+  const PV_PRIO = {
+    baixa: { label: 'Baixa', cls: 'neutral', dias: 20 },
+    media: { label: 'Média', cls: 'info', dias: 10 },
+    alta: { label: 'Alta', cls: 'warn', dias: 5 },
+    critica: { label: 'Crítica', cls: 'danger', dias: 2 },
+  };
+  const PV_RNC = {
+    cliente: { label: 'Sim — o cliente emitiu RNC', short: 'RNC do cliente' },
+    interna: { label: 'Sim — abrir RNC interna', short: 'RNC interna' },
+    nao: { label: 'Não requer RNC', short: 'Sem RNC' },
+  };
+  const PV_RNC_ST = {
+    pendente: { label: 'Aguardando Qualidade', cls: 'danger' },
+    anexada: { label: 'RNC anexada', cls: 'warn' },
+    respondida: { label: 'Respondida ao cliente', cls: 'info' },
+    fechada: { label: 'RNC encerrada', cls: 'ok' },
+  };
+  const PV_CANAIS = ['E-mail', 'Telefone', 'WhatsApp', 'Visita', 'Portal do cliente', 'Representante'];
+  const PV_SEGMENTOS = ['Montadora / OEM', 'Distribuidor / Revenda', 'Convertedora / Oficina', 'Frotista', 'Consumidor final', 'Outro'];
+  const PV_UF = 'AC AL AP AM BA CE DF ES GO MA MT MS MG PA PB PR PE PI RJ RN RS RO RR SC SP SE TO'.split(' ');
+  const PV_LOCAIS_CONT = ['Estoque Convergas', 'Em trânsito', 'Cliente', 'Fornecedor', 'Produção (WIP)'];
+  const PV_DOCS = ['DFMEA', 'PFMEA', 'Plano de controle', 'Instrução de trabalho', 'Dispositivo à prova de erro', 'Lições aprendidas'];
+  const PV_GRUPOS = {
+    abertura: 'Evidências da abertura', rnc_cliente: 'RNC / reclamação do cliente', atendimento: 'Relatório de atendimento',
+    rnc: 'RNC (Qualidade)', d8: '8D / relatório de análise', verificacao: 'Evidência de eficácia',
+  };
+  const PV_MAX_MB = 15;
+
+  let pvCurrentId = null;
+  try { pvCurrentId = sessionStorage.getItem('pv_current') || null; } catch (e) {}
+  const pvFilt = { st: 'abertos', q: '', tipo: '', cli: '', rnc: false };
+  let pvNovoDraft = null; // edição da abertura (reaproveita o formulário de novo chamado)
+
+  function pvMe() { try { return localStorage.getItem('pv_me') || ''; } catch (e) { return ''; } }
+  function setPvMe(n) { try { localStorage.setItem('pv_me', n || ''); } catch (e) {} }
+  const pvNow = () => new Date().toISOString();
+  const pvFmtDT = (iso) => { if (!iso) return '—'; const d = new Date(iso); if (isNaN(d)) return fmtDate(iso); return d.toLocaleDateString('pt-BR') + ' ' + d.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }); };
+  const pvDay = (iso) => (iso || '').slice(0, 10);
+  const pvMoney = (n) => (Number(n) || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+  const pvBadge = (map, k) => { const m = map[k]; return m ? `<span class="badge ${m.cls}">${esc(m.label)}</span>` : ''; };
+  const pvKb = (n) => n > 1048576 ? (n / 1048576).toFixed(1) + ' MB' : Math.max(1, Math.round(n / 1024)) + ' KB';
+  const pvOpt = (v, list) => list.map((o) => { const val = typeof o === 'string' ? o : o.v, t = typeof o === 'string' ? o : o.t; return `<option value="${esc(val)}" ${String(v) === String(val) ? 'selected' : ''}>${esc(t)}</option>`; }).join('');
+
+  function pvLog(ch, acao, det) { const h = (ch.historico || []).slice(); h.push({ at: pvNow(), by: pvMe() || 'Usuário', acao, det: det || '' }); return h; }
+  function pvSave(ch, patch, acao, det) { if (acao) patch.historico = pvLog(Object.assign({}, ch, patch), acao, det); patch.atualizadoEm = pvNow(); return Store.update('pvChamados', ch.id, patch); }
+  function pvNextNumero() {
+    const pre = 'PV-' + new Date().getFullYear() + '-';
+    const nums = Store.get('pvChamados').filter((c) => (c.numero || '').startsWith(pre)).map((c) => parseInt(c.numero.slice(pre.length), 10)).filter((n) => !isNaN(n));
+    return pre + String((nums.length ? Math.max.apply(null, nums) : 0) + 1).padStart(4, '0');
+  }
+  const pvCliente = (id) => Store.find('pvClientes', id);
+  const pvClienteNome = (c) => { const k = c.clienteId && pvCliente(c.clienteId); return k ? k.nome : (c.clienteNome || '—'); };
+  const pvAberto = (c) => c.status !== 'encerrado' && c.status !== 'cancelado';
+  function pvRncDecisao(c) { if (c.triagem && c.triagem.rnc) return c.triagem.rnc; return (c.rncCliente && c.rncCliente.tem) ? 'cliente' : ''; }
+  const pvPrecisaRnc = (c) => { const d = pvRncDecisao(c); return d === 'cliente' || d === 'interna'; };
+  const pvAnexos = (c, g) => (c.anexos || []).filter((a) => !g || a.grupo === g);
+  function pvRncStatus(c) {
+    if (!pvPrecisaRnc(c)) return null;
+    if (!pvAnexos(c, 'rnc').length) return 'pendente';
+    const s = (c.rnc || {}).status;
+    return PV_RNC_ST[s] && s !== 'pendente' ? s : 'anexada';
+  }
+  const pvAtrasado = (c) => pvAberto(c) && c.prazo && c.prazo < todayISO();
+  function pvPrazoBadge(c) {
+    if (!c.prazo) return '<span class="badge neutral plain">Sem prazo</span>';
+    if (!pvAberto(c)) return `<span class="badge neutral plain">${fmtDate(c.prazo)}</span>`;
+    const d = Math.round((new Date(c.prazo + 'T00:00:00') - new Date(todayISO() + 'T00:00:00')) / 86400000);
+    if (d < 0) return `<span class="badge danger">Atrasado ${-d}d</span>`;
+    if (d === 0) return '<span class="badge warn">Vence hoje</span>';
+    if (d <= 2) return `<span class="badge warn">Vence em ${d}d</span>`;
+    return `<span class="badge neutral plain">${fmtDate(c.prazo)}</span>`;
+  }
+  function pvRncBadge(c) {
+    const s = pvRncStatus(c);
+    if (s) return pvBadge(PV_RNC_ST, s);
+    if (pvRncDecisao(c) === 'nao') return '<span class="badge neutral plain">Sem RNC</span>';
+    return '<span class="badge neutral plain">A definir</span>';
+  }
+
+  // o que ainda falta para poder encerrar (a mesma lista aparece na tela do chamado)
+  function pvPendencias(c) {
+    const p = [];
+    const t = c.triagem || {};
+    if (!t.rnc) p.push({ step: 2, t: 'Fazer a triagem e decidir se é necessária RNC' });
+    else if (t.rnc === 'nao' && !(t.justificativa || '').trim()) p.push({ step: 2, t: 'Justificar por que o chamado não requer RNC' });
+    const at = c.atendimento || {};
+    if (!(at.descricao || '').trim() || !at.resultado) p.push({ step: 3, t: 'Registrar a tratativa (o que foi feito e o resultado)' });
+    if (pvPrecisaRnc(c)) {
+      const ct = c.contencao || {};
+      if (!ct.data) p.push({ step: 3, t: 'Registrar a contenção (ação imediata)' });
+      if (!pvAnexos(c, 'rnc').length) p.push({ step: 4, t: 'Qualidade: anexar a RNC' });
+      if (pvRncDecisao(c) === 'cliente' && !(c.rnc || {}).respostaEm) p.push({ step: 4, t: 'Informar a data de resposta da RNC ao cliente' });
+      if ((c.verificacao || {}).eficaz !== 'Sim') p.push({ step: 5, t: 'Verificar a eficácia da ação corretiva' });
+    }
+    if (!(c.encerramento || {}).aceite) p.push({ step: 5, t: 'Registrar o retorno / aceite do cliente' });
+    return p;
+  }
+  // etapa atual do fluxo (1..5) e estado de cada uma
+  function pvSteps(c) {
+    const pend = pvPendencias(c);
+    const has = (n) => pend.some((x) => x.step === n);
+    const t = c.triagem || {};
+    const st = [
+      { n: 1, t: 'Abertura', s: 'Comercial', state: 'done' },
+      { n: 2, t: 'Triagem', s: 'Precisa de RNC?', state: has(2) ? 'todo' : 'done' },
+      { n: 3, t: 'Tratativa', s: 'Contenção e atendimento', state: has(3) ? 'todo' : 'done' },
+      { n: 4, t: 'RNC', s: pvPrecisaRnc(c) ? 'Qualidade anexa' : (t.rnc === 'nao' ? 'Não aplicável' : 'A definir'), state: pvPrecisaRnc(c) ? (has(4) ? 'todo' : 'done') : (t.rnc === 'nao' ? 'na' : 'todo') },
+      { n: 5, t: 'Encerramento', s: 'Eficácia e aceite', state: c.status === 'encerrado' ? 'done' : 'todo' },
+    ];
+    const cur = st.find((x) => x.state === 'todo');
+    if (cur && pvAberto(c)) cur.state = 'cur';
+    return st;
+  }
+
+  /* ---------- anexos: IndexedDB local + bucket da nuvem (best-effort) ---------- */
+  async function pvAttach(ch, grupo, files) {
+    const list = Array.from(files || []);
+    if (!list.length) return 0;
+    const metas = [];
+    for (const f of list) {
+      if (f.size > PV_MAX_MB * 1048576) { toast(`"${f.name}" passa de ${PV_MAX_MB} MB`, 'warn'); continue; }
+      const id = Store.uid('ax');
+      const cloudName = id + '__' + f.name.replace(/[^\w.\-]+/g, '_');
+      await Store.blobs.put(id, f, { name: f.name, type: f.type, size: f.size });
+      try { if (window.Cloud && window.Cloud.ok) await window.Cloud.addFile('pvChamados', ch.id, grupo, new File([f], cloudName, { type: f.type || 'application/octet-stream' })); } catch (e) {}
+      metas.push({ id, grupo, name: f.name, cloudName, type: f.type || '', size: f.size, at: pvNow(), by: pvMe() || 'Usuário' });
+    }
+    if (!metas.length) return 0;
+    const cur = Store.find('pvChamados', ch.id);
+    pvSave(cur, { anexos: (cur.anexos || []).concat(metas) }, 'Anexo adicionado', `${PV_GRUPOS[grupo] || grupo}: ${metas.map((m) => m.name).join(', ')}`);
+    return metas.length;
+  }
+  async function pvOpenFile(ch, ax) {
+    let blob = null;
+    const rec = await Store.blobs.get(ax.id);
+    if (rec && rec.blob) blob = rec.blob;
+    else if (window.Cloud && window.Cloud.ok) { blob = await window.Cloud.fetchFileBlob('pvChamados', ch.id, ax.grupo, ax.cloudName); if (blob) Store.blobs.put(ax.id, blob, { name: ax.name, type: ax.type, size: ax.size }); }
+    if (!blob) { toast('Arquivo indisponível neste computador e na nuvem', 'warn'); return; }
+    const url = URL.createObjectURL(blob.type ? blob : new Blob([blob], { type: ax.type || 'application/octet-stream' }));
+    const a = document.createElement('a'); a.href = url; a.target = '_blank'; a.rel = 'noopener';
+    if (!/^(application\/pdf|image\/)/.test(ax.type || blob.type || '')) a.download = ax.name;
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 60000);
+  }
+  async function pvRemoveFile(ch, ax) {
+    await Store.blobs.del(ax.id);
+    try { if (window.Cloud && window.Cloud.ok) await window.Cloud.removeFile('pvChamados', ch.id, ax.grupo, ax.cloudName); } catch (e) {}
+    const cur = Store.find('pvChamados', ch.id);
+    pvSave(cur, { anexos: (cur.anexos || []).filter((a) => a.id !== ax.id) }, 'Anexo removido', ax.name);
+  }
+  function pvFileList(c, grupo, opts) {
+    opts = opts || {};
+    const list = pvAnexos(c, grupo);
+    const items = list.map((a) => `<div class="pvx-file">
+        <span class="pvx-file-ico">${ic(/^image\//.test(a.type) ? 'eye' : 'file')}</span>
+        <button class="pvx-file-tx" data-pvopen="${a.id}" title="Abrir"><b>${esc(a.name)}</b><span>${pvKb(a.size)} · ${esc(a.by || '')} · ${pvFmtDT(a.at)}</span></button>
+        ${opts.readonly ? '' : `<button class="mini-btn danger" data-pvrm="${a.id}" title="Remover anexo">${ic('trash')}</button>`}
       </div>`).join('');
-    view.appendChild(w); Icons.apply(view);
+    const add = opts.readonly ? '' : `<label class="pvx-drop${opts.required && !list.length ? ' req' : ''}">${ic('upload')}<span>${esc(opts.cta || 'Anexar arquivo')}</span><small>PDF, imagem ou documento · até ${PV_MAX_MB} MB</small><input type="file" multiple data-pvadd="${grupo}" hidden></label>`;
+    return `<div class="pvx-files">${items}${add}${!items && opts.readonly ? '<span class="pvx-muted">Nenhum arquivo.</span>' : ''}</div>`;
+  }
+  function pvBindFiles(root, c, after) {
+    $$('[data-pvopen]', root).forEach((b) => (b.onclick = () => { const ax = (Store.find('pvChamados', c.id).anexos || []).find((a) => a.id === b.dataset.pvopen); if (ax) pvOpenFile(c, ax); }));
+    $$('[data-pvrm]', root).forEach((b) => (b.onclick = () => { const ax = (Store.find('pvChamados', c.id).anexos || []).find((a) => a.id === b.dataset.pvrm); if (ax) confirmDialog(`Remover o anexo "${esc(ax.name)}"?`, async () => { await pvRemoveFile(c, ax); toast('Anexo removido', 'info'); after(); }); }));
+    $$('[data-pvadd]', root).forEach((inp) => (inp.onchange = async () => { const n = await pvAttach(c, inp.dataset.pvadd, inp.files); if (n) { toast(n > 1 ? `${n} arquivos anexados` : 'Arquivo anexado'); after(); } }));
+  }
+
+  /* ---------- números para painel, home e alertas ---------- */
+  function pvStats() {
+    const all = Store.get('pvChamados') || [];
+    const abertos = all.filter(pvAberto);
+    return {
+      all, abertos,
+      atrasados: abertos.filter(pvAtrasado),
+      semTriagem: abertos.filter((c) => !(c.triagem || {}).rnc),
+      rncPend: all.filter((c) => c.status !== 'cancelado' && pvRncStatus(c) === 'pendente'),
+    };
+  }
+  function pvAlerts() {
+    const s = pvStats(); const a = [];
+    s.atrasados.forEach((c) => a.push({ kind: 'danger', t: `${c.numero} atrasado`, s: pvClienteNome(c) }));
+    s.rncPend.forEach((c) => a.push({ kind: 'warn', t: `${c.numero} aguardando RNC da Qualidade`, s: pvClienteNome(c) }));
+    return a;
+  }
+
+  /* =========================== PAINEL =========================== */
+  PAGES['pv-painel'] = () => {
+    pageShell('Pós-Vendas', 'Painel de pós-vendas', 'Reclamações, garantias e atendimento ao cliente — indicadores para IATF 16949 e ISO 9001.',
+      `<button class="btn primary" id="pvNew">${ic('plus')}Novo chamado</button>`);
+    $('#pvNew').onclick = () => pvGoNovo();
+    const s = pvStats(); const all = s.all;
+    const today = todayISO(); const ym = today.slice(0, 7); const y = today.slice(0, 4);
+    const enc = all.filter((c) => c.status === 'encerrado' && c.encerramento && c.encerramento.data);
+    const encMes = enc.filter((c) => c.encerramento.data.slice(0, 7) === ym);
+    const ano = enc.filter((c) => c.encerramento.data.slice(0, 4) === y);
+    const dias = ano.map((c) => Math.max(0, daysBetween(pvDay(c.criadoEm), c.encerramento.data)));
+    const tMedio = dias.length ? (dias.reduce((a, b) => a + b, 0) / dias.length) : null;
+    const noPrazo = ano.length ? Math.round(100 * ano.filter((c) => !c.prazo || c.encerramento.data <= c.prazo).length / ano.length) : null;
+    const custo = all.filter((c) => pvDay(c.criadoEm).slice(0, 4) === y).reduce((acc, c) => acc + (Number((c.atendimento || {}).custoTotal) || 0), 0);
+    const notas = all.map((c) => Number((c.encerramento || {}).satisfacao)).filter((n) => n > 0);
+    const sat = notas.length ? (notas.reduce((a, b) => a + b, 0) / notas.length) : null;
+
+    const kpi = (icon, val, label, meta, tone, go2) => `<div class="ind-card${tone ? ' t-' + tone : ''}${go2 ? ' pvx-click' : ''}" ${go2 ? `data-pvgo="${go2}"` : ''}><div class="ind-head"><span class="ind-ico">${ic(icon)}</span><span class="ind-label">${esc(label)}</span></div><div class="ind-val">${esc(val)}</div><div class="ind-foot">${meta ? `<span class="ind-pill">${esc(meta)}</span>` : ''}</div></div>`;
+    const w = document.createElement('div');
+    w.innerHTML = `
+      <div class="section-head"><h2><span class="sh-ico">${ic('activity')}</span>Situação agora</h2></div>
+      <div class="ind-grid">
+        ${kpi('list', s.abertos.length, 'Chamados em aberto', s.semTriagem.length ? `${s.semTriagem.length} sem triagem` : 'Todos triados', s.semTriagem.length ? 'warn' : 'ok', 'abertos')}
+        ${kpi('clock', s.atrasados.length, 'Atrasados', s.atrasados.length ? 'Fora do prazo' : 'Nenhum', s.atrasados.length ? 'danger' : 'ok', 'atrasados')}
+        ${kpi('award', s.rncPend.length, 'Aguardando RNC', 'Fila da Qualidade', s.rncPend.length ? 'warn' : 'ok', 'qualidade')}
+        ${kpi('check', encMes.length, 'Encerrados no mês', new Date().toLocaleDateString('pt-BR', { month: 'long' }), '')}
+      </div>
+      <div class="section-head"><h2><span class="sh-ico">${ic('flash')}</span>Desempenho em ${y}</h2></div>
+      <div class="ind-grid">
+        ${kpi('clock', tMedio == null ? '—' : tMedio.toFixed(1) + ' d', 'Tempo médio até encerrar', `${ano.length} encerrado(s)`, '')}
+        ${kpi('check', noPrazo == null ? '—' : noPrazo + '%', 'Encerrados no prazo', 'Meta 90%', noPrazo == null ? '' : noPrazo >= 90 ? 'ok' : 'warn')}
+        ${kpi('shield', pvMoney(custo), 'Custo de garantia/atendimento', 'No ano', '')}
+        ${kpi('users', sat == null ? '—' : sat.toFixed(1) + ' / 5', 'Satisfação do cliente', `${notas.length} avaliação(ões)`, sat == null ? '' : sat >= 4 ? 'ok' : 'warn')}
+      </div>
+      <div class="pvx-charts">
+        <div class="panel panel-pad"><div class="pvx-ch-h"><b>Chamados por mês</b><span>últimos 12 meses</span></div><div id="pvChMes"></div></div>
+        <div class="panel panel-pad"><div class="pvx-ch-h"><b>Por tipo de ocorrência</b><span>${all.length} no total</span></div><div id="pvChTipo"></div></div>
+        <div class="panel panel-pad"><div class="pvx-ch-h"><b>Clientes com mais chamados</b><span>reincidência</span></div><div id="pvChCli"></div></div>
+        <div class="panel panel-pad"><div class="pvx-ch-h"><b>Procedência</b><span>após triagem</span></div><div id="pvChProc"></div></div>
+      </div>
+      <div class="section-head"><h2><span class="sh-ico">${ic('alert')}</span>Precisam de atenção</h2></div>
+      <div id="pvAtt"></div>`;
+    view.appendChild(w);
+
+    // chamados por mês (12 meses)
+    const meses = []; const d0 = new Date(); d0.setDate(1);
+    for (let i = 11; i >= 0; i--) { const d = new Date(d0.getFullYear(), d0.getMonth() - i, 1); meses.push(d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0')); }
+    const porMes = meses.map((m) => all.filter((c) => pvDay(c.criadoEm).slice(0, 7) === m).length);
+    const max = Math.max(1, ...porMes);
+    $('#pvChMes', w).innerHTML = `<div class="pvx-cols">${meses.map((m, i) => `<div class="pvx-col" title="${porMes[i]} chamado(s)"><span class="pvx-col-v">${porMes[i] || ''}</span><span class="pvx-col-b" style="height:${Math.round((porMes[i] / max) * 100)}%"></span><span class="pvx-col-l">${['jan', 'fev', 'mar', 'abr', 'mai', 'jun', 'jul', 'ago', 'set', 'out', 'nov', 'dez'][+m.slice(5) - 1]}</span></div>`).join('')}</div>`;
+    const hbars = (rows, empty) => {
+      const mx = Math.max(1, ...rows.map((r) => r[1]));
+      return rows.length && rows.some((r) => r[1]) ? `<div class="pvx-hbars">${rows.map(([l, v, col]) => `<div class="pvx-hb"><span class="pvx-hb-l">${esc(l)}</span><span class="pvx-hb-t"><span style="width:${Math.round((v / mx) * 100)}%${col ? ';background:' + col : ''}"></span></span><span class="pvx-hb-v">${v}</span></div>`).join('')}</div>` : `<div class="pvx-muted pvx-empty">${esc(empty)}</div>`;
+    };
+    $('#pvChTipo', w).innerHTML = hbars(Object.keys(PV_TIPOS).map((k) => [PV_TIPOS[k].short, all.filter((c) => c.tipo === k).length]).filter((r) => r[1]).sort((a, b) => b[1] - a[1]), 'Sem chamados ainda.');
+    const porCli = {}; all.forEach((c) => { const n = pvClienteNome(c); porCli[n] = (porCli[n] || 0) + 1; });
+    $('#pvChCli', w).innerHTML = hbars(Object.entries(porCli).sort((a, b) => b[1] - a[1]).slice(0, 6), 'Sem chamados ainda.');
+    const proc = { Procedente: 0, Improcedente: 0, 'Sem defeito (NTF)': 0, 'Em análise': 0 };
+    all.filter((c) => c.status !== 'cancelado').forEach((c) => { if ((c.atendimento || {}).ntf) proc['Sem defeito (NTF)']++; else { const p = (c.triagem || {}).procedencia || 'Em análise'; proc[p] = (proc[p] || 0) + 1; } });
+    $('#pvChProc', w).innerHTML = hbars([['Procedente', proc.Procedente, 'var(--danger)'], ['Improcedente', proc.Improcedente, 'var(--ok)'], ['Sem defeito (NTF)', proc['Sem defeito (NTF)'], 'var(--blue-future)'], ['Em análise', proc['Em análise'], 'var(--text-3)']], 'Sem chamados ainda.');
+
+    const att = []; const seen = {};
+    const push = (c, why, cls) => { if (seen[c.id]) return; seen[c.id] = 1; att.push({ c, why, cls }); };
+    s.atrasados.forEach((c) => push(c, 'Prazo vencido', 'danger'));
+    s.rncPend.filter(pvAberto).forEach((c) => push(c, 'Aguardando RNC da Qualidade', 'warn'));
+    s.semTriagem.forEach((c) => push(c, 'Sem triagem', 'info'));
+    $('#pvAtt', w).innerHTML = att.length ? `<div class="pvx-list">${att.slice(0, 12).map(({ c, why, cls }) => pvRow(c, `<span class="badge ${cls}">${esc(why)}</span>`)).join('')}</div>`
+      : `<div class="tbl-wrap">${emptyState('check', 'Nada pendente', 'Nenhum chamado atrasado, sem triagem ou aguardando RNC.')}</div>`;
+    Icons.apply(view);
+    pvBindRows(w);
+    $$('[data-pvgo]', w).forEach((el) => (el.onclick = () => {
+      const g = el.dataset.pvgo;
+      if (g === 'qualidade') return go('pv-qualidade');
+      pvFilt.st = g === 'atrasados' ? 'atrasados' : 'abertos'; go('pv-chamados');
+    }));
+  };
+
+  // linha compacta de chamado (usada no painel e na fila)
+  function pvRow(c, extra) {
+    const t = PV_TIPOS[c.tipo] || PV_TIPOS.reclamacao;
+    return `<button class="pvx-row" data-pvid="${c.id}">
+      <span class="pvx-row-ico">${ic(t.icon)}</span>
+      <span class="pvx-row-main"><span class="pvx-row-top"><b class="mono">${esc(c.numero)}</b><span>${esc(pvClienteNome(c))}</span></span>
+      <span class="pvx-row-sub">${esc(t.short)} · ${esc((c.produto || {}).descricao || c.descricao || '').slice(0, 90)}</span></span>
+      <span class="pvx-row-tags">${extra || ''}${pvPrazoBadge(c)}</span>
+    </button>`;
+  }
+  function pvBindRows(root) { $$('[data-pvid]', root).forEach((b) => (b.onclick = () => pvOpen(b.dataset.pvid))); }
+  function pvOpen(id) { pvCurrentId = id; try { sessionStorage.setItem('pv_current', id); } catch (e) {} go('pv-detalhe'); }
+
+  /* =========================== LISTA DE CHAMADOS =========================== */
+  PAGES['pv-chamados'] = () => {
+    pageShell('Pós-Vendas', 'Chamados', 'Todos os chamados de clientes — da abertura pelo Comercial até o encerramento.',
+      `<button class="btn primary" id="pvNew">${ic('plus')}Novo chamado</button>`);
+    $('#pvNew').onclick = () => pvGoNovo();
+    const all = Store.get('pvChamados');
+    const cnt = (f) => all.filter(f).length;
+    const segs = [
+      ['abertos', 'Em aberto', cnt(pvAberto)], ['aberto', 'Triagem', cnt((c) => c.status === 'aberto')], ['tratativa', 'Tratativa', cnt((c) => c.status === 'tratativa')],
+      ['verificacao', 'Verificação', cnt((c) => c.status === 'verificacao')], ['atrasados', 'Atrasados', cnt(pvAtrasado)], ['encerrado', 'Encerrados', cnt((c) => c.status === 'encerrado')], ['todos', 'Todos', all.length],
+    ];
+    const tb = document.createElement('div'); tb.className = 'toolbar pvx-toolbar';
+    const clis = Store.get('pvClientes').slice().sort((a, b) => a.nome.localeCompare(b.nome));
+    tb.innerHTML = `
+      <div class="filter-input">${ic('search')}<input id="pvQ" placeholder="Buscar nº, cliente, produto, lote…" value="${esc(pvFilt.q)}"></div>
+      <select class="pvx-sel" id="pvTipo"><option value="">Todos os tipos</option>${Object.keys(PV_TIPOS).map((k) => `<option value="${k}" ${pvFilt.tipo === k ? 'selected' : ''}>${esc(PV_TIPOS[k].short)}</option>`).join('')}</select>
+      <select class="pvx-sel" id="pvCli"><option value="">Todos os clientes</option>${clis.map((k) => `<option value="${k.id}" ${pvFilt.cli === k.id ? 'selected' : ''}>${esc(k.nome)}</option>`).join('')}</select>
+      <label class="pvx-chk"><input type="checkbox" id="pvRncOnly" ${pvFilt.rnc ? 'checked' : ''}>Só com RNC</label>
+      <div class="seg pvx-seg" id="pvSeg">${segs.map(([k, l, n]) => `<button data-s="${k}" class="${pvFilt.st === k ? 'on' : ''}">${l}<span class="pvx-n">${n}</span></button>`).join('')}</div>`;
+    view.appendChild(tb); Icons.apply(tb);
+    const holder = document.createElement('div'); view.appendChild(holder);
+    const render = () => {
+      let l = all.slice();
+      const f = pvFilt.st;
+      if (f === 'abertos') l = l.filter(pvAberto); else if (f === 'atrasados') l = l.filter(pvAtrasado); else if (f !== 'todos') l = l.filter((c) => c.status === f);
+      if (pvFilt.tipo) l = l.filter((c) => c.tipo === pvFilt.tipo);
+      if (pvFilt.cli) l = l.filter((c) => c.clienteId === pvFilt.cli);
+      if (pvFilt.rnc) l = l.filter(pvPrecisaRnc);
+      if (pvFilt.q) { const q = pvFilt.q.toLowerCase(); l = l.filter((c) => (c.numero + ' ' + pvClienteNome(c) + ' ' + JSON.stringify(c.produto || {}) + ' ' + (c.descricao || '') + ' ' + ((c.rncCliente || {}).numero || '') + ' ' + ((c.rnc || {}).numero || '')).toLowerCase().includes(q)); }
+      l.sort((a, b) => (pvAtrasado(b) - pvAtrasado(a)) || String(b.criadoEm).localeCompare(String(a.criadoEm)));
+      holder.innerHTML = l.length ? `<div class="tbl-wrap"><table class="data pvx-table"><thead><tr><th>Chamado</th><th>Cliente</th><th>Tipo</th><th>Produto</th><th>Prioridade</th><th>Prazo</th><th>RNC</th><th>Status</th></tr></thead><tbody>${l.map((c) => {
+        const t = PV_TIPOS[c.tipo] || PV_TIPOS.reclamacao; const pr = c.produto || {};
+        return `<tr data-pvid="${c.id}" class="pvx-tr">
+          <td><div class="cell-main mono">${esc(c.numero)}</div><div class="cell-sub">${fmtDate(pvDay(c.criadoEm))}</div></td>
+          <td><div class="cell-main">${esc(pvClienteNome(c))}</div><div class="cell-sub">${esc([(c.local || {}).cidade, (c.local || {}).uf].filter(Boolean).join(' / ') || '—')}</div></td>
+          <td><span class="pvx-tipo">${ic(t.icon)}${esc(t.short)}</span></td>
+          <td><div class="cell-main">${esc(pr.descricao || '—')}</div><div class="cell-sub">${esc([pr.codigo, pr.lote ? 'Lote ' + pr.lote : ''].filter(Boolean).join(' · ') || '')}</div></td>
+          <td>${pvBadge(PV_PRIO, c.prioridade || 'media')}${c.seguranca ? ` <span class="badge danger plain" title="Afeta segurança ou requisito legal">Segurança</span>` : ''}</td>
+          <td>${pvPrazoBadge(c)}</td>
+          <td>${pvRncBadge(c)}</td>
+          <td>${pvBadge(PV_STATUS, c.status)}</td></tr>`;
+      }).join('')}</tbody></table></div>`
+        : `<div class="tbl-wrap">${emptyState('list', all.length ? 'Nenhum chamado neste filtro' : 'Nenhum chamado ainda', all.length ? 'Ajuste os filtros acima.' : 'Clique em "Novo chamado" para registrar a primeira ocorrência de um cliente.')}</div>`;
+      Icons.apply(holder);
+      $$('tr[data-pvid]', holder).forEach((tr) => (tr.onclick = () => pvOpen(tr.dataset.pvid)));
+    };
+    $('#pvQ', tb).oninput = (e) => { pvFilt.q = e.target.value; render(); };
+    $('#pvTipo', tb).onchange = (e) => { pvFilt.tipo = e.target.value; render(); };
+    $('#pvCli', tb).onchange = (e) => { pvFilt.cli = e.target.value; render(); };
+    $('#pvRncOnly', tb).onchange = (e) => { pvFilt.rnc = e.target.checked; render(); };
+    $$('#pvSeg button', tb).forEach((b) => (b.onclick = () => { pvFilt.st = b.dataset.s; $$('#pvSeg button', tb).forEach((x) => x.classList.toggle('on', x === b)); render(); }));
+    render();
+  };
+
+  /* =========================== FILA DA QUALIDADE =========================== */
+  PAGES['pv-qualidade'] = () => {
+    pageShell('Pós-Vendas', 'Fila da Qualidade', 'A Qualidade só atua quando o chamado precisa de RNC: aqui estão os que aguardam a RNC, a resposta ao cliente ou a verificação de eficácia.', '');
+    const all = Store.get('pvChamados').filter((c) => c.status !== 'cancelado' && pvPrecisaRnc(c));
+    const pend = all.filter((c) => pvRncStatus(c) === 'pendente');
+    const resp = all.filter((c) => pvRncStatus(c) !== 'pendente' && pvRncDecisao(c) === 'cliente' && !(c.rnc || {}).respostaEm);
+    const efic = all.filter((c) => pvRncStatus(c) !== 'pendente' && pvAberto(c) && (c.verificacao || {}).eficaz !== 'Sim' && !resp.includes(c));
+    const w = document.createElement('div');
+    const block = (icon, title, sub, list, tag) => `<div class="section-head"><h2><span class="sh-ico">${ic(icon)}</span>${esc(title)}<span class="pvx-count">${list.length}</span></h2><span class="pvx-muted">${esc(sub)}</span></div>
+      ${list.length ? `<div class="pvx-list">${list.map((c) => pvRow(c, tag(c))).join('')}</div>` : `<div class="pvx-none">${ic('check')}Nada aqui.</div>`}`;
+    w.innerHTML = `
+      <div class="mstat-grid" style="margin-bottom:6px">
+        <div class="mstat t-danger"><div class="mstat-ring plain"><span class="mstat-v">${pend.length}</span></div><span class="mstat-k">${ic('upload')}RNC a anexar</span></div>
+        <div class="mstat t-warn"><div class="mstat-ring plain"><span class="mstat-v">${resp.length}</span></div><span class="mstat-k">${ic('mail')}Resposta ao cliente</span></div>
+        <div class="mstat t-info"><div class="mstat-ring plain"><span class="mstat-v">${efic.length}</span></div><span class="mstat-k">${ic('check')}Verificar eficácia</span></div>
+        <div class="mstat"><div class="mstat-ring plain"><span class="mstat-v">${all.length}</span></div><span class="mstat-k">${ic('award')}Chamados com RNC</span></div>
+      </div>
+      ${block('upload', 'Anexar RNC', 'Chamados que precisam de RNC e ainda não têm o arquivo', pend, (c) => `<span class="badge ${pvRncDecisao(c) === 'cliente' ? 'warn' : 'info'} plain">${esc(PV_RNC[pvRncDecisao(c)].short)}</span>`)}
+      ${block('mail', 'Responder ao cliente', 'RNC do cliente já tratada, falta registrar o envio da resposta', resp, (c) => (c.rncCliente || {}).prazoResposta ? `<span class="badge neutral plain">Cliente pede até ${fmtDate(c.rncCliente.prazoResposta)}</span>` : '')}
+      ${block('check', 'Verificar eficácia', 'Ação corretiva implantada — confirmar se funcionou', efic, () => '')}`;
+    view.appendChild(w); Icons.apply(w); pvBindRows(w);
+  };
+
+  /* =========================== CLIENTES =========================== */
+  PAGES['pv-clientes'] = () => {
+    pageShell('Pós-Vendas', 'Clientes', 'Cadastro de clientes, contatos e requisitos específicos (CSR) que valem para os chamados.',
+      `<button class="btn primary" id="pvNewCli">${ic('plus')}Novo cliente</button>`);
+    $('#pvNewCli').onclick = () => pvFormCliente();
+    const clis = Store.get('pvClientes').slice().sort((a, b) => a.nome.localeCompare(b.nome));
+    const ch = Store.get('pvChamados');
+    const tb = document.createElement('div'); tb.className = 'toolbar';
+    tb.innerHTML = `<div class="filter-input">${ic('search')}<input id="pvCq" placeholder="Buscar cliente, CNPJ, cidade…"></div>`;
+    view.appendChild(tb); Icons.apply(tb);
+    const holder = document.createElement('div'); view.appendChild(holder);
+    const render = (q) => {
+      const l = q ? clis.filter((k) => JSON.stringify(k).toLowerCase().includes(q.toLowerCase())) : clis;
+      holder.innerHTML = l.length ? `<div class="tbl-wrap"><table class="data"><thead><tr><th>Cliente</th><th>Segmento</th><th>Contato</th><th>Prazo de resposta</th><th>Chamados</th><th></th></tr></thead><tbody>${l.map((k) => {
+        const mine = ch.filter((c) => c.clienteId === k.id); const ab = mine.filter(pvAberto).length;
+        return `<tr data-cli="${k.id}" class="pvx-tr"><td><div class="cell-main">${esc(k.nome)}</div><div class="cell-sub">${esc([k.cnpj, [k.cidade, k.uf].filter(Boolean).join(' / ')].filter(Boolean).join(' · ') || '—')}</div></td>
+          <td>${esc(k.segmento || '—')}</td>
+          <td><div class="cell-main">${esc(k.contatoNome || '—')}</div><div class="cell-sub">${esc(k.contatoEmail || k.contatoFone || '')}</div></td>
+          <td>${k.prazoRespostaDias ? `${esc(k.prazoRespostaDias)} dias` : '—'}${k.exige8D ? ' <span class="badge info plain">Exige 8D</span>' : ''}</td>
+          <td><b>${mine.length}</b>${ab ? ` <span class="badge warn plain">${ab} em aberto</span>` : ''}</td>
+          <td class="row-actions"><button class="mini-btn" data-clied="${k.id}" title="Editar">${ic('edit')}</button></td></tr>`;
+      }).join('')}</tbody></table></div>` : `<div class="tbl-wrap">${emptyState('users', clis.length ? 'Nenhum cliente encontrado' : 'Nenhum cliente cadastrado', clis.length ? 'Ajuste a busca.' : 'Cadastre aqui ou direto ao abrir um chamado.')}</div>`;
+      Icons.apply(holder);
+      $$('tr[data-cli]', holder).forEach((tr) => (tr.onclick = (e) => { if (e.target.closest('[data-clied]')) return; pvFilt.cli = tr.dataset.cli; pvFilt.st = 'todos'; go('pv-chamados'); }));
+      $$('[data-clied]', holder).forEach((b) => (b.onclick = () => pvFormCliente(Store.find('pvClientes', b.dataset.clied))));
+    };
+    $('#pvCq', tb).oninput = (e) => render(e.target.value.trim());
+    render('');
+  };
+  function pvFormCliente(k, onDone) {
+    const editing = !!k; k = k || {};
+    const card = modal({
+      title: editing ? 'Editar cliente' : 'Novo cliente', sub: 'Pós-Vendas · cadastro',
+      body: `<div class="form-grid">
+        <div class="form-sec">${ic('users')}Identificação</div>
+        ${field('Nome / razão social', 'nome', k.nome, 'text', { full: true })}
+        ${field('CNPJ', 'cnpj', k.cnpj, 'text', { ph: '00.000.000/0000-00' })}
+        <div class="field"><label>Segmento</label><select name="segmento">${pvOpt(k.segmento || '', [''].concat(PV_SEGMENTOS))}</select></div>
+        ${field('Cidade', 'cidade', k.cidade)}
+        <div class="field"><label>UF</label><select name="uf">${pvOpt(k.uf || '', [''].concat(PV_UF))}</select></div>
+        <div class="form-sec">${ic('phone')}Contato principal</div>
+        ${field('Nome', 'contatoNome', k.contatoNome)}
+        ${field('E-mail', 'contatoEmail', k.contatoEmail, 'email')}
+        ${field('Telefone', 'contatoFone', k.contatoFone)}
+        ${field('Cargo / área', 'contatoCargo', k.contatoCargo)}
+        <div class="form-sec">${ic('award')}Requisitos do cliente (CSR)</div>
+        ${field('Prazo de resposta à RNC (dias)', 'prazoRespostaDias', k.prazoRespostaDias, 'number', { hint: 'Usado como prazo padrão quando o cliente envia RNC' })}
+        <div class="field"><label>Formato de resposta</label><select name="exige8D">${pvOpt(k.exige8D ? 'sim' : 'nao', [{ v: 'nao', t: 'Livre / relatório próprio' }, { v: 'sim', t: 'Exige 8D' }])}</select></div>
+        ${field('Requisitos específicos', 'csr', k.csr, 'textarea', { full: true, ph: 'Ex.: contenção em 24h, resposta pelo portal do cliente, formulário próprio, PPAP…' })}
+        ${field('Observações', 'obs', k.obs, 'textarea', { full: true })}
+      </div>`,
+      footer: `${editing ? `<button class="btn danger" id="pvCliDel">${ic('trash')}Excluir</button><span style="flex:1"></span>` : ''}<button class="btn ghost" data-close>Cancelar</button><button class="btn primary" id="saveBtn">${ic('check')}${editing ? 'Salvar' : 'Cadastrar'}</button>`,
+    });
+    $('#saveBtn', card).onclick = () => {
+      const d = readForm(card);
+      if (!d.nome) return toast('Informe o nome do cliente', 'warn');
+      d.exige8D = d.exige8D === 'sim'; d.prazoRespostaDias = d.prazoRespostaDias ? Number(d.prazoRespostaDias) : '';
+      const saved = editing ? Store.update('pvClientes', k.id, d) : Store.add('pvClientes', d);
+      toast(editing ? 'Cliente atualizado' : 'Cliente cadastrado'); closeModal();
+      if (onDone) onDone(saved); else go(currentRoute);
+    };
+    const del = $('#pvCliDel', card);
+    if (del) del.onclick = () => {
+      const n = Store.get('pvChamados').filter((c) => c.clienteId === k.id).length;
+      if (n) return toast(`Cliente tem ${n} chamado(s) — não pode ser excluído`, 'warn');
+      confirmDialog(`Excluir o cliente "${esc(k.nome)}"?`, () => { Store.remove('pvClientes', k.id); toast('Cliente excluído', 'info'); go(currentRoute); });
+    };
+  }
+
+  /* =========================== NOVO CHAMADO (Comercial) =========================== */
+  function pvGoNovo(ch) { pvNovoDraft = ch || null; go('pv-novo'); }
+  PAGES['pv-novo'] = () => {
+    const editing = !!(pvNovoDraft && pvNovoDraft.id);
+    const c = editing ? Store.find('pvChamados', pvNovoDraft.id) || {} : {};
+    pvNovoDraft = null;
+    pageShell('Pós-Vendas', editing ? `Editar abertura · ${c.numero}` : 'Novo chamado', editing ? 'Dados registrados pelo Comercial na abertura.' : 'Etapa 1 · Comercial — registre o que o cliente relatou. A triagem vem em seguida.',
+      `<button class="btn" id="pvBack">${ic('chevron')}Voltar</button>`);
+    $('#pvBack').onclick = () => editing ? pvOpen(c.id) : go('pv-chamados');
+    const clis = Store.get('pvClientes').slice().sort((a, b) => a.nome.localeCompare(b.nome));
+    const pr = c.produto || {}, lc = c.local || {}, ct = c.contato || {}, rc = c.rncCliente || {};
+    const tipo = c.tipo || 'reclamacao';
+    const pending = []; // arquivos escolhidos antes de salvar
+    const w = document.createElement('div'); w.className = 'pvx-form';
+    w.innerHTML = `
+      <div class="panel panel-pad"><div class="form-grid">
+        <div class="form-sec">${ic('users')}Cliente</div>
+        <div class="field full"><label>Cliente</label><div class="pvx-inline"><select name="clienteId" id="pvCliSel"><option value="">— selecione —</option>${clis.map((k) => `<option value="${k.id}" ${c.clienteId === k.id ? 'selected' : ''}>${esc(k.nome)}${k.cidade ? ' · ' + esc(k.cidade) : ''}</option>`).join('')}</select><button type="button" class="btn" id="pvCliAdd">${ic('plus')}Novo cliente</button></div><span class="hint" id="pvCsr"></span></div>
+        ${field('Contato no cliente', 'contatoNome', ct.nome)}
+        ${field('E-mail / telefone do contato', 'contatoInfo', ct.info)}
+        ${field('Local da ocorrência (cidade)', 'cidade', lc.cidade)}
+        <div class="field"><label>UF</label><select name="uf">${pvOpt(lc.uf || '', [''].concat(PV_UF))}</select></div>
+        ${field('Endereço / unidade / oficina', 'endereco', lc.endereco, 'text', { full: true, ph: 'Onde o produto está ou onde aconteceu' })}
+
+        <div class="form-sec">${ic('alert')}Ocorrência</div>
+        <div class="field full"><label>Tipo de chamado</label><div class="pvx-tipos" id="pvTipos">${Object.keys(PV_TIPOS).map((k) => `<button type="button" class="pvx-tp${tipo === k ? ' on' : ''}" data-tp="${k}"><span class="pvx-tp-i">${ic(PV_TIPOS[k].icon)}</span><b>${esc(PV_TIPOS[k].label)}</b><small>${esc(PV_TIPOS[k].desc)}</small></button>`).join('')}</div><input type="hidden" name="tipo" value="${tipo}"></div>
+        ${field('Descrição do problema', 'descricao', c.descricao, 'textarea', { full: true, ph: 'O que o cliente relatou, com as palavras dele: sintoma, quando começou, condições de uso…' })}
+        ${field('Data da ocorrência', 'dataOcorrencia', c.dataOcorrencia || todayISO(), 'date')}
+        <div class="field"><label>Canal de entrada</label><select name="canal">${pvOpt(c.canal || 'E-mail', PV_CANAIS)}</select></div>
+        <div class="field"><label>Prioridade</label><select name="prioridade" id="pvPrio">${pvOpt(c.prioridade || 'media', Object.keys(PV_PRIO).map((k) => ({ v: k, t: `${PV_PRIO[k].label} — prazo ${PV_PRIO[k].dias} dias` })))}</select></div>
+        <div class="field"><label>Afeta segurança ou requisito legal?</label><select name="seguranca" id="pvSeg">${pvOpt(c.seguranca ? 'sim' : 'nao', [{ v: 'nao', t: 'Não' }, { v: 'sim', t: 'Sim — tratar como crítico' }])}</select></div>
+
+        <div class="form-sec">${ic('box')}Produto envolvido <span class="lbl-hint">rastreabilidade</span></div>
+        ${field('Código / referência', 'codigo', pr.codigo)}
+        ${field('Descrição do produto', 'prodDescricao', pr.descricao, 'text', { ph: 'Ex.: Redutor de pressão, válvula de cilindro…' })}
+        ${field('Lote', 'lote', pr.lote)}
+        ${field('Nº de série', 'serie', pr.serie)}
+        ${field('Nota fiscal', 'nf', pr.nf)}
+        ${field('Data de fabricação / entrega', 'dataFabricacao', pr.dataFabricacao, 'date')}
+        ${field('Aplicação / veículo', 'aplicacao', pr.aplicacao, 'text', { ph: 'Modelo, placa, km…' })}
+        ${field('Quantidade afetada', 'quantidade', pr.quantidade, 'number')}
+
+        <div class="form-sec">${ic('file')}RNC do cliente</div>
+        <div class="field full"><label>O cliente já enviou uma RNC ou reclamação formal?</label><select name="rncTem" id="pvRncTem">${pvOpt(rc.tem ? 'sim' : 'nao', [{ v: 'nao', t: 'Não' }, { v: 'sim', t: 'Sim — veio com RNC do cliente' }])}</select><span class="hint">Se não veio, a triagem decide depois se é preciso abrir uma RNC interna.</span></div>
+        <div class="pvx-rncbox full" id="pvRncBox" ${rc.tem ? '' : 'hidden'}>
+          <div class="form-grid">
+            ${field('Nº da RNC do cliente', 'rncNumero', rc.numero)}
+            ${field('Prazo de resposta exigido', 'rncPrazo', rc.prazoResposta, 'date', { hint: 'Vira o prazo do chamado' })}
+          </div>
+          ${editing ? '' : `<label class="pvx-drop">${ic('upload')}<span>Anexar a RNC do cliente</span><small>Também pode anexar depois</small><input type="file" multiple id="pvRncFile" hidden></label><div class="pvx-picked" id="pvRncPicked"></div>`}
+        </div>
+
+        ${editing ? '' : `<div class="form-sec">${ic('upload')}Evidências <span class="lbl-hint">fotos, e-mails, laudos</span></div>
+        <div class="full"><label class="pvx-drop">${ic('upload')}<span>Anexar fotos ou documentos</span><small>Opcional · até ${PV_MAX_MB} MB por arquivo</small><input type="file" multiple id="pvEvFile" hidden></label><div class="pvx-picked" id="pvEvPicked"></div></div>`}
+
+        <div class="form-sec">${ic('users')}Registro</div>
+        ${field('Aberto por', 'abertoPor', c.abertoPor || pvMe(), 'text', { hint: 'Fica salvo neste computador para os próximos registros' })}
+      </div></div>
+      <div class="prog-form-actions"><button class="btn primary" id="pvSave">${ic('check')}${editing ? 'Salvar alterações' : 'Abrir chamado'}</button><button class="btn ghost" id="pvCancel">Cancelar</button></div>`;
+    view.appendChild(w); Icons.apply(w);
+
+    const csr = () => { const k = pvCliente($('#pvCliSel', w).value); const el = $('#pvCsr', w); el.textContent = k && (k.csr || k.prazoRespostaDias) ? `Requisitos do cliente: ${[k.prazoRespostaDias ? 'resposta em ' + k.prazoRespostaDias + ' dias' : '', k.exige8D ? 'exige 8D' : '', k.csr || ''].filter(Boolean).join(' · ')}` : ''; };
+    $('#pvCliSel', w).onchange = () => {
+      const k = pvCliente($('#pvCliSel', w).value); csr(); if (!k) return;
+      const set = (n, v) => { const el = $(`[name="${n}"]`, w); if (el && !el.value && v) el.value = v; };
+      set('contatoNome', k.contatoNome); set('contatoInfo', [k.contatoEmail, k.contatoFone].filter(Boolean).join(' · ')); set('cidade', k.cidade); set('uf', k.uf);
+    };
+    csr();
+    $('#pvCliAdd', w).onclick = () => pvFormCliente(null, (k) => {
+      const sel = $('#pvCliSel', w); sel.insertAdjacentHTML('beforeend', `<option value="${k.id}">${esc(k.nome)}</option>`); sel.value = k.id; sel.onchange();
+    });
+    $$('.pvx-tp', w).forEach((b) => (b.onclick = () => { $$('.pvx-tp', w).forEach((x) => x.classList.toggle('on', x === b)); $('[name="tipo"]', w).value = b.dataset.tp; }));
+    $('#pvSeg', w).onchange = (e) => { if (e.target.value === 'sim') $('#pvPrio', w).value = 'critica'; };
+    $('#pvRncTem', w).onchange = (e) => { $('#pvRncBox', w).hidden = e.target.value !== 'sim'; };
+    const picker = (inpId, listId, grupo) => {
+      const inp = $('#' + inpId, w); if (!inp) return;
+      const draw = () => { $('#' + listId, w).innerHTML = pending.filter((p) => p.grupo === grupo).map((p, i) => `<span class="file-chip">${ic('file')}${esc(p.file.name)}<button type="button" data-unpick="${pending.indexOf(p)}">${ic('x')}</button></span>`).join(''); Icons.apply($('#' + listId, w)); $$('[data-unpick]', $('#' + listId, w)).forEach((b) => (b.onclick = () => { pending.splice(+b.dataset.unpick, 1); draw(); })); };
+      inp.onchange = () => { Array.from(inp.files).forEach((f) => pending.push({ grupo, file: f })); inp.value = ''; draw(); };
+    };
+    picker('pvRncFile', 'pvRncPicked', 'rnc_cliente');
+    picker('pvEvFile', 'pvEvPicked', 'abertura');
+    $('#pvCancel', w).onclick = () => $('#pvBack').onclick();
+
+    $('#pvSave', w).onclick = async () => {
+      const d = readForm(w);
+      if (!d.clienteId) return toast('Selecione o cliente (ou cadastre um novo)', 'warn');
+      if (!d.descricao) return toast('Descreva o problema relatado pelo cliente', 'warn');
+      if (!d.abertoPor) return toast('Informe quem está abrindo o chamado', 'warn');
+      setPvMe(d.abertoPor);
+      const k = pvCliente(d.clienteId);
+      const rncTem = d.rncTem === 'sim';
+      const obj = {
+        clienteId: d.clienteId, clienteNome: k ? k.nome : '',
+        contato: { nome: d.contatoNome, info: d.contatoInfo },
+        local: { cidade: d.cidade, uf: d.uf, endereco: d.endereco },
+        tipo: d.tipo, descricao: d.descricao, dataOcorrencia: d.dataOcorrencia, canal: d.canal,
+        prioridade: d.seguranca === 'sim' ? 'critica' : d.prioridade, seguranca: d.seguranca === 'sim',
+        produto: { codigo: d.codigo, descricao: d.prodDescricao, lote: d.lote, serie: d.serie, nf: d.nf, dataFabricacao: d.dataFabricacao, aplicacao: d.aplicacao, quantidade: d.quantidade },
+        rncCliente: { tem: rncTem, numero: rncTem ? d.rncNumero : '', prazoResposta: rncTem ? d.rncPrazo : '' },
+        abertoPor: d.abertoPor,
+      };
+      if (editing) {
+        if (rncTem && d.rncPrazo && d.rncPrazo !== (c.rncCliente || {}).prazoResposta) obj.prazo = d.rncPrazo;
+        pvSave(c, obj, 'Abertura editada');
+        toast('Chamado atualizado'); pvOpen(c.id); return;
+      }
+      let prazo = addDays(todayISO(), PV_PRIO[obj.prioridade].dias);
+      if (rncTem) prazo = d.rncPrazo || (k && k.prazoRespostaDias ? addDays(todayISO(), k.prazoRespostaDias) : prazo);
+      Object.assign(obj, { numero: pvNextNumero(), criadoEm: pvNow(), status: 'aberto', prazo, anexos: [], triagem: rncTem ? { rnc: '' } : {}, historico: [] });
+      obj.historico = [{ at: obj.criadoEm, by: d.abertoPor, acao: 'Chamado aberto', det: `${PV_TIPOS[obj.tipo].label} · canal ${obj.canal}${rncTem ? ' · com RNC do cliente' : ''}` }];
+      const novo = Store.add('pvChamados', obj);
+      for (const g of ['rnc_cliente', 'abertura']) { const fs = pending.filter((p) => p.grupo === g).map((p) => p.file); if (fs.length) await pvAttach(novo, g, fs); }
+      toast(`Chamado ${novo.numero} aberto`);
+      pvOpen(novo.id);
+    };
+  };
+
+  /* =========================== DETALHE DO CHAMADO =========================== */
+  PAGES['pv-detalhe'] = () => {
+    const c = pvCurrentId && Store.find('pvChamados', pvCurrentId);
+    if (!c) { go('pv-chamados'); return; }
+    const t = PV_TIPOS[c.tipo] || PV_TIPOS.reclamacao;
+    const rerender = () => { if (currentRoute === 'pv-detalhe') { view.innerHTML = ''; PAGES['pv-detalhe'](); } };
+    pageShell('Pós-Vendas', `${c.numero} · ${pvClienteNome(c)}`, `${t.label} · aberto em ${pvFmtDT(c.criadoEm)} por ${c.abertoPor || '—'}`,
+      `<button class="btn" id="pvBack">${ic('chevron')}Chamados</button><button class="btn" id="pvPrint">${ic('download')}Imprimir / PDF</button>`);
+    $('#pvBack').onclick = () => go('pv-chamados');
+    $('#pvPrint').onclick = () => pvPrint(Store.find('pvChamados', c.id));
+
+    const steps = pvSteps(c);
+    const pend = pvPendencias(c);
+    const precisa = pvPrecisaRnc(c);
+    const tr = c.triagem || {}, ct = c.contencao || {}, at = c.atendimento || {}, rn = c.rnc || {}, vf = c.verificacao || {}, en = c.encerramento || {};
+    const kv = (k, v) => `<div class="pvx-kv"><span>${esc(k)}</span><b>${v == null || v === '' ? '—' : v}</b></div>`;
+    const kvt = (k, v) => kv(k, v == null || v === '' ? '' : esc(v));
+    const sec = (n, icon, title, state, body, actions) => `<section class="pvx-sec${state ? ' s-' + state : ''}" id="pvSec${n}">
+        <header class="pvx-sec-h"><span class="pvx-sec-n">${n}</span><div class="pvx-sec-t"><b>${esc(title)}</b></div><span class="pvx-sec-ico">${ic(icon)}</span><div class="pvx-sec-a">${actions || ''}</div></header>
+        <div class="pvx-sec-b">${body}</div></section>`;
+    const btn = (id, icon, label, kind) => pvAberto(c) ? `<button class="btn ${kind || ''} sm" id="${id}">${ic(icon)}${esc(label)}</button>` : '';
+    const stState = (n) => (steps.find((s) => s.n === n) || {}).state;
+
+    const w = document.createElement('div');
+    w.innerHTML = `
+      <div class="pvx-head">
+        <div class="pvx-head-badges">${pvBadge(PV_STATUS, c.status)}${pvBadge(PV_PRIO, c.prioridade || 'media')}${c.seguranca ? '<span class="badge danger">Segurança / legal</span>' : ''}<span class="pvx-tipo">${ic(t.icon)}${esc(t.short)}</span></div>
+        <div class="pvx-head-meta"><span>Prazo</span>${pvPrazoBadge(c)}<span>RNC</span>${pvRncBadge(c)}</div>
+      </div>
+      <ol class="pvx-steps">${steps.map((s) => `<li class="st-${s.state}"><span class="pvx-st-dot">${s.state === 'done' ? ic('check') : s.state === 'na' ? '–' : s.n}</span><span class="pvx-st-tx"><b>${esc(s.t)}</b><small>${esc(s.s)}</small></span></li>`).join('')}</ol>
+      ${c.status === 'cancelado' ? `<div class="pvx-banner neutral">${ic('x')}<div><b>Chamado cancelado</b><span>${esc(c.cancelamento ? c.cancelamento.motivo : '')}</span></div><button class="btn sm" id="pvReopen">${ic('refresh')}Reabrir</button></div>` : ''}
+      ${c.status === 'encerrado' ? `<div class="pvx-banner ok">${ic('check')}<div><b>Chamado encerrado em ${fmtDate(en.data)}</b><span>por ${esc(en.por || '—')} · aceite do cliente: ${esc(en.aceite || '—')}</span></div><button class="btn sm" id="pvReopen">${ic('refresh')}Reabrir</button></div>` : ''}
+      <div class="pvx-cols2">
+        <div class="pvx-main">
+          ${sec(1, 'file', 'Abertura — Comercial', 'done', `
+            <p class="pvx-desc">${esc(c.descricao || '')}</p>
+            <div class="pvx-kvs">
+              ${kvt('Cliente', pvClienteNome(c))}${kvt('Contato', [ (c.contato || {}).nome, (c.contato || {}).info ].filter(Boolean).join(' · '))}
+              ${kvt('Local', [(c.local || {}).endereco, (c.local || {}).cidade, (c.local || {}).uf].filter(Boolean).join(' · '))}${kvt('Data da ocorrência', fmtDate(c.dataOcorrencia))}
+              ${kvt('Canal', c.canal)}${kvt('Produto', [(c.produto || {}).codigo, (c.produto || {}).descricao].filter(Boolean).join(' — '))}
+              ${kvt('Lote / série', [(c.produto || {}).lote, (c.produto || {}).serie].filter(Boolean).join(' / '))}${kvt('Nota fiscal', (c.produto || {}).nf)}
+              ${kvt('Fabricação / entrega', fmtDate((c.produto || {}).dataFabricacao))}${kvt('Aplicação / veículo', (c.produto || {}).aplicacao)}
+              ${kvt('Quantidade afetada', (c.produto || {}).quantidade)}${kvt('RNC do cliente', (c.rncCliente || {}).tem ? `Sim${c.rncCliente.numero ? ' · nº ' + c.rncCliente.numero : ''}${c.rncCliente.prazoResposta ? ' · resposta até ' + fmtDate(c.rncCliente.prazoResposta) : ''}` : 'Não')}
+            </div>
+            <div class="pvx-subh">Evidências</div>${pvFileList(c, 'abertura', { readonly: !pvAberto(c) })}
+            ${(c.rncCliente || {}).tem ? `<div class="pvx-subh">RNC / reclamação do cliente</div>${pvFileList(c, 'rnc_cliente', { readonly: !pvAberto(c), cta: 'Anexar RNC do cliente' })}` : ''}`,
+            btn('pvEdAb', 'edit', 'Editar', 'ghost'))}
+
+          ${sec(2, 'clipboard', 'Triagem — precisa de RNC?', stState(2), tr.rnc ? `
+            <div class="pvx-decision ${tr.rnc === 'nao' ? 'no' : 'yes'}">${ic(tr.rnc === 'nao' ? 'check' : 'alert')}<div><b>${esc(PV_RNC[tr.rnc].label)}</b>${tr.rnc === 'nao' ? `<span>Justificativa: ${esc(tr.justificativa || '—')}</span>` : '<span>A Qualidade é acionada e anexa a RNC na etapa 4.</span>'}</div></div>
+            <div class="pvx-kvs">${kvt('Responsável pela tratativa', tr.responsavel)}${kvt('Procedência', tr.procedencia)}${kvt('Triado em', pvFmtDT(tr.em))}${kvt('Triado por', tr.por)}${kvt('Prazo do chamado', fmtDate(c.prazo))}${kvt('Observações', tr.obs)}</div>`
+            : `<div class="pvx-cta">${ic('clipboard')}<div><b>Chamado aguardando triagem</b><span>Defina o responsável, o prazo e se é necessária RNC. ${(c.rncCliente || {}).tem ? 'Este chamado veio com RNC do cliente.' : ''}</span></div>${btn('pvTriar', 'clipboard', 'Fazer triagem', 'primary')}</div>`,
+            tr.rnc ? btn('pvTriar', 'edit', 'Editar', 'ghost') : '')}
+
+          ${sec(3, 'wrench', 'Tratativa — contenção e atendimento', stState(3), `
+            ${precisa || ct.data ? `<div class="pvx-subh">Contenção <small>ação imediata para proteger o cliente</small></div>
+              ${ct.data ? `<div class="pvx-kvs">${kvt('Ações de contenção', ct.acoes)}${kvt('Onde', (ct.locais || []).join(', '))}${kvt('Quantidade segregada', ct.qtd)}${kvt('Data', fmtDate(ct.data))}${kvt('Responsável', ct.responsavel)}</div>` : `<div class="pvx-cta sm">${ic('shield')}<div><b>Contenção não registrada</b><span>Recomendado em até 24 h quando há RNC.</span></div>${btn('pvCont', 'shield', 'Registrar contenção', 'primary')}</div>`}` : ''}
+            <div class="pvx-subh">Atendimento <small>o que foi feito para resolver</small></div>
+            ${at.descricao ? `<div class="pvx-kvs">${kvt('Modalidade', at.modalidade)}${kvt('Técnico / responsável', at.tecnico)}${kvt('Data', fmtDate(at.data))}${kvt('Resultado', at.resultado)}${kvt('O que foi feito', at.descricao)}${kvt('Peças trocadas', at.pecas)}${kv('Análise sem defeito (NTF)', at.ntf ? 'Sim' : 'Não')}${kvt('Garantia', at.garantia)}${kv('Custo total', pvMoney(at.custoTotal))}</div>
+              <div class="pvx-subh">Relatório de atendimento</div>${pvFileList(c, 'atendimento', { readonly: !pvAberto(c) })}`
+              : `<div class="pvx-cta sm">${ic('wrench')}<div><b>Atendimento não registrado</b><span>Correção em campo, análise da peça, troca em garantia…</span></div>${btn('pvAtend', 'wrench', 'Registrar atendimento', 'primary')}</div>`}`,
+            `${ct.data ? btn('pvCont', 'shield', 'Contenção', 'ghost') : ''}${at.descricao ? btn('pvAtend', 'edit', 'Atendimento', 'ghost') : ''}`)}
+
+          ${sec(4, 'award', 'RNC — Qualidade', stState(4), precisa ? `
+            <div class="pvx-rnc-st">${pvBadge(PV_RNC_ST, pvRncStatus(c))}<span>${pvRncDecisao(c) === 'cliente' ? 'O cliente emitiu RNC: a Qualidade trata e responde ao cliente.' : 'RNC interna: a Qualidade abre no sistema dela e anexa aqui.'}</span></div>
+            <div class="pvx-subh">Arquivo da RNC <small>obrigatório para encerrar</small></div>
+            ${pvFileList(c, 'rnc', { readonly: !pvAberto(c), required: true, cta: 'Anexar RNC' })}
+            <div class="pvx-subh">8D / relatório de análise</div>
+            ${pvFileList(c, 'd8', { readonly: !pvAberto(c), cta: 'Anexar 8D ou relatório' })}
+            <div class="pvx-kvs">${kvt('Nº da RNC', rn.numero)}${kvt('Responsável (Qualidade)', rn.responsavel)}${kvt('Causa raiz', rn.causa)}${kvt('Ação corretiva', rn.acao)}${kvt('Resposta enviada ao cliente em', fmtDate(rn.respostaEm))}</div>`
+            : tr.rnc === 'nao' ? `<div class="pvx-na">${ic('check')}<span>Não aplicável — a triagem decidiu que este chamado não requer RNC.</span></div>`
+            : `<div class="pvx-na">${ic('clock')}<span>Definido na triagem (etapa 2).</span></div>`,
+            precisa ? btn('pvRnc', 'edit', 'Dados da RNC', 'ghost') : '')}
+
+          ${sec(5, 'check', 'Verificação e encerramento', stState(5), `
+            ${precisa ? `<div class="pvx-subh">Eficácia da ação corretiva</div>
+              ${vf.data ? `<div class="pvx-kvs">${kvt('Verificado em', fmtDate(vf.data))}${kvt('Foi eficaz?', vf.eficaz)}${kvt('Evidência', vf.evidencia)}${kvt('Documentos atualizados', (vf.docs || []).join(', '))}${kvt('Lições aprendidas', vf.licoes)}</div>
+                ${pvFileList(c, 'verificacao', { readonly: !pvAberto(c), cta: 'Anexar evidência' })}` : `<div class="pvx-cta sm">${ic('check')}<div><b>Eficácia ainda não verificada</b><span>Confirme, depois de um tempo, que o problema não voltou.</span></div>${btn('pvVerif', 'check', 'Verificar eficácia', 'primary')}</div>`}` : ''}
+            <div class="pvx-subh">Retorno do cliente</div>
+            ${en.aceite ? `<div class="pvx-kvs">${kvt('Aceite do cliente', en.aceite)}${kv('Satisfação', en.satisfacao ? '★'.repeat(en.satisfacao) + '<span class="pvx-off">' + '★'.repeat(5 - en.satisfacao) + '</span>' : '')}${kvt('Comentário', en.comentario)}</div>` : '<span class="pvx-muted">Registrado ao encerrar.</span>'}
+            ${pvAberto(c) ? `<div class="pvx-close">${pend.length ? `<div class="pvx-close-p">${ic('alert')}<span>Faltam ${pend.length} item(ns) para encerrar — veja em Pendências.</span></div>` : `<div class="pvx-close-p ok">${ic('check')}<span>Tudo pronto. Registre o retorno do cliente e encerre.</span></div>`}<button class="btn primary" id="pvClose">${ic('check')}Encerrar chamado</button></div>` : ''}`,
+            precisa && vf.data ? btn('pvVerif', 'edit', 'Eficácia', 'ghost') : '')}
+        </div>
+
+        <aside class="pvx-side">
+          <div class="panel panel-pad pvx-card">
+            <div class="pvx-card-h">${ic('alert')}<b>Pendências</b><span class="pvx-count">${pend.length}</span></div>
+            ${pvAberto(c) ? (pend.length ? `<ul class="pvx-pend">${pend.map((p) => `<li><button data-pvjump="${p.step}"><span class="pvx-pend-n">${p.step}</span>${esc(p.t)}</button></li>`).join('')}</ul>` : `<div class="pvx-ok">${ic('check')}Nada pendente</div>`) : '<div class="pvx-muted">Chamado fechado.</div>'}
+          </div>
+          <div class="panel panel-pad pvx-card">
+            <div class="pvx-card-h">${ic('clock')}<b>Histórico</b><span class="pvx-count">${(c.historico || []).length}</span></div>
+            <ul class="timeline pvx-tl">${(c.historico || []).slice().reverse().map((h) => `<li><span class="tl-dot"></span><div class="tl-c"><div class="tl-top"><b>${esc(h.acao)}</b></div>${h.det ? `<div class="tl-detail">${esc(h.det)}</div>` : ''}<div class="tl-who">${ic('users')}${esc(h.by || '—')} · ${pvFmtDT(h.at)}</div></div></li>`).join('')}</ul>
+            ${pvAberto(c) ? `<div class="pvx-note"><textarea id="pvNote" placeholder="Adicionar comentário ao histórico (contato com cliente, retorno do técnico…)"></textarea><button class="btn sm" id="pvNoteBtn">${ic('plus')}Comentar</button></div>` : ''}
+          </div>
+          <div class="pvx-danger">
+            ${pvAberto(c) ? `<button class="btn ghost sm" id="pvCancel">${ic('x')}Cancelar chamado</button>` : ''}
+            <button class="btn ghost sm danger-tx" id="pvDel">${ic('trash')}Excluir</button>
+          </div>
+        </aside>
+      </div>`;
+    view.appendChild(w); Icons.apply(w);
+    pvBindFiles(w, c, rerender);
+
+    const on = (id, fn) => { $$('#' + id, w).forEach((b) => (b.onclick = fn)); };
+    on('pvEdAb', () => pvGoNovo(c));
+    on('pvTriar', () => pvFormTriagem(c, rerender));
+    on('pvCont', () => pvFormContencao(c, rerender));
+    on('pvAtend', () => pvFormAtendimento(c, rerender));
+    on('pvRnc', () => pvFormRnc(c, rerender));
+    on('pvVerif', () => pvFormVerificacao(c, rerender));
+    on('pvClose', () => pvFormEncerrar(c, rerender));
+    on('pvReopen', () => confirmDialog(`Reabrir o ${c.numero}?`, () => { pvSave(c, { status: (c.triagem || {}).rnc ? 'tratativa' : 'aberto' }, 'Chamado reaberto'); toast('Chamado reaberto'); rerender(); }, 'primary'));
+    on('pvCancel', () => pvFormCancelar(c, rerender));
+    on('pvDel', () => confirmDialog(`Excluir definitivamente o ${c.numero}? Para auditoria, prefira "Cancelar".`, async () => {
+      for (const a of (c.anexos || [])) { await Store.blobs.del(a.id); try { if (window.Cloud && window.Cloud.ok) await window.Cloud.removeFile('pvChamados', c.id, a.grupo, a.cloudName); } catch (e) {} }
+      Store.remove('pvChamados', c.id); toast('Chamado excluído', 'info'); go('pv-chamados');
+    }));
+    const nb = $('#pvNoteBtn', w);
+    if (nb) nb.onclick = () => { const v = $('#pvNote', w).value.trim(); if (!v) return; pvSave(c, {}, 'Comentário', v); rerender(); };
+    $$('[data-pvjump]', w).forEach((b) => (b.onclick = () => { const el = $('#pvSec' + b.dataset.pvjump); if (el) { el.scrollIntoView({ behavior: 'smooth', block: 'start' }); el.classList.add('flash'); setTimeout(() => el.classList.remove('flash'), 1200); } }));
+  };
+
+  // ---- formulários de cada etapa (abrem como página/sheet, padrão do app) ----
+  function pvSheet(c, title, sub, body, onSave) {
+    const card = modal({ title, sub: `${c.numero} · ${pvClienteNome(c)}${sub ? ' · ' + sub : ''}`, body: `<div class="form-grid">${body}</div>`, footer: submitFooter(true) });
+    $('#saveBtn', card).onclick = () => { if (onSave(readForm(card), card) !== false) closeModal(); };
+    return card;
+  }
+  function pvFormTriagem(c, after) {
+    const tr = c.triagem || {};
+    const dec = tr.rnc || ((c.rncCliente || {}).tem ? 'cliente' : '');
+    const card = pvSheet(c, 'Triagem', 'etapa 2', `
+      <div class="form-sec">${ic('alert')}Foi necessária RNC?</div>
+      <div class="field full"><div class="pvx-radio" id="pvDec">${Object.keys(PV_RNC).map((k) => `<label class="pvx-rd${dec === k ? ' on' : ''}"><input type="radio" name="rnc" value="${k}" ${dec === k ? 'checked' : ''}><b>${esc(PV_RNC[k].label)}</b><small>${k === 'cliente' ? 'O cliente mandou RNC/reclamação formal. A Qualidade responde.' : k === 'interna' ? 'Problema de qualidade nosso: a Qualidade abre a RNC e anexa.' : 'Ex.: correção em campo, dúvida, logística. Precisa justificar.'}</small></label>`).join('')}</div></div>
+      <div class="field full" id="pvJust" ${dec === 'nao' ? '' : 'hidden'}><label>Justificativa (obrigatória)</label><textarea name="justificativa" placeholder="Por que não é uma não conformidade? Ex.: erro de instalação pelo cliente, ajuste de regulagem…">${esc(tr.justificativa || '')}</textarea></div>
+      <div class="form-sec">${ic('users')}Responsável e prazo</div>
+      ${field('Responsável pela tratativa', 'responsavel', tr.responsavel || pvMe())}
+      <div class="field"><label>Procedência</label><select name="procedencia">${pvOpt(tr.procedencia || 'Em análise', ['Em análise', 'Procedente', 'Improcedente'])}</select><span class="hint">Pode ser ajustada depois da análise</span></div>
+      ${field('Prazo para concluir', 'prazo', c.prazo, 'date')}
+      ${field('Seu nome', 'por', pvMe())}
+      ${field('Observações da triagem', 'obs', tr.obs, 'textarea', { full: true })}`,
+      (d, card2) => {
+        const picked = $('#pvDec input:checked', card2); d.rnc = picked ? picked.value : '';
+        if (!d.rnc) { toast('Escolha se é necessária RNC', 'warn'); return false; }
+        if (d.rnc === 'nao' && !d.justificativa) { toast('Justifique por que não requer RNC', 'warn'); return false; }
+        if (!d.por) { toast('Informe seu nome', 'warn'); return false; }
+        setPvMe(d.por);
+        const triagem = { rnc: d.rnc, justificativa: d.rnc === 'nao' ? d.justificativa : '', responsavel: d.responsavel, procedencia: d.procedencia, obs: d.obs, em: tr.em || pvNow(), por: d.por };
+        pvSave(c, { triagem, prazo: d.prazo || c.prazo, status: c.status === 'aberto' ? 'tratativa' : c.status }, tr.rnc ? 'Triagem atualizada' : 'Triagem concluída', `${PV_RNC[d.rnc].label} · responsável ${d.responsavel || '—'}`);
+        toast(d.rnc === 'nao' ? 'Triagem salva' : 'Triagem salva — Qualidade acionada'); after();
+      });
+    $$('#pvDec input', card).forEach((r) => (r.onchange = () => { $$('.pvx-rd', card).forEach((l) => l.classList.toggle('on', l.contains(r) && r.checked)); $('#pvJust', card).hidden = r.value !== 'nao'; }));
+  }
+  function pvFormContencao(c, after) {
+    const ct = c.contencao || {};
+    const card = pvSheet(c, 'Contenção', 'ação imediata', `
+      <div class="form-sec">${ic('shield')}Proteger o cliente enquanto a causa é investigada</div>
+      ${field('Ações de contenção', 'acoes', ct.acoes, 'textarea', { full: true, ph: 'Ex.: bloqueio do lote em estoque, inspeção 100%, troca preventiva no cliente…' })}
+      <div class="field full"><label>Onde foi aplicada</label><div class="chk-chips">${PV_LOCAIS_CONT.map((l) => `<label class="chk-chip"><input type="checkbox" data-loc="${esc(l)}" ${(ct.locais || []).includes(l) ? 'checked' : ''}>${esc(l)}</label>`).join('')}</div></div>
+      ${field('Quantidade segregada / inspecionada', 'qtd', ct.qtd)}
+      ${field('Data da contenção', 'data', ct.data || todayISO(), 'date')}
+      ${field('Responsável', 'responsavel', ct.responsavel || pvMe())}`,
+      (d, card2) => {
+        if (!d.acoes) { toast('Descreva as ações de contenção', 'warn'); return false; }
+        const locais = $$('[data-loc]', card2).filter((x) => x.checked).map((x) => x.dataset.loc);
+        pvSave(c, { contencao: { acoes: d.acoes, locais, qtd: d.qtd, data: d.data, responsavel: d.responsavel } }, ct.data ? 'Contenção atualizada' : 'Contenção registrada', d.acoes.slice(0, 120));
+        toast('Contenção salva'); after();
+      });
+    return card;
+  }
+  function pvFormAtendimento(c, after) {
+    const at = c.atendimento || {};
+    const card = pvSheet(c, 'Atendimento', 'tratativa', `
+      <div class="form-sec">${ic('wrench')}O que foi feito</div>
+      <div class="field"><label>Modalidade</label><select name="modalidade">${pvOpt(at.modalidade || 'Em campo', ['Em campo', 'Remoto / telefone', 'Análise na fábrica (peça devolvida)', 'Troca / reposição', 'Somente informação'])}</select></div>
+      ${field('Técnico / responsável', 'tecnico', at.tecnico || pvMe())}
+      ${field('Data do atendimento', 'data', at.data || todayISO(), 'date')}
+      <div class="field"><label>Resultado</label><select name="resultado">${pvOpt(at.resultado || '', ['', 'Resolvido', 'Resolvido parcialmente', 'Não resolvido — nova intervenção', 'Aguardando peça'])}</select></div>
+      ${field('Descrição do serviço / análise', 'descricao', at.descricao, 'textarea', { full: true, ph: 'Diagnóstico, o que foi corrigido, testes feitos…' })}
+      ${field('Peças trocadas', 'pecas', at.pecas, 'text', { full: true })}
+      <div class="field full"><label class="pvx-chk"><input type="checkbox" name="ntf" ${at.ntf ? 'checked' : ''}>Análise não encontrou defeito (NTF — "no trouble found")</label><span class="hint">A IATF pede que peças de garantia sem defeito também sejam analisadas e registradas.</span></div>
+      <div class="form-sec">${ic('shield')}Garantia e custos</div>
+      <div class="field"><label>Garantia</label><select name="garantia">${pvOpt(at.garantia || 'Não se aplica', ['Não se aplica', 'Procedente — coberta', 'Improcedente — não coberta', 'Cortesia comercial'])}</select></div>
+      ${field('Mão de obra (R$)', 'custoMao', at.custoMao, 'number')}
+      ${field('Peças (R$)', 'custoPecas', at.custoPecas, 'number')}
+      ${field('Deslocamento / frete (R$)', 'custoDesl', at.custoDesl, 'number')}`,
+      (d) => {
+        if (!d.descricao) { toast('Descreva o que foi feito', 'warn'); return false; }
+        if (!d.resultado) { toast('Informe o resultado', 'warn'); return false; }
+        const custoTotal = (Number(d.custoMao) || 0) + (Number(d.custoPecas) || 0) + (Number(d.custoDesl) || 0);
+        const atendimento = Object.assign({}, d, { custoTotal });
+        const patch = { atendimento };
+        if (d.ntf && c.triagem && c.triagem.procedencia === 'Em análise') patch.triagem = Object.assign({}, c.triagem, { procedencia: 'Improcedente' });
+        pvSave(c, patch, at.descricao ? 'Atendimento atualizado' : 'Atendimento registrado', `${d.modalidade} · ${d.resultado}`);
+        toast('Atendimento salvo'); after();
+      });
+    return card;
+  }
+  function pvFormRnc(c, after) {
+    const rn = c.rnc || {};
+    pvSheet(c, 'Dados da RNC', 'Qualidade', `
+      <div class="form-sec">${ic('award')}Registro da Qualidade <span class="lbl-hint">o arquivo é anexado na tela do chamado</span></div>
+      ${field('Nº da RNC', 'numero', rn.numero, 'text', { ph: 'Número no sistema da Qualidade' })}
+      ${field('Responsável (Qualidade)', 'responsavel', rn.responsavel || pvMe())}
+      <div class="field"><label>Situação da RNC</label><select name="status">${pvOpt(rn.status && rn.status !== 'pendente' ? rn.status : 'anexada', [{ v: 'anexada', t: 'Em tratamento' }, { v: 'respondida', t: 'Respondida ao cliente' }, { v: 'fechada', t: 'Encerrada' }])}</select></div>
+      ${field('Resposta enviada ao cliente em', 'respostaEm', rn.respostaEm, 'date', { hint: pvRncDecisao(c) === 'cliente' ? 'Obrigatório: o cliente emitiu RNC' : 'Se houve resposta formal' })}
+      ${field('Causa raiz (resumo)', 'causa', rn.causa, 'textarea', { full: true, ph: 'Resumo do 8D / 5 porquês / Ishikawa' })}
+      ${field('Ação corretiva (resumo)', 'acao', rn.acao, 'textarea', { full: true })}`,
+      (d) => {
+        if (d.respostaEm && d.status === 'anexada') d.status = 'respondida';
+        pvSave(c, { rnc: d }, 'Dados da RNC atualizados', [d.numero ? 'RNC ' + d.numero : '', d.respostaEm ? 'resposta ao cliente em ' + fmtDate(d.respostaEm) : ''].filter(Boolean).join(' · '));
+        toast('RNC atualizada'); after();
+      });
+  }
+  function pvFormVerificacao(c, after) {
+    const vf = c.verificacao || {};
+    pvSheet(c, 'Verificação de eficácia', 'etapa 5', `
+      <div class="form-sec">${ic('check')}A ação corretiva resolveu?</div>
+      ${field('Data da verificação', 'data', vf.data || todayISO(), 'date')}
+      <div class="field"><label>Foi eficaz?</label><select name="eficaz">${pvOpt(vf.eficaz || '', ['', 'Sim', 'Não — reabrir análise'])}</select></div>
+      ${field('Evidência', 'evidencia', vf.evidencia, 'textarea', { full: true, ph: 'Ex.: 3 lotes sem reincidência, auditoria de processo, retorno do cliente…' })}
+      <div class="field full"><label>Documentos atualizados</label><div class="chk-chips">${PV_DOCS.map((l) => `<label class="chk-chip"><input type="checkbox" data-doc="${esc(l)}" ${(vf.docs || []).includes(l) ? 'checked' : ''}>${esc(l)}</label>`).join('')}</div><span class="hint">IATF 10.2.3 — refletir o aprendizado nos FMEAs e planos de controle.</span></div>
+      ${field('Lições aprendidas', 'licoes', vf.licoes, 'textarea', { full: true })}`,
+      (d, card) => {
+        if (!d.eficaz) { toast('Informe se foi eficaz', 'warn'); return false; }
+        d.docs = $$('[data-doc]', card).filter((x) => x.checked).map((x) => x.dataset.doc);
+        const patch = { verificacao: d };
+        if (d.eficaz === 'Sim' && c.status === 'tratativa') patch.status = 'verificacao';
+        pvSave(c, patch, 'Eficácia verificada', d.eficaz);
+        toast('Verificação salva'); after();
+      });
+  }
+  function pvFormEncerrar(c, after) {
+    const pend = pvPendencias(c).filter((p) => !/aceite do cliente/i.test(p.t));
+    if (pend.length) {
+      modal({ title: 'Ainda não dá para encerrar', sub: `${c.numero} · faltam ${pend.length} item(ns)`, dialog: true,
+        body: `<ul class="pvx-pend static">${pend.map((p) => `<li><span class="pvx-pend-n">${p.step}</span>${esc(p.t)}</li>`).join('')}</ul>`,
+        footer: '<button class="btn primary" data-close>Entendi</button>' });
+      return;
+    }
+    const en = c.encerramento || {};
+    const card = pvSheet(c, 'Encerrar chamado', 'retorno do cliente', `
+      <div class="form-sec">${ic('users')}Retorno do cliente</div>
+      <div class="field"><label>O cliente aceitou a solução?</label><select name="aceite">${pvOpt(en.aceite || '', ['', 'Sim', 'Sim, com ressalvas', 'Não', 'Sem retorno do cliente'])}</select></div>
+      <div class="field"><label>Satisfação (1 a 5)</label><div class="pvx-stars" id="pvStars">${[1, 2, 3, 4, 5].map((n) => `<button type="button" data-st="${n}" class="${(en.satisfacao || 0) >= n ? 'on' : ''}">★</button>`).join('')}</div><input type="hidden" name="satisfacao" value="${en.satisfacao || ''}"></div>
+      ${field('Comentário do cliente', 'comentario', en.comentario, 'textarea', { full: true })}
+      ${field('Data de encerramento', 'data', todayISO(), 'date')}
+      ${field('Encerrado por', 'por', pvMe())}`,
+      (d) => {
+        if (!d.aceite) { toast('Informe o retorno do cliente', 'warn'); return false; }
+        if (!d.por) { toast('Informe seu nome', 'warn'); return false; }
+        setPvMe(d.por);
+        d.satisfacao = Number(d.satisfacao) || 0;
+        pvSave(c, { encerramento: d, status: 'encerrado' }, 'Chamado encerrado', `Aceite: ${d.aceite}${d.satisfacao ? ' · satisfação ' + d.satisfacao + '/5' : ''}`);
+        toast(`${c.numero} encerrado`); after();
+      });
+    $$('#pvStars button', card).forEach((b) => (b.onclick = () => { const n = +b.dataset.st; $('[name="satisfacao"]', card).value = n; $$('#pvStars button', card).forEach((x) => x.classList.toggle('on', +x.dataset.st <= n)); }));
+  }
+  function pvFormCancelar(c, after) {
+    pvSheet(c, 'Cancelar chamado', 'o registro é mantido para auditoria', `
+      ${field('Motivo do cancelamento', 'motivo', '', 'textarea', { full: true, ph: 'Ex.: aberto em duplicidade, cliente desistiu…' })}`,
+      (d) => {
+        if (!d.motivo) { toast('Informe o motivo', 'warn'); return false; }
+        pvSave(c, { status: 'cancelado', cancelamento: { motivo: d.motivo, em: pvNow(), por: pvMe() } }, 'Chamado cancelado', d.motivo);
+        toast('Chamado cancelado', 'info'); after();
+      });
+  }
+
+  /* ---------- impressão / PDF (relatório do chamado para auditoria) ---------- */
+  function pvPrint(c) {
+    const t = PV_TIPOS[c.tipo] || PV_TIPOS.reclamacao;
+    const tr = c.triagem || {}, ct = c.contencao || {}, at = c.atendimento || {}, rn = c.rnc || {}, vf = c.verificacao || {}, en = c.encerramento || {}, pr = c.produto || {};
+    const row = (k, v) => `<tr><th>${esc(k)}</th><td>${esc(v == null || v === '' ? '—' : v)}</td></tr>`;
+    const block = (title, rows) => `<h2>${esc(title)}</h2><table>${rows}</table>`;
+    const files = (g) => pvAnexos(c, g).map((a) => a.name).join(', ');
+    const html = `<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><title>${esc(c.numero)}</title><style>
+      body{font:12px/1.45 Arial,Helvetica,sans-serif;color:#111;margin:28px}
+      header{display:flex;justify-content:space-between;align-items:flex-end;border-bottom:2px solid #0b3d6b;padding-bottom:8px;margin-bottom:14px}
+      h1{font-size:20px;margin:0;color:#0b3d6b} .sub{color:#555} h2{font-size:13px;margin:18px 0 6px;color:#0b3d6b;text-transform:uppercase;letter-spacing:.05em}
+      table{width:100%;border-collapse:collapse} th,td{border:1px solid #ccd;padding:5px 7px;text-align:left;vertical-align:top} th{width:30%;background:#f1f4f8;font-weight:600}
+      .tl td{font-size:11px} footer{margin-top:24px;color:#777;font-size:10px;border-top:1px solid #ccd;padding-top:6px}
+    </style></head><body>
+      <header><div><h1>Chamado de pós-vendas ${esc(c.numero)}</h1><div class="sub">${esc(pvClienteNome(c))} · ${esc(t.label)}</div></div><div class="sub">Status: <b>${esc((PV_STATUS[c.status] || {}).label || c.status)}</b><br>Emitido em ${esc(pvFmtDT(pvNow()))}</div></header>
+      ${block('1. Abertura', row('Aberto em / por', pvFmtDT(c.criadoEm) + ' · ' + (c.abertoPor || '')) + row('Canal', c.canal) + row('Prioridade', (PV_PRIO[c.prioridade] || {}).label) + row('Afeta segurança / legal', c.seguranca ? 'Sim' : 'Não') + row('Contato', [(c.contato || {}).nome, (c.contato || {}).info].filter(Boolean).join(' · ')) + row('Local', [(c.local || {}).endereco, (c.local || {}).cidade, (c.local || {}).uf].filter(Boolean).join(' · ')) + row('Data da ocorrência', fmtDate(c.dataOcorrencia)) + row('Descrição', c.descricao) + row('Produto', [pr.codigo, pr.descricao].filter(Boolean).join(' — ')) + row('Lote / série / NF', [pr.lote, pr.serie, pr.nf].filter(Boolean).join(' / ')) + row('Aplicação', pr.aplicacao) + row('Quantidade afetada', pr.quantidade) + row('RNC do cliente', (c.rncCliente || {}).tem ? `Sim ${c.rncCliente.numero || ''} · prazo ${fmtDate(c.rncCliente.prazoResposta)}` : 'Não') + row('Anexos', files('abertura') + (files('rnc_cliente') ? ' · ' + files('rnc_cliente') : '')))}
+      ${block('2. Triagem', row('Necessária RNC', tr.rnc ? PV_RNC[tr.rnc].label : 'Não triado') + row('Justificativa', tr.justificativa) + row('Responsável', tr.responsavel) + row('Procedência', tr.procedencia) + row('Prazo', fmtDate(c.prazo)) + row('Triado por / em', [tr.por, pvFmtDT(tr.em)].filter(Boolean).join(' · ')))}
+      ${block('3. Tratativa', row('Contenção', ct.acoes) + row('Contenção — onde / qtd / data', [(ct.locais || []).join(', '), ct.qtd, fmtDate(ct.data)].filter(Boolean).join(' · ')) + row('Atendimento', [at.modalidade, at.tecnico, fmtDate(at.data)].filter(Boolean).join(' · ')) + row('O que foi feito', at.descricao) + row('Resultado', at.resultado) + row('Peças', at.pecas) + row('Sem defeito (NTF)', at.ntf ? 'Sim' : 'Não') + row('Garantia', at.garantia) + row('Custo total', pvMoney(at.custoTotal)))}
+      ${block('4. RNC', pvPrecisaRnc(c) ? row('Situação', (PV_RNC_ST[pvRncStatus(c)] || {}).label) + row('Nº', rn.numero) + row('Responsável', rn.responsavel) + row('Causa raiz', rn.causa) + row('Ação corretiva', rn.acao) + row('Resposta ao cliente', fmtDate(rn.respostaEm)) + row('Arquivos', [files('rnc'), files('d8')].filter(Boolean).join(' · ')) : row('Situação', 'Não aplicável'))}
+      ${block('5. Verificação e encerramento', row('Eficácia', [fmtDate(vf.data), vf.eficaz].filter((x) => x && x !== '—').join(' · ')) + row('Evidência', vf.evidencia) + row('Documentos atualizados', (vf.docs || []).join(', ')) + row('Lições aprendidas', vf.licoes) + row('Aceite do cliente', en.aceite) + row('Satisfação', en.satisfacao ? en.satisfacao + ' / 5' : '') + row('Encerrado em / por', [fmtDate(en.data), en.por].filter((x) => x && x !== '—').join(' · ')))}
+      <h2>Histórico</h2><table class="tl">${(c.historico || []).map((h) => `<tr><th>${esc(pvFmtDT(h.at))} · ${esc(h.by || '')}</th><td><b>${esc(h.acao)}</b>${h.det ? ' — ' + esc(h.det) : ''}</td></tr>`).join('')}</table>
+      <footer>Convergas · Control Center — Pós-Vendas. Registro mantido conforme IATF 16949 (7.5, 8.7, 10.2) e ISO 9001 (7.5, 8.2, 10.2).</footer>
+    </body></html>`;
+    const win = window.open('', '_blank');
+    if (!win) { toast('Permita pop-ups para imprimir', 'warn'); return; }
+    win.document.open(); win.document.write(html); win.document.close();
+    setTimeout(() => { try { win.focus(); win.print(); } catch (e) {} }, 300);
+  }
+
+  /* =========================== FLUXO & NORMAS =========================== */
+  PAGES['pv-guia'] = () => {
+    pageShell('Pós-Vendas', 'Fluxo & Normas', 'Como um chamado anda — e onde cada requisito da IATF 16949 e da ISO 9001 é atendido no sistema.', '');
+    const flow = [
+      ['1', 'Abertura', 'Comercial', 'Registra cliente, contato, local, produto (lote/série/NF), descrição e evidências. Se o cliente mandou RNC, anexa e informa o prazo de resposta.'],
+      ['2', 'Triagem', 'Pós-vendas / responsável', 'Decide: o chamado precisa de RNC? (do cliente, interna, ou não). Se não, a justificativa é obrigatória. Define responsável, prazo e procedência.'],
+      ['3', 'Tratativa', 'Responsável + técnico', 'Contenção imediata quando há RNC (estoque, trânsito, cliente). Atendimento: o que foi feito, peças, resultado, garantia, custos, análise NTF.'],
+      ['4', 'RNC', 'Qualidade', 'Só quando necessária. A Qualidade abre/trata a RNC no sistema dela e anexa aqui o arquivo e o 8D. Registra causa, ação corretiva e a data de resposta ao cliente.'],
+      ['5', 'Encerramento', 'Responsável + Qualidade', 'Verificação de eficácia (com RNC), documentos atualizados (FMEA, plano de controle), retorno e satisfação do cliente. O sistema bloqueia o encerramento enquanto houver pendências.'],
+    ];
+    const reqs = [
+      ['IATF 10.2.6', 'Reclamações de clientes e análise de falhas em campo', 'Tipos "Reclamação" e "Falha em campo", análise registrada no atendimento, inclusive peças sem defeito (NTF).'],
+      ['IATF 10.2.5', 'Sistema de gestão de garantia', 'Campo garantia (procedente / improcedente / cortesia), custos e indicador de custo no Painel.'],
+      ['IATF 10.2.3 · 10.2.4', 'Solução de problemas e à prova de erro', 'Anexo do 8D, causa raiz, ação corretiva e checklist de documentos atualizados (FMEA, plano de controle, poka-yoke).'],
+      ['ISO 10.2 · IATF 10.2.1', 'Não conformidade e ação corretiva', 'Decisão de RNC na triagem, contenção, ação corretiva e verificação de eficácia obrigatória para encerrar.'],
+      ['IATF 8.7 · 4.4.1.2', 'Saída não conforme e segurança do produto', 'Contenção (onde, quantidade segregada) e marcação "afeta segurança/legal", que torna o chamado crítico.'],
+      ['ISO 8.2.1 · IATF 8.2.1.1', 'Comunicação com o cliente', 'Canal de entrada, contato, prazo de resposta exigido, data de resposta e comentários no histórico.'],
+      ['IATF 4.3.2', 'Requisitos específicos do cliente (CSR)', 'Cadastro de clientes com prazo de resposta, exigência de 8D e requisitos próprios exibidos na abertura.'],
+      ['ISO 9.1.2', 'Satisfação do cliente', 'Aceite e nota de satisfação no encerramento; média, prazo e reincidência no Painel.'],
+      ['ISO 7.5 · IATF 7.5.3.2.1', 'Informação documentada e retenção', 'Histórico automático (quem, quando, o quê), anexos e relatório para impressão/PDF. Cancelar mantém o registro.'],
+      ['ISO 8.5.2', 'Identificação e rastreabilidade', 'Código, lote, nº de série, nota fiscal, data de fabricação e aplicação do produto.'],
+    ];
+    const w = document.createElement('div');
+    w.innerHTML = `
+      <div class="section-head"><h2><span class="sh-ico">${ic('list')}</span>O fluxo do chamado</h2></div>
+      <div class="pvx-flow">${flow.map(([n, t, who, d]) => `<div class="pvx-fl"><span class="pvx-fl-n">${n}</span><b>${t}</b><span class="pvx-fl-who">${who}</span><p>${d}</p></div>`).join('')}</div>
+      <div class="pvx-branch panel panel-pad">
+        <b>As três saídas da triagem</b>
+        <div class="pvx-br3">
+          <div><span class="badge warn plain">RNC do cliente</span><p>Cliente enviou RNC. Qualidade trata, anexa a RNC/8D e registra a data de resposta ao cliente.</p></div>
+          <div><span class="badge info plain">RNC interna</span><p>Problema de qualidade nosso. Qualidade abre a RNC no sistema dela e anexa no chamado.</p></div>
+          <div><span class="badge neutral plain">Sem RNC</span><p>Correção em campo, dúvida, logística. Fica só no Pós-vendas — com justificativa registrada.</p></div>
+        </div>
+      </div>
+      <div class="section-head"><h2><span class="sh-ico">${ic('award')}</span>Requisitos atendidos</h2></div>
+      <div class="tbl-wrap"><table class="data"><thead><tr><th>Requisito</th><th>Assunto</th><th>Onde está no sistema</th></tr></thead><tbody>${reqs.map(([r, a, o]) => `<tr><td><span class="badge info plain">${esc(r)}</span></td><td><b>${esc(a)}</b></td><td>${esc(o)}</td></tr>`).join('')}</tbody></table></div>
+      <p class="pvx-muted" style="margin-top:12px">Referência de apoio. A interpretação final dos requisitos é da Qualidade e do auditor.</p>`;
+    view.appendChild(w); Icons.apply(w);
   };
 
   /* =====================================================================
@@ -3439,7 +4310,8 @@
       { label: 'Sistemas', items: [ { r: 'sistemas-home', t: 'Visão geral', s: 'Geral', i: 'grid' } ] },
     ] },
     'pos-vendas': { label: 'Pós-Vendas', groups: [
-      { label: 'Pós-Vendas', items: [ { r: 'posvendas-home', t: 'Visão geral', s: 'Geral', i: 'phone' } ] },
+      { label: 'Atendimento', items: [ { r: 'pv-painel', t: 'Painel', s: 'Painel', i: 'grid' }, { r: 'pv-chamados', t: 'Chamados', s: 'Chamados', i: 'list' }, { r: 'pv-qualidade', t: 'Fila da Qualidade', s: 'Qualidade', i: 'award' } ] },
+      { label: 'Cadastros & normas', items: [ { r: 'pv-clientes', t: 'Clientes', s: 'Clientes', i: 'users' }, { r: 'pv-guia', t: 'Fluxo & Normas', s: 'Normas', i: 'book' } ] },
     ] },
     manutencao: { label: 'Manutenção', groups: [
       { label: 'Manutenção', items: [ { r: 'manutencao-home', t: 'Indicadores', s: 'Painel', i: 'grid' }, { r: 'mnt-equip', t: 'Máquinas', s: 'Máquinas', i: 'cpu' }, { r: 'mnt-os', t: 'Ordens de Serviço', s: 'OS', i: 'file' }, { r: 'mnt-prev', t: 'Preventivas', s: 'Prevent.', i: 'refresh' }, { r: 'mnt-cal', t: 'Calendário', s: 'Agenda', i: 'calendar' }, { r: 'mnt-pecas', t: 'Peças', s: 'Peças', i: 'box' } ] },
@@ -3451,7 +4323,10 @@
   };
   const TITLES = {}; const ROUTE_AREA = {};
   Object.keys(NAV).forEach((area) => NAV[area].groups.forEach((g) => g.items.forEach((it) => { TITLES[it.r] = it.t; if (it.r !== 'settings') ROUTE_AREA[it.r] = area; })));
-  const AREA_HOME = { ti: 'dashboard', qualidade: 'qa-dashboard', sistemas: 'sistemas-home', 'pos-vendas': 'posvendas-home', manutencao: 'manutencao-home', programacao: 'prog-atividades' };
+  // páginas internas (fora do menu) que pertencem a uma área
+  ROUTE_AREA['pv-novo'] = 'pos-vendas'; ROUTE_AREA['pv-detalhe'] = 'pos-vendas';
+  TITLES['pv-novo'] = 'Novo chamado'; TITLES['pv-detalhe'] = 'Chamado';
+  const AREA_HOME = { ti: 'dashboard', qualidade: 'qa-dashboard', sistemas: 'sistemas-home', 'pos-vendas': 'pv-painel', manutencao: 'manutencao-home', programacao: 'prog-atividades' };
 
   function renderSidebar(area) {
     const cfg = NAV[area]; const nav = $('#nav');
@@ -3494,6 +4369,7 @@
   function showApp() { document.body.classList.remove('home-on'); $('#homeScreen').classList.remove('show'); $('#homeScreen').setAttribute('aria-hidden', 'true'); $('.app-shell').style.display = ''; }
   function goHome() {
     document.body.classList.add('home-on'); closeSheet();
+    try { buildHome(); } catch (e) {}
     $('#homeScreen').classList.add('show'); $('#homeScreen').setAttribute('aria-hidden', 'false');
     $('.app-shell').style.display = 'none';
     if (location.hash !== '#home') history.replaceState(null, '', '#home');
@@ -3525,121 +4401,72 @@
   $('#homeLink').onclick = goHome;
   $('#tbHome').onclick = goHome;
 
-  /* ---------- Home wheel (estilo GTA) ---------- */
-  const WHEEL = [
-    { area: 'qualidade', label: 'QUALIDADE', icon: 'award', desc: 'Certificações e produção', color: 'var(--ok)',
-      about: ['Certificados INMETRO (CATA)', 'Calibração de equipamentos', 'Controle de EPI', 'Laboratórios parceiros'] },
-    { area: 'ti', label: 'T.I', icon: 'cpu', desc: 'Infraestrutura, suporte e ativos', color: 'var(--accent)',
-      about: ['Computadores, impressoras e telefonia', 'Command Center e Runbooks', 'Licenças e inventário', 'Cofre e BitLocker'] },
-    { area: 'pos-vendas', label: 'PÓS-VENDAS', icon: 'phone', desc: 'Relacionamento e suporte ao cliente', color: '#F472B6',
-      about: ['Atendimento e acompanhamento', 'Pesquisas de satisfação', 'Garantias e chamados', 'Histórico do cliente'] },
-    { area: 'manutencao', label: 'MANUTENÇÃO', icon: 'wrench', desc: 'Ordens de serviço e ativos', color: 'var(--warn)',
-      about: ['Ordens de serviço', 'Preventivas programadas', 'Máquinas e peças', 'Calendário de manutenção'] },
-    { area: 'programacao', label: 'PROGRAMAÇÃO', icon: 'calendar', desc: 'Atividades, RNC e planejamento', color: '#A78BFA',
-      about: ['Atividades (PCP)', 'Pedidos', 'Não conformidades (RNC)', 'Equipe, setores e catálogo'] },
-    { area: 'guideline', label: 'GUIDELINE', icon: 'book', desc: 'Manual da Marca', color: '#E8C45C', ext: true,
-      about: ['Identidade visual da Convergas', 'Logo, cores e tipografia', 'Boas práticas da marca'] },
+  /* ---------- Home: painel de entrada por área ---------- */
+  // cada área mostra um número ao vivo (alertas, chamados, OS…) para quem chega já saber onde agir
+  const HOME_AREAS = [
+    { area: 'qualidade', label: 'Qualidade', icon: 'award', color: 'var(--ok)', desc: 'Certificados INMETRO, calibração de equipamentos, EPI e laboratórios parceiros.',
+      stat: () => { const n = qaAlerts().length; return n ? { v: n, l: n === 1 ? 'alerta de validade' : 'alertas de validade', tone: 'warn' } : { v: '✓', l: 'Certificados em dia', tone: 'ok' }; } },
+    { area: 'pos-vendas', label: 'Pós-Vendas', icon: 'phone', color: '#E879A6', desc: 'Chamados de clientes, garantias e RNC — controle para IATF 16949 e ISO 9001.', isNew: true,
+      stat: () => { const s = pvStats(); if (s.atrasados.length) return { v: s.atrasados.length, l: `atrasado(s) · ${s.abertos.length} em aberto`, tone: 'danger' }; if (s.rncPend.length) return { v: s.rncPend.length, l: `aguardando RNC · ${s.abertos.length} em aberto`, tone: 'warn' }; return { v: s.abertos.length, l: s.abertos.length === 1 ? 'chamado em aberto' : 'chamados em aberto', tone: s.abertos.length ? 'info' : 'ok' }; } },
+    { area: 'manutencao', label: 'Manutenção', icon: 'wrench', color: 'var(--warn)', desc: 'Ordens de serviço, preventivas, máquinas, peças e calendário.',
+      stat: () => { const n = Store.get('serviceOrders').filter((o) => o.kind === 'os' && !['finalizada', 'concluida', 'cancelada'].includes(o.status)).length; return { v: n, l: n === 1 ? 'ordem de serviço aberta' : 'ordens de serviço abertas', tone: n ? 'info' : 'ok' }; } },
+    { area: 'programacao', label: 'Programação', icon: 'calendar', color: '#A78BFA', desc: 'Atividades do PCP, pedidos, não conformidades internas e cadastros.',
+      stat: () => { const t = todayISO(); const l = Store.get('progAtividades') || []; const late = l.filter((a) => a.status !== 'done' && a.prazo && a.prazo < t).length; return late ? { v: late, l: 'atividade(s) atrasada(s)', tone: 'warn' } : { v: l.filter((a) => a.status !== 'done').length, l: 'atividades em andamento', tone: 'info' }; } },
+    { area: 'ti', label: 'T.I', icon: 'cpu', color: 'var(--accent)', desc: 'Computadores, impressoras, telefonia, licenças, comandos e cofre.',
+      stat: () => { const n = computeAlerts().length; return n ? { v: n, l: n === 1 ? 'alerta de infraestrutura' : 'alertas de infraestrutura', tone: 'warn' } : { v: '✓', l: 'Infraestrutura sem alertas', tone: 'ok' }; } },
+    { area: 'sistemas', label: 'Sistemas', icon: 'grid', color: 'var(--blue-future)', desc: 'Acesso rápido às plataformas da Convergas: Homologa, App de produção e TV.',
+      stat: () => ({ v: SISTEMAS.length, l: 'plataformas disponíveis', tone: 'info' }) },
   ];
-  // Botão central da roda → área Sistemas
-  const HUB = { area: 'sistemas', label: 'SISTEMAS', icon: 'grid', desc: 'Plataformas e sistemas da Convergas', color: 'var(--blue-future)',
-    about: ['Convergas Homologa', 'Convergas App (produção)', 'Dashboard de produção (TV)', 'Diagnóstico de homologação'] };
-  function buildWheel() {
-    const mount = $('#wheelMount'); if (!mount) return;
-    const cx = 220, cy = 220, rO = 200, rI = 100, gap = 2.6, rad = (d) => d * Math.PI / 180;
-    const N = WHEEL.length, span = 360 / N, half = span / 2;
-    const ang = (i) => -90 + i * span; // primeiro segmento no topo, distribuídos igualmente
-    const pt = (r, a) => [(cx + r * Math.cos(rad(a))).toFixed(2), (cy + r * Math.sin(rad(a))).toFixed(2)];
-    const sector = (a0, a1) => { const [x0, y0] = pt(rO, a0), [x1, y1] = pt(rO, a1), [x2, y2] = pt(rI, a1), [x3, y3] = pt(rI, a0); const big = (a1 - a0) > 180 ? 1 : 0; return `M${x0} ${y0} A${rO} ${rO} 0 ${big} 1 ${x1} ${y1} L${x2} ${y2} A${rI} ${rI} 0 ${big} 0 ${x3} ${y3} Z`; };
-    const segs = WHEEL.map((w, i) => `<path class="wheel-seg" data-i="${i}" d="${sector(ang(i) - half + gap, ang(i) + half - gap)}" style="--seg:${w.color}"/>`).join('');
-    const labels = WHEEL.map((w, i) => { const [lx, ly] = pt((rO + rI) / 2, ang(i)); return `<foreignObject class="wheel-fo" x="${lx - 72}" y="${ly - 52}" width="144" height="104"><div class="wheel-lbl" style="--wc:${w.color}"><span class="wl-ico" data-icon="${w.icon}"></span><span class="wl-tx">${w.label}</span></div></foreignObject>`; }).join('');
-    mount.innerHTML = `<div class="wheel-glass" aria-hidden="true"></div>
-      <svg viewBox="0 0 440 440" class="wheel-svg" aria-label="Áreas">${segs}${labels}</svg>
-      <button class="wheel-hub" id="hubBtn" style="--wc:${HUB.color}" aria-label="Abrir ${esc(HUB.label)}">
-        <span class="hub-ico" data-icon="${HUB.icon}"></span>
-        <span class="hub-tx"><b>${HUB.label}</b><span>Acessar</span></span>
+  const GUIDELINE = { area: 'guideline', ext: true };
+
+  function buildHome() {
+    const grid = $('#homeGrid'); if (!grid) return;
+    grid.innerHTML = HOME_AREAS.map((a, i) => {
+      let st = { v: '—', l: '', tone: '' };
+      try { st = a.stat(); } catch (e) {}
+      return `<button class="hm-card" style="--ac:${a.color}" data-i="${i}">
+        <span class="hm-card-top">
+          <span class="hm-ico" data-icon="${a.icon}"></span>
+          <span class="hm-name">${esc(a.label)}${a.isNew ? '<span class="hm-new">Novo</span>' : ''}</span>
+          <span class="hm-go" data-icon="arrowUpRight"></span>
+        </span>
+        <span class="hm-desc">${esc(a.desc)}</span>
+        <span class="hm-stat t-${st.tone || 'none'}"><b>${esc(String(st.v))}</b><span>${esc(st.l)}</span></span>
       </button>`;
-    Icons.apply(mount);
-    const lbls = $$('.wheel-lbl', mount);
-    const segEls = $$('.wheel-seg', mount);
-    const hubBtn = $('#hubBtn', mount);
-    const clearLbls = () => lbls.forEach((l) => { l.style.transform = ''; l.classList.remove('lit'); });
-    const resetAll = () => { wheelInfo(null); segEls.forEach((s) => s.classList.remove('hot')); clearLbls(); if (hubBtn) hubBtn.classList.remove('hot'); };
-    // reset agendado por frame: limpa o "selecionado" assim que o cursor sai do botão,
-    // mas é cancelado se o cursor entrar noutro botão no mesmo gesto (evita piscar)
-    let resetRAF = null;
-    const scheduleReset = () => { if (resetRAF) cancelAnimationFrame(resetRAF); resetRAF = requestAnimationFrame(() => { resetRAF = null; resetAll(); }); };
-    const cancelReset = () => { if (resetRAF) { cancelAnimationFrame(resetRAF); resetRAF = null; } };
-    segEls.forEach((p) => {
-      const idx = +p.dataset.i, w = WHEEL[idx];
-      const hot = () => { cancelReset(); wheelInfo(w); if (hubBtn) hubBtn.classList.remove('hot'); segEls.forEach((s) => s.classList.toggle('hot', s === p)); lbls.forEach((l, i) => { const on = i === idx; l.style.transform = on ? 'scale(1.1)' : ''; l.classList.toggle('lit', on); }); };
-      p.addEventListener('mouseenter', hot);
-      p.addEventListener('mouseleave', scheduleReset);
-      p.addEventListener('click', () => selectWheel(w));
-    });
-    if (hubBtn) {
-      hubBtn.addEventListener('mouseenter', () => { cancelReset(); wheelInfo(HUB); hubBtn.classList.add('hot'); segEls.forEach((s) => s.classList.remove('hot')); clearLbls(); });
-      hubBtn.addEventListener('mouseleave', scheduleReset);
-      hubBtn.addEventListener('click', () => selectWheel(HUB));
-    }
-    const stage = $('#homeStage') || mount;
-    stage.addEventListener('mouseleave', () => { cancelReset(); resetAll(); });
-    wheelInfo(null);
-    buildHomeCards();
+    }).join('');
+    Icons.apply(grid);
+    $$('.hm-card', grid).forEach((b) => (b.onclick = () => selectWheel(HOME_AREAS[+b.dataset.i])));
+    const h = new Date().getHours();
+    const greet = $('#homeGreet'); if (greet) greet.textContent = h < 12 ? 'Bom dia' : h < 18 ? 'Boa tarde' : 'Boa noite';
+    homeClock();
   }
-  // Painel à esquerda da roda: mostra o que é a área sob o cursor
-  function wheelInfo(w) {
-    const host = $('#homeInfo'); if (!host) return;
-    if (!w) {
-      host.classList.remove('lit');
-      host.innerHTML = `<div class="hi-empty">
-          <span class="hi-badge">Control Center</span>
-          <b>Selecione uma área</b>
-          <p>Passe o cursor sobre um setor da roda para ver o que há dentro.</p>
-        </div>`;
-      return;
-    }
-    host.classList.add('lit');
-    host.style.setProperty('--wc', w.color);
-    const bullets = (w.about || []).map((b) => `<li>${esc(b)}</li>`).join('');
-    host.innerHTML = `
-      <div class="hi-head">
-        <span class="hi-ico" data-icon="${w.icon}"></span>
-        <div class="hi-ht"><span class="hi-kick">${w.ext ? 'Externo' : 'Área'}</span><b class="hi-title">${esc(w.label)}</b></div>
-      </div>
-      <p class="hi-desc">${esc(w.desc || '')}</p>
-      ${bullets ? `<ul class="hi-list">${bullets}</ul>` : ''}
-      <span class="hi-cta">${w.ext ? 'Abrir manual' : 'Entrar na área'} <span data-icon="${w.ext ? 'external' : 'arrowUpRight'}"></span></span>`;
-    Icons.apply(host);
+  function homeClock() {
+    const el = $('#homeClock'); if (!el) return;
+    const d = new Date();
+    const dia = d.toLocaleDateString('pt-BR', { weekday: 'long', day: '2-digit', month: 'long' });
+    el.textContent = dia.charAt(0).toUpperCase() + dia.slice(1) + ' · ' + d.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
   }
-  // Home no celular: grade de cards (botões reais) em vez da roda
-  function buildHomeCards() {
-    const host = $('#homeCards'); if (!host) return;
-    const items = WHEEL.concat([HUB]);
-    host.innerHTML = items.map((w, i) => `<button class="hcard" style="--wc:${w.color}" data-i="${i}">
-        <span class="hc-ico" data-icon="${w.icon}"></span>
-        <span class="hc-tx"><b>${esc(w.label)}</b><span>${esc(w.desc || '')}</span></span>
-        <span class="hc-arrow" aria-hidden="true"></span>
-      </button>`).join('');
-    Icons.apply(host);
-    $$('.hcard', host).forEach((b) => (b.onclick = () => selectWheel(items[+b.dataset.i])));
-  }
+  setInterval(() => { if ($('#homeScreen').classList.contains('show')) homeClock(); }, 30000);
+  const gl = $('#homeGuideline'); if (gl) gl.onclick = () => selectWheel(GUIDELINE);
+  const thHome = $('#themeToggleHome'); if (thHome) thHome.onclick = () => setTheme(document.documentElement.getAttribute('data-theme') === 'dark' ? 'light' : 'dark');
+
   function selectWheel(w) {
     if (w.ext) { const url = (Store.get('settings').guidelineUrl || '').trim(); if (url) window.open(url, '_blank', 'noopener'); else toast('Configure o link do Guideline em Settings', 'warn'); return; }
     enterArea(w.area);
   }
 
   function refreshSysPulse() {
-    const alerts = currentArea === 'qualidade' ? qaAlerts() : (currentArea === 'ti' ? computeAlerts() : []);
+    const alerts = currentArea === 'qualidade' ? qaAlerts() : currentArea === 'ti' ? computeAlerts() : currentArea === 'pos-vendas' ? pvAlerts() : [];
     const pulse = $('#sysPulse'), tx = $('.pulse-tx', pulse);
     pulse.classList.toggle('warn', alerts.length > 0);
-    tx.textContent = alerts.length ? `${alerts.length} alerta(s)` : (currentArea === 'qualidade' ? 'Qualidade em dia' : 'Sistema operacional');
+    tx.textContent = alerts.length ? `${alerts.length} alerta(s)` : (currentArea === 'qualidade' ? 'Qualidade em dia' : currentArea === 'pos-vendas' ? 'Chamados em dia' : 'Sistema operacional');
   }
 
   /* ---------- theme ---------- */
   function setTheme(t) {
     document.documentElement.setAttribute('data-theme', t);
     Store.setSetting('theme', t);
-    const tt = $('#themeToggle'); tt.dataset.iconDone = ''; tt.innerHTML = ''; tt.setAttribute('data-icon', t === 'dark' ? 'sun' : 'moon'); Icons.apply(tt);
+    ['#themeToggle', '#themeToggleHome'].forEach((sel) => { const tt = $(sel); if (!tt) return; tt.dataset.iconDone = ''; tt.innerHTML = ''; tt.setAttribute('data-icon', t === 'dark' ? 'sun' : 'moon'); Icons.apply(tt); });
     toast(t === 'dark' ? 'Modo escuro' : 'Modo claro', 'info');
   }
   $('#themeToggle').onclick = () => setTheme(document.documentElement.getAttribute('data-theme') === 'dark' ? 'light' : 'dark');
@@ -4432,9 +5259,9 @@
     document.documentElement.setAttribute('data-theme', s.theme || 'dark');
     document.documentElement.setAttribute('data-density', s.density || 'comfortable');
     Icons.apply(document);
-    const tt = $('#themeToggle'); tt.dataset.iconDone = ''; tt.setAttribute('data-icon', (s.theme || 'dark') === 'dark' ? 'sun' : 'moon'); Icons.apply(tt);
+    ['#themeToggle', '#themeToggleHome'].forEach((sel) => { const tt = $(sel); if (!tt) return; tt.dataset.iconDone = ''; tt.innerHTML = ''; tt.setAttribute('data-icon', (s.theme || 'dark') === 'dark' ? 'sun' : 'moon'); Icons.apply(tt); });
     toggleBgfx(s.bgfx !== false);
-    buildWheel();
+    buildHome();
     const hash = (location.hash || '').replace('#', '');
     try {
       if (hash && hash !== 'home' && PAGES[hash]) {
@@ -4462,7 +5289,7 @@
     Store.syncFromCloud((changed) => {
       if (!changed) return;
       // reflete os dados novos: home (roda/alertas), sidebar e página atual
-      try { buildWheel(); } catch (e) {}
+      try { buildHome(); } catch (e) {}
       try { if (!$('#homeScreen').classList.contains('show') && PAGES[currentRoute]) { view.innerHTML = ''; PAGES[currentRoute](); } } catch (e) {}
       try { refreshSysPulse(); } catch (e) {}
     }).catch(() => {});

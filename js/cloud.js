@@ -17,7 +17,7 @@
   // Coleções sincronizadas (arrays de topo do Store). Ficam de fora:
   //  - vault (segredos: não expor em nuvem anônima)
   //  - infra/domains/dns (modelo aninhado; sync futuro)
-  const ENTITY_COLLECTIONS = ['certificates', 'labs', 'team', 'printers', 'commands', 'runbooks', 'inventory', 'licenses', 'phones', 'equipments', 'serviceOrders', 'sharepoint', 'webDomains', 'dnsRecords', 'history', 'parts'];
+  const ENTITY_COLLECTIONS = ['certificates', 'labs', 'team', 'printers', 'commands', 'runbooks', 'inventory', 'licenses', 'phones', 'equipments', 'serviceOrders', 'sharepoint', 'webDomains', 'dnsRecords', 'history', 'parts', 'pvChamados', 'pvClientes'];
   const SYNCED = ENTITY_COLLECTIONS.concat(['computers']);
   const SETTINGS_KEYS = ['prodDashboardUrl', 'guidelineUrl']; // do doc settings, só o que faz sentido compartilhar
 
