@@ -4448,7 +4448,7 @@
       </svg>
       ${HOME_AREAS.map((a, i) => { const st = HX.stats[i]; const alert = st.tone === 'warn' || st.tone === 'danger';
         return `<button class="hx-node" role="option" data-i="${i}" style="--a:${i * step}deg;--c:${a.color};--d:${i * 60}ms" aria-label="${esc(a.label)}">
-          <span class="hx-orb"><span class="hx-orb-i" data-icon="${a.icon}"></span>${alert ? `<span class="hx-flag t-${st.tone}">${esc(String(st.v))}</span>` : ''}</span>
+          <span class="hx-orb"><span class="hx-orb-glow" aria-hidden="true"></span><span class="hx-orb-i" data-icon="${a.icon}"></span>${alert ? `<span class="hx-flag t-${st.tone}">${esc(String(st.v))}</span>` : ''}</span>
           <span class="hx-lbl"><small>${String(i + 1).padStart(2, '0')}</small>${esc(a.label)}</span>
         </button>`; }).join('')}
       <div class="hx-hub" id="hxHub"><div class="hx-hub-in" id="hxHubIn"></div></div>`;
