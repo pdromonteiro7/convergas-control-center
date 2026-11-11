@@ -378,10 +378,6 @@ table.data td b, table.data td .cell-main { font-weight: 500; }
   .hx-keys { display: none; }
   .hx-foot { justify-content: center; padding-bottom: 18px; }
 }
-@media (prefers-reduced-motion: reduce) {
-  .view > *, .ind-grid > *, .mstat-grid > *, .qstat-grid > *, .sys-grid > *, .pvx-charts > *, .pvx-flow > *, .pvx-list > *,
-  .hx-ready .hx-dial, .hx-ready .hx-hub, .hx-ready .hx-node, .hx-aur, .fx-aur, .hx-ticks, .hx-r-dash, .hx-beam, .hx-hub::before, .hx-ix, .hx-top, .hx-intro, .hx-foot { animation: none !important; }
-}
 
 /* ---------- Acabamentos ---------- */
 h3 { letter-spacing: -.015em !important; font-weight: 600; }
@@ -452,7 +448,6 @@ h3 { letter-spacing: -.015em !important; font-weight: 600; }
   .hx-go:active { transform: scale(.97); }
   .hx-foot { flex-direction: column; gap: 14px; }
 }
-@media (prefers-reduced-motion: reduce) { .hx-node.on .hx-orb, .hx-node.on .hx-orb::before, .hx-node.on .hx-orb::after { animation: none !important; } }
 
 /* ---------- Home v4: acender e apagar devagar (fluidez nos dois sentidos) ----------
    Tudo por transição (não por keyframe), então ao tirar o cursor a luz e o ícone
@@ -534,7 +529,6 @@ html.no-webgl .hx-aur { display: block; }
 @keyframes rlBar { from { transform: translateX(-110%); } to { transform: translateX(260%); } }
 /* enquanto carrega, a página nova espera para entrar em cascata quando a tela some */
 body.rl-on .view > *, body.rl-on :is(.ind-grid, .mstat-grid, .qstat-grid, .sys-grid, .pvx-charts, .pvx-flow, .pvx-list, .cmd-grid, .lab-grid, .lic-grid, .mc-grid, .sp-grid, .dom-grid, .rb-grid, .bento) > * { animation-play-state: paused; }
-@media (prefers-reduced-motion: reduce) { .route-loader.show { animation: none; } .rl-arc, .rl-bar span, .rl-core img { animation: none; } }
 
 /* ---------- cursor com a logo da Convergas (ponta da chama = ponto do clique) ---------- */
 @media (hover: hover) and (pointer: fine) {

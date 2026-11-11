@@ -4420,7 +4420,9 @@
   ];
   const GUIDELINE = { area: 'guideline', ext: true };
   const HX = { sel: -1, cur: 0, vel: 0, target: 0, raf: null, leaving: false, touch: false, stats: [] };
-  const hxReduce = () => { try { return window.matchMedia('(prefers-reduced-motion: reduce)').matches; } catch (e) { return false; } };
+  // movimento controlado pela opção do app (Settings > Fundo animado). O "reduzir movimento" do
+  // Windows deixava fundo e carregamento parados para quem tem os efeitos de animação desligados.
+  const hxReduce = () => document.documentElement.classList.contains('fx-off');
 
   function buildHome() {
     const mount = $('#wheelMount'); if (!mount) return;
@@ -4667,7 +4669,7 @@ float n(vec2 p){vec2 i=floor(p),f=fract(p);vec2 u=f*f*(3.-2.*f);return mix(mix(h
 float fbm(vec2 p){float v=0.,a=.5;for(int i=0;i<5;i++){v+=a*n(p);p=p*2.03+vec2(1.7,9.2);a*=.5;}return v;}
 void main(){
   vec2 uv=gl_FragCoord.xy/r;vec2 p=uv;p.x*=r.x/r.y;
-  float T=t*.028;
+  float T=t*.05;p+=vec2(T*.5,-T*.2);
   vec2 q=vec2(fbm(p*1.5+vec2(0.,T)),fbm(p*1.5+vec2(5.2,1.3)-T*.8));
   vec2 w=vec2(fbm(p*1.3+2.2*q+vec2(1.7,9.2)+T*.6),fbm(p*1.3+2.2*q+vec2(8.3,2.8)-T*.5));
   float f=fbm(p*1.15+2.6*w);
@@ -4680,7 +4682,7 @@ void main(){
     col=mix(col,c4,smoothstep(.48,.92,w.y)*.42);
     col=mix(col,tint*.55,smoothstep(.58,.98,w.x)*.30);
     col+=vec3(.25,.80,.85)*pow(smoothstep(.6,1.,f),2.)*.38;
-    float l=abs(fract(f*8.+T*.6)-.5);col+=vec3(.45,.9,.95)*smoothstep(.035,0.,l)*.045;
+    float l=abs(fract(f*8.+T*.25)-.5);col+=vec3(.45,.9,.95)*smoothstep(.035,0.,l)*.045;
     col*=mix(.72,1.12,smoothstep(1.25,.15,length(uv-vec2(.5,.42))));
   } else {
     vec3 base=vec3(.952,.962,.978),c1=vec3(.83,.90,.975),c2=vec3(.74,.91,.94),c4=vec3(.89,.86,.975);
@@ -4689,7 +4691,7 @@ void main(){
     col=mix(col,c2,smoothstep(.55,1.05,length(q))*.55);
     col=mix(col,c4,smoothstep(.48,.92,w.y)*.5);
     col=mix(col,mix(base,tint,.35),smoothstep(.58,.98,w.x)*.35);
-    float l=abs(fract(f*8.+T*.6)-.5);col-=vec3(.10,.06,.02)*smoothstep(.035,0.,l)*.10;
+    float l=abs(fract(f*8.+T*.25)-.5);col-=vec3(.10,.06,.02)*smoothstep(.035,0.,l)*.10;
   }
   gl_FragColor=vec4(col,1.);
 }`;
@@ -4777,7 +4779,6 @@ void main(){
     if (RL.busy) return;
     if (route === currentRoute && !$('#homeScreen').classList.contains('show')) return;
     const area = areaHint || ROUTE_AREA[route] || currentArea;
-    if (hxReduce()) { go(route); return; }
     RL.busy = true;
     rlShow((NAV[area] || {}).label, TITLES[route] || '');
     const hc = HOME_AREAS.find((a) => a.area === area); if (hc) bgTint(hc.color);
