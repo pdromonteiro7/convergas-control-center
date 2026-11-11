@@ -4406,17 +4406,17 @@
      cursor (ângulo em relação ao centro), núcleo de vidro com o conteúdo da área e números ao vivo.
      Mouse, teclado (← → ↵ 1–6) e toque (1º toque seleciona, 2º entra). */
   const HOME_AREAS = [
-    { area: 'qualidade', label: 'Qualidade', icon: 'award', color: '#46D39A', desc: 'Certificados INMETRO, calibração, EPI e laboratórios parceiros.',
+    { area: 'qualidade', label: 'Qualidade', icon: 'award', color: '#46D39A', desc: 'Certificados, calibração, EPI e laboratórios.',
       stat: () => { const n = qaAlerts().length; return n ? { v: n, l: n === 1 ? 'alerta de validade' : 'alertas de validade', tone: 'warn' } : { v: '✓', l: 'Certificados em dia', tone: 'ok' }; } },
-    { area: 'pos-vendas', label: 'Pós-Vendas', icon: 'phone', color: '#F472B6', desc: 'Chamados de clientes, garantias e RNC — IATF 16949 e ISO 9001.', isNew: true,
+    { area: 'pos-vendas', label: 'Pós-Vendas', icon: 'phone', color: '#F472B6', desc: 'Chamados de clientes, garantias e RNC.', isNew: true,
       stat: () => { const s = pvStats(); if (s.atrasados.length) return { v: s.atrasados.length, l: `atrasado(s) · ${s.abertos.length} em aberto`, tone: 'danger' }; if (s.rncPend.length) return { v: s.rncPend.length, l: `aguardando RNC · ${s.abertos.length} em aberto`, tone: 'warn' }; return { v: s.abertos.length, l: s.abertos.length === 1 ? 'chamado em aberto' : 'chamados em aberto', tone: s.abertos.length ? 'info' : 'ok' }; } },
-    { area: 'manutencao', label: 'Manutenção', icon: 'wrench', color: '#F5B840', desc: 'Ordens de serviço, preventivas, máquinas, peças e calendário.',
+    { area: 'manutencao', label: 'Manutenção', icon: 'wrench', color: '#F5B840', desc: 'Ordens de serviço, preventivas e máquinas.',
       stat: () => { const n = Store.get('serviceOrders').filter((o) => o.kind === 'os' && !['finalizada', 'concluida', 'cancelada'].includes(o.status)).length; return { v: n, l: n === 1 ? 'ordem de serviço aberta' : 'ordens de serviço abertas', tone: n ? 'info' : 'ok' }; } },
-    { area: 'programacao', label: 'Programação', icon: 'calendar', color: '#A78BFA', desc: 'Atividades do PCP, pedidos, não conformidades e cadastros.',
+    { area: 'programacao', label: 'Programação', icon: 'calendar', color: '#A78BFA', desc: 'Atividades do PCP, pedidos e RNC internas.',
       stat: () => { const t = todayISO(); const l = Store.get('progAtividades') || []; const late = l.filter((a) => a.status !== 'done' && a.prazo && a.prazo < t).length; return late ? { v: late, l: 'atividade(s) atrasada(s)', tone: 'warn' } : { v: l.filter((a) => a.status !== 'done').length, l: 'atividades em andamento', tone: 'info' }; } },
-    { area: 'ti', label: 'T.I', icon: 'cpu', color: '#5CE1E6', desc: 'Computadores, impressoras, telefonia, licenças, comandos e cofre.',
+    { area: 'ti', label: 'T.I', icon: 'cpu', color: '#5CE1E6', desc: 'Computadores, impressoras, licenças e cofre.',
       stat: () => { const n = computeAlerts().length; return n ? { v: n, l: n === 1 ? 'alerta de infraestrutura' : 'alertas de infraestrutura', tone: 'warn' } : { v: '✓', l: 'Infraestrutura sem alertas', tone: 'ok' }; } },
-    { area: 'sistemas', label: 'Sistemas', icon: 'grid', color: '#3FA9F5', desc: 'Plataformas da Convergas: Homologa, App de produção e TV.',
+    { area: 'sistemas', label: 'Sistemas', icon: 'grid', color: '#3FA9F5', desc: 'Homologa, App de produção e painel da TV.',
       stat: () => ({ v: SISTEMAS.length, l: 'plataformas disponíveis', tone: 'info' }) },
   ];
   const GUIDELINE = { area: 'guideline', ext: true };
@@ -4487,12 +4487,10 @@
         <b class="hx-hub-t">Control Center</b>
         <p class="hx-hub-d">Passe o cursor pela roda ou use as setas para escolher uma área.</p>`;
     } else {
-      const a = HOME_AREAS[i], st = HX.stats[i] || {};
-      el.innerHTML = `<span class="hx-hub-k"><span class="hx-hub-ic" data-icon="${a.icon}"></span>${String(i + 1).padStart(2, '0')} / ${String(HOME_AREAS.length).padStart(2, '0')}${a.isNew ? '<em>Novo</em>' : ''}</span>
-        <b class="hx-hub-t">${esc(a.label)}</b>
-        <p class="hx-hub-d">${esc(a.desc)}</p>
-        <span class="hx-hub-s t-${st.tone || 'none'}"><b>${esc(String(st.v))}</b>${esc(st.l || '')}</span>
-        <span class="hx-hub-cta">Entrar <span data-icon="arrowUpRight"></span></span>`;
+      // minimalista: só o nome e a descrição da área
+      const a = HOME_AREAS[i];
+      el.innerHTML = `<b class="hx-hub-t">${esc(a.label)}</b>
+        <p class="hx-hub-d">${esc(a.desc)}</p>`;
     }
     Icons.apply(el);
     $$('.hx-hub-c', host).forEach((old) => { old.classList.add('out'); setTimeout(() => old.remove(), 260); });
@@ -4510,7 +4508,14 @@
     const scr = $('#homeScreen'); if (scr) scr.style.setProperty('--hx-sel', a.color);
     $$('#homeIndex .hx-ix').forEach((n) => n.classList.toggle('on', +n.dataset.i === i));
     mount.classList.add('has-sel');
-    $$('.hx-node', mount).forEach((n) => { const on = +n.dataset.i === i; n.classList.toggle('on', on); n.setAttribute('aria-selected', on ? 'true' : 'false'); });
+    $$('.hx-node', mount).forEach((n) => {
+      const on = +n.dataset.i === i; n.classList.toggle('on', on); n.setAttribute('aria-selected', on ? 'true' : 'false');
+      // onda de luz que sai do botão a cada seleção (reinicia a animação)
+      if (on && !hxReduce()) { n.classList.remove('burst'); void n.offsetWidth; n.classList.add('burst'); }
+    });
+    // celular: botão "Entrar" com o nome da área
+    const goBtn = $('#homeGo');
+    if (goBtn) { goBtn.style.setProperty('--c', a.color); $('b', goBtn).textContent = a.label; goBtn.classList.add('show'); }
     $$('.hx-seg', mount).forEach((s) => s.classList.toggle('on', +s.dataset.i === i));
     // ângulo alvo pelo caminho mais curto (a mola cuida do resto)
     const want = i * (360 / N);
@@ -4590,6 +4595,7 @@
   }
   setInterval(() => { if ($('#homeScreen').classList.contains('show')) homeClock(); }, 30000);
   const gl = $('#homeGuideline'); if (gl) gl.onclick = () => selectWheel(GUIDELINE);
+  const goHomeBtn = $('#homeGo'); if (goHomeBtn) goHomeBtn.onclick = () => hxEnter();
   const thHome = $('#themeToggleHome'); if (thHome) thHome.onclick = () => setTheme(document.documentElement.getAttribute('data-theme') === 'dark' ? 'light' : 'dark');
 
   function selectWheel(w) {
