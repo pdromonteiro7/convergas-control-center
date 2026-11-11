@@ -1,0 +1,159 @@
+{
+  "$comment": "Fonte da verdade das capacidades do Agent. Consumido pelo Agent (Fase 2) e pelo validador de Skills. Alterar aqui = alterar o Agent (release assinado). Doc humano: docs/CAPACIDADES.md",
+  "version": 1,
+  "paramTypes": ["string", "int", "bool"],
+  "capabilities": {
+    "probe.systemInfo": {
+      "category": "probe", "read": true, "requiresAdmin": false, "longRunning": false,
+      "params": {},
+      "returns": ["edition", "version", "build", "hostname", "uptimeSec", "arch"],
+      "errorCodes": ["probe.unavailable"]
+    },
+    "probe.listProcesses": {
+      "category": "probe", "read": true, "requiresAdmin": false, "longRunning": false,
+      "params": {
+        "filter": { "type": "string", "required": false },
+        "top": { "type": "int", "required": false, "default": 50 }
+      },
+      "returns": ["processes", "total"],
+      "errorCodes": ["probe.unavailable"]
+    },
+    "probe.getIpConfig": {
+      "category": "probe", "read": true, "requiresAdmin": false, "longRunning": false,
+      "params": {},
+      "returns": ["interfaces"],
+      "errorCodes": ["probe.unavailable"]
+    },
+    "probe.healthSnapshot": {
+      "category": "probe", "read": true, "requiresAdmin": false, "longRunning": false,
+      "params": {},
+      "returns": ["cpuPct", "ram", "disks", "net"],
+      "errorCodes": ["probe.unavailable"]
+    },
+    "network.flushDns": {
+      "category": "network", "read": false, "requiresAdmin": false, "longRunning": false,
+      "params": {},
+      "returns": ["ok"],
+      "errorCodes": ["network.flushFailed"]
+    },
+    "network.renewIp": {
+      "category": "network", "read": false, "requiresAdmin": false, "longRunning": false,
+      "params": {
+        "interface": { "type": "string", "required": false }
+      },
+      "returns": ["ok", "newIp"],
+      "errorCodes": ["network.noDhcp", "network.renewFailed"]
+    },
+    "network.winsockReset": {
+      "category": "network", "read": false, "requiresAdmin": true, "longRunning": false,
+      "params": {},
+      "returns": ["ok", "rebootRequired"],
+      "errorCodes": ["network.resetFailed"]
+    },
+    "network.ping": {
+      "category": "network", "read": true, "requiresAdmin": false, "longRunning": false,
+      "params": {
+        "target": { "type": "string", "required": true },
+        "count": { "type": "int", "required": false, "default": 4 }
+      },
+      "returns": ["sent", "received", "lostPct", "minMs", "avgMs", "maxMs"],
+      "errorCodes": ["network.unreachable", "network.dnsFail"]
+    },
+    "system.sfcScan": {
+      "category": "system", "read": false, "requiresAdmin": true, "longRunning": true,
+      "params": {},
+      "returns": ["result"],
+      "errorCodes": ["system.sfcUnrepairable"]
+    },
+    "system.dismRestoreHealth": {
+      "category": "system", "read": false, "requiresAdmin": true, "longRunning": true,
+      "params": {},
+      "returns": ["result"],
+      "errorCodes": ["system.noInternet", "system.dismFailed"]
+    },
+    "system.chkdsk": {
+      "category": "system", "read": false, "requiresAdmin": true, "longRunning": false,
+      "params": {
+        "drive": { "type": "string", "required": false, "default": "C:" },
+        "fix": { "type": "bool", "required": false, "default": true },
+        "scanSectors": { "type": "bool", "required": false, "default": true }
+      },
+      "returns": ["result"],
+      "errorCodes": ["system.chkdskFailed"]
+    },
+    "system.setWallpaper": {
+      "category": "system", "read": false, "requiresAdmin": false, "longRunning": false,
+      "params": {},
+      "returns": ["ok", "path"],
+      "errorCodes": []
+    },
+    "system.screenshot": {
+      "category": "system", "read": true, "requiresAdmin": false, "longRunning": false,
+      "params": {}, "returns": ["ok", "path", "size"], "errorCodes": []
+    },
+    "system.lock": {
+      "category": "system", "read": false, "requiresAdmin": false, "longRunning": false,
+      "params": {}, "returns": ["ok"], "errorCodes": []
+    },
+    "system.restart": {
+      "category": "system", "read": false, "requiresAdmin": true, "longRunning": false,
+      "params": {}, "returns": ["ok", "inSeconds"], "errorCodes": []
+    },
+    "system.shutdown": {
+      "category": "system", "read": false, "requiresAdmin": true, "longRunning": false,
+      "params": {}, "returns": ["ok", "inSeconds"], "errorCodes": []
+    },
+    "remote.getRustDeskId": {
+      "category": "remote", "read": true, "requiresAdmin": false, "longRunning": false,
+      "params": {}, "returns": ["installed", "id"], "errorCodes": ["remote.notInstalled"]
+    },
+    "system.rebootPrompt": {
+      "category": "system", "read": false, "requiresAdmin": false, "longRunning": false,
+      "params": {
+        "reason": { "type": "string", "required": true },
+        "delaySeconds": { "type": "int", "required": false, "default": 0 }
+      },
+      "returns": ["accepted"],
+      "errorCodes": []
+    },
+    "service.restart": {
+      "category": "service", "read": false, "requiresAdmin": true, "longRunning": false,
+      "params": {
+        "serviceName": { "type": "string", "required": true, "enum": ["Spooler"] }
+      },
+      "returns": ["ok", "state"],
+      "errorCodes": ["service.notWhitelisted", "service.restartFailed"]
+    },
+    "office.repair": {
+      "category": "office", "read": false, "requiresAdmin": false, "longRunning": true,
+      "params": {
+        "mode": { "type": "string", "required": false, "default": "quick", "enum": ["quick", "online"] }
+      },
+      "returns": ["ok"],
+      "errorCodes": ["office.notInstalled", "office.repairFailed"]
+    },
+    "policy.gpUpdate": {
+      "category": "policy", "read": false, "requiresAdmin": false, "longRunning": false,
+      "params": {
+        "force": { "type": "bool", "required": false, "default": true }
+      },
+      "returns": ["ok", "logoffRequired", "rebootRequired"],
+      "errorCodes": ["policy.updateFailed"]
+    },
+    "policy.applyWebBlock": {
+      "category": "policy", "read": false, "requiresAdmin": true, "longRunning": false,
+      "params": {
+        "domains": { "type": "string", "required": true }
+      },
+      "returns": ["blocked"],
+      "errorCodes": []
+    },
+    "policy.removeWebBlock": {
+      "category": "policy", "read": false, "requiresAdmin": true, "longRunning": false,
+      "params": {},
+      "returns": ["ok"],
+      "errorCodes": []
+    }
+  },
+  "commonErrorCodes": ["denied", "timeout", "cancelled", "unexpected"]
+}

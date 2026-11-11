@@ -1,0 +1,180 @@
+syntax = "proto3";
+
+package convergascontrol.agent.v1;
+
+option csharp_namespace = "ConvergasControl.Agent.V1";
+
+// ============================================================================
+// ConvergasControl — contrato IPC entre a UI (Tauri) e o Agent (Windows Service).
+// Transporte: gRPC sobre Named Pipe local, com ACL restrita ao usuário interativo.
+// O Agent é o ÚNICO que executa. A UI apenas lista, pede execução e acompanha.
+// ============================================================================
+
+service AgentService {
+  // ---- Catálogo de Skills ----
+  rpc ListSkills (ListSkillsRequest) returns (ListSkillsResponse);
+  rpc GetSkill (GetSkillRequest) returns (Skill);
+
+  // ---- Execução (server streaming: progresso ao vivo) ----
+  // A UI dispara e recebe um fluxo: Accepted -> Stage/Log (n) -> Result (1).
+  rpc ExecuteSkill (ExecuteSkillRequest) returns (stream ExecutionEvent);
+
+  // Cancela uma execução em andamento (Skills longas: SFC, DISM).
+  rpc CancelExecution (CancelExecutionRequest) returns (CancelExecutionResponse);
+
+  // ---- Saúde do PC (server streaming contínuo) — usado pela área "Saúde" (Fase 3) ----
+  rpc StreamHealth (StreamHealthRequest) returns (stream HealthSnapshot);
+
+  // ---- Metadados do Agent ----
+  rpc GetAgentInfo (GetAgentInfoRequest) returns (AgentInfo);
+}
+
+// ---------------------------------------------------------------------------
+// Catálogo
+// ---------------------------------------------------------------------------
+
+message ListSkillsRequest {
+  string category = 1;  // opcional: filtra por categoria
+  string query = 2;     // opcional: busca textual
+}
+
+message ListSkillsResponse {
+  repeated Skill skills = 1;
+}
+
+message GetSkillRequest {
+  string skill_id = 1;
+}
+
+// Espelha o manifesto skills/*.json (validado por skill.schema.json).
+message Skill {
+  string id = 1;
+  string name = 2;
+  string category = 3;
+  string icon = 4;
+  string description = 5;
+  bool requires_admin = 6;
+  int32 estimated_seconds = 7;
+  repeated SkillStep steps = 8;
+  string expected = 9;
+  map<string, string> on_error = 10;  // codigo -> mensagem humana (inclui "default")
+}
+
+message SkillStep {
+  string capability = 1;
+  string params_json = 2;  // JSON dos params tipados (validado contra o capability-registry)
+}
+
+// ---------------------------------------------------------------------------
+// Execução
+// ---------------------------------------------------------------------------
+
+message ExecuteSkillRequest {
+  string skill_id = 1;
+  // Client-generated: idempotência + alvo do CancelExecution.
+  string execution_id = 2;
+  // Overrides de params fornecidos pelo usuário (ex.: alvo do ping). JSON. Opcional.
+  string params_override_json = 3;
+  // Confirmação explícita para Skills com requires_admin/destrutivas.
+  bool admin_confirmed = 4;
+}
+
+// Fases da execução (o "iniciando / executando / finalizado" do produto).
+enum ExecutionPhase {
+  EXECUTION_PHASE_UNSPECIFIED = 0;
+  EXECUTION_PHASE_INITIALIZING = 1;  // "iniciando..."
+  EXECUTION_PHASE_RUNNING = 2;       // "executando..."
+  EXECUTION_PHASE_FINALIZING = 3;    // "finalizando..."
+}
+
+enum ExecutionStatus {
+  EXECUTION_STATUS_UNSPECIFIED = 0;
+  EXECUTION_STATUS_SUCCESS = 1;
+  EXECUTION_STATUS_FAILED = 2;
+  EXECUTION_STATUS_CANCELLED = 3;
+}
+
+// Fluxo de eventos de uma execução (server streaming).
+message ExecutionEvent {
+  oneof event {
+    Accepted accepted = 1;
+    Stage stage = 2;
+    LogLine log = 3;
+    Result result = 4;
+  }
+}
+
+// 1º evento: o Agent aceitou e vai começar.
+message Accepted {
+  string execution_id = 1;
+  string skill_id = 2;
+  int32 total_steps = 3;
+  bool requires_admin = 4;
+}
+
+// Progresso: mudança de fase/passo (0..n).
+message Stage {
+  ExecutionPhase phase = 1;
+  int32 step_index = 2;       // qual passo (0-based) dentro de steps[]
+  string capability = 3;      // capacidade em execução
+  int32 percent = 4;          // 0..100, -1 se indeterminado
+  string message = 5;         // texto humano ("Reiniciando spooler…")
+}
+
+// Linha de saída ao vivo (SFC/DISM cospem progresso textual).
+message LogLine {
+  string text = 1;
+}
+
+// Evento final (1, encerra o stream).
+message Result {
+  ExecutionStatus status = 1;
+  string human_message = 2;   // do campo expected/onError da Skill
+  string result_json = 3;     // dados estruturados (ipconfig, processos, ping…) quando houver
+  string error_code = 4;      // vazio se sucesso
+  bool reboot_required = 5;
+}
+
+message CancelExecutionRequest {
+  string execution_id = 1;
+}
+
+message CancelExecutionResponse {
+  bool cancelled = 1;
+}
+
+// ---------------------------------------------------------------------------
+// Saúde do PC
+// ---------------------------------------------------------------------------
+
+message StreamHealthRequest {
+  int32 interval_ms = 1;  // periodicidade da amostragem (default do Agent se 0)
+}
+
+message HealthSnapshot {
+  double cpu_pct = 1;
+  int64 ram_used_mb = 2;
+  int64 ram_total_mb = 3;
+  repeated DiskUsage disks = 4;
+  double net_up_kbps = 5;
+  double net_down_kbps = 6;
+}
+
+message DiskUsage {
+  string drive = 1;
+  int64 free_gb = 2;
+  int64 total_gb = 3;
+}
+
+// ---------------------------------------------------------------------------
+// Agent
+// ---------------------------------------------------------------------------
+
+message GetAgentInfoRequest {}
+
+message AgentInfo {
+  string version = 1;
+  string catalog_version = 2;  // versão do catálogo de Skills carregado
+  bool elevated_available = 3; // o serviço consegue executar Skills admin?
+  int32 skills_loaded = 4;
+}

@@ -1,0 +1,18 @@
+{
+  "id": "sys.restart-spooler",
+  "name": "Reiniciar spooler de impressão",
+  "category": "Sistema",
+  "icon": "printer",
+  "description": "Reinicia o serviço de spooler e destrava a fila de impressão — resolve impressoras paradas e documentos presos que não saem nem somem.",
+  "requiresAdmin": true,
+  "estimatedSeconds": 8,
+  "steps": [
+    { "capability": "service.restart", "params": { "serviceName": "Spooler" } }
+  ],
+  "expected": "Spooler de impressão reiniciado.",
+  "onError": {
+    "service.restartFailed": "Não foi possível reiniciar o spooler de impressão.",
+    "denied": "Esta ação precisa de privilégios de administrador.",
+    "default": "Falha ao reiniciar o spooler. Veja o log."
+  }
+}

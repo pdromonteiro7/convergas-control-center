@@ -1,0 +1,16 @@
+{
+  "id": "sys.screenshot",
+  "name": "Capturar tela",
+  "category": "Ferramentas",
+  "icon": "monitor",
+  "description": "Tira uma captura da tela atual desta máquina e salva em arquivo — útil para suporte à distância.",
+  "requiresAdmin": false,
+  "estimatedSeconds": 4,
+  "steps": [
+    { "capability": "system.screenshot" }
+  ],
+  "expected": "Captura de tela salva.",
+  "onError": {
+    "default": "Não foi possível capturar a tela. Veja o log."
+  }
+}

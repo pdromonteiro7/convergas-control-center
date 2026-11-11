@@ -1,0 +1,19 @@
+{
+  "id": "sys.dism-restore",
+  "name": "Reparar imagem do Windows (DISM)",
+  "category": "Sistema",
+  "icon": "wrench",
+  "description": "Repara a imagem base de componentes do Windows baixando arquivos saudáveis do Windows Update. É o passo anterior ao SFC quando ele sozinho não resolve. Precisa de internet.",
+  "requiresAdmin": true,
+  "estimatedSeconds": 600,
+  "steps": [
+    { "capability": "system.dismRestoreHealth", "params": {} }
+  ],
+  "expected": "Imagem do Windows reparada. Rode o SFC em seguida para finalizar.",
+  "onError": {
+    "system.noInternet": "O DISM precisa de internet para baixar os arquivos de reparo.",
+    "system.dismFailed": "Não foi possível reparar a imagem do Windows.",
+    "denied": "Esta ação precisa de privilégios de administrador.",
+    "default": "Falha ao reparar a imagem do Windows. Veja o log."
+  }
+}

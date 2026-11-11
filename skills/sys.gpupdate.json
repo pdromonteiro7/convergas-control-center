@@ -1,0 +1,17 @@
+{
+  "id": "sys.gpupdate",
+  "name": "Aplicar políticas de grupo (GPO)",
+  "category": "Sistema",
+  "icon": "settings",
+  "description": "Força a aplicação imediata das políticas de grupo (GPO) e configurações do domínio/Intune, sem esperar o ciclo automático. Pode pedir logoff ou reinício se alguma política exigir.",
+  "requiresAdmin": false,
+  "estimatedSeconds": 30,
+  "steps": [
+    { "capability": "policy.gpUpdate", "params": { "force": true } }
+  ],
+  "expected": "Políticas de grupo aplicadas.",
+  "onError": {
+    "policy.updateFailed": "Não foi possível aplicar as políticas de grupo.",
+    "default": "Falha ao aplicar as políticas de grupo. Veja o log."
+  }
+}

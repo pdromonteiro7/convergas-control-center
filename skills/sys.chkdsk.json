@@ -1,0 +1,18 @@
+{
+  "id": "sys.chkdsk",
+  "name": "Verificar disco (CHKDSK)",
+  "category": "Sistema",
+  "icon": "server",
+  "description": "Examina o sistema de arquivos e a superfície do disco em busca de erros lógicos e setores defeituosos, corrigindo o que for possível. Como o C: está em uso, a verificação é agendada para o próximo reinício.",
+  "requiresAdmin": true,
+  "estimatedSeconds": 20,
+  "steps": [
+    { "capability": "system.chkdsk", "params": { "drive": "C:", "fix": true, "scanSectors": true } }
+  ],
+  "expected": "Verificação de disco agendada para o próximo reinício.",
+  "onError": {
+    "system.chkdskFailed": "Não foi possível agendar a verificação de disco.",
+    "denied": "Esta ação precisa de privilégios de administrador.",
+    "default": "Falha ao verificar o disco. Veja o log."
+  }
+}

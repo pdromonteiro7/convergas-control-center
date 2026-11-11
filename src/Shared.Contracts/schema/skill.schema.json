@@ -1,0 +1,59 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://convergas.com.br/schemas/skill.schema.json",
+  "title": "ConvergasControl Skill",
+  "description": "Manifesto declarativo de uma Skill. Referencia apenas capacidades do capability-registry.json — nunca texto de comando livre.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["id", "name", "category", "icon", "description", "requiresAdmin", "estimatedSeconds", "steps", "expected", "onError"],
+  "properties": {
+    "id": {
+      "type": "string",
+      "pattern": "^[a-z]+\\.[a-z0-9-]+$",
+      "description": "Único, namespaced por área. Ex.: net.flush-dns"
+    },
+    "name": { "type": "string", "minLength": 1 },
+    "category": {
+      "type": "string",
+      "enum": ["Rede", "Sistema", "Diagnóstico", "Office", "Segurança", "Impressoras", "Limpeza", "Ferramentas", "Remoto"]
+    },
+    "icon": { "type": "string", "minLength": 1 },
+    "description": { "type": "string", "minLength": 1 },
+    "requiresAdmin": { "type": "boolean" },
+    "estimatedSeconds": { "type": "integer", "minimum": 0 },
+    "steps": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["capability"],
+        "properties": {
+          "capability": {
+            "type": "string",
+            "enum": [
+              "probe.systemInfo", "probe.listProcesses", "probe.getIpConfig", "probe.healthSnapshot",
+              "network.flushDns", "network.renewIp", "network.winsockReset", "network.ping",
+              "system.sfcScan", "system.dismRestoreHealth", "system.chkdsk", "system.rebootPrompt", "system.setWallpaper",
+              "system.screenshot", "system.lock", "system.restart", "system.shutdown", "remote.getRustDeskId",
+              "service.restart", "office.repair", "policy.gpUpdate"
+            ]
+          },
+          "params": { "type": "object" }
+        }
+      }
+    },
+    "expected": { "type": "string", "minLength": 1 },
+    "onError": {
+      "type": "object",
+      "required": ["default"],
+      "properties": { "default": { "type": "string", "minLength": 1 } },
+      "additionalProperties": { "type": "string" },
+      "description": "Mapeia código de erro da capacidade → mensagem humana. 'default' é obrigatório."
+    },
+    "signature": {
+      "type": "string",
+      "description": "Assinatura do manifesto (Fase 5). Ausente enquanto local."
+    }
+  }
+}

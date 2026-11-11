@@ -1,0 +1,17 @@
+{
+  "id": "net.show-ip",
+  "name": "Ver configuração de rede",
+  "category": "Rede",
+  "icon": "activity",
+  "description": "Mostra os dados completos de rede de todas as interfaces: IP, máscara, gateway, servidores DNS, endereço físico (MAC) e se está usando DHCP.",
+  "requiresAdmin": false,
+  "estimatedSeconds": 3,
+  "steps": [
+    { "capability": "probe.getIpConfig", "params": {} }
+  ],
+  "expected": "Configuração de rede coletada.",
+  "onError": {
+    "probe.unavailable": "Não foi possível ler a configuração de rede.",
+    "default": "Falha ao obter a configuração de rede. Veja o log."
+  }
+}

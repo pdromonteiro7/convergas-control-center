@@ -1,0 +1,17 @@
+{
+  "id": "diag.winver",
+  "name": "Ver versão do Windows",
+  "category": "Diagnóstico",
+  "icon": "monitor",
+  "description": "Mostra a edição e o número de build/versão exatos do Windows instalado — essencial para suporte e compatibilidade (ex.: confirmar 22H2, 23H2 antes de instalar um software ou abrir um chamado).",
+  "requiresAdmin": false,
+  "estimatedSeconds": 2,
+  "steps": [
+    { "capability": "probe.systemInfo", "params": {} }
+  ],
+  "expected": "Informações do Windows coletadas.",
+  "onError": {
+    "probe.unavailable": "Não foi possível obter a versão do Windows.",
+    "default": "Falha ao obter a versão do Windows. Veja o log."
+  }
+}

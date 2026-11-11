@@ -1,0 +1,16 @@
+{
+  "id": "sys.lock",
+  "name": "Bloquear a estação",
+  "category": "Ferramentas",
+  "icon": "lock",
+  "description": "Bloqueia o Windows (leva para a tela de login) sem encerrar a sessão. Útil ao se ausentar.",
+  "requiresAdmin": false,
+  "estimatedSeconds": 2,
+  "steps": [
+    { "capability": "system.lock" }
+  ],
+  "expected": "Estação bloqueada.",
+  "onError": {
+    "default": "Não foi possível bloquear a estação. Veja o log."
+  }
+}

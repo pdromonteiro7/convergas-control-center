@@ -1,0 +1,18 @@
+{
+  "id": "net.renew-ip",
+  "name": "Liberar e renovar IP",
+  "category": "Rede",
+  "icon": "refresh",
+  "description": "Devolve o IP atual ao servidor DHCP e solicita um novo — resolve conflitos de IP e máquinas que não pegam endereço da rede (aparece 169.254.x.x). A conexão cai por alguns segundos durante o processo.",
+  "requiresAdmin": false,
+  "estimatedSeconds": 15,
+  "steps": [
+    { "capability": "network.renewIp", "params": {} }
+  ],
+  "expected": "IP renovado com sucesso.",
+  "onError": {
+    "network.noDhcp": "A rede não tem servidor DHCP — o IP pode estar configurado manualmente.",
+    "network.renewFailed": "Não foi possível renovar o IP.",
+    "default": "Falha ao renovar o IP. Veja o log."
+  }
+}

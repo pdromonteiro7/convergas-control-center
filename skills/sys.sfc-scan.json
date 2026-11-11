@@ -1,0 +1,18 @@
+{
+  "id": "sys.sfc-scan",
+  "name": "Verificar e reparar sistema (SFC)",
+  "category": "Sistema",
+  "icon": "shield",
+  "description": "Verifica a integridade dos arquivos protegidos do Windows e repara automaticamente os corrompidos, usando cópias saudáveis em cache. Use em erros aleatórios, travamentos ou recursos do Windows que param de funcionar.",
+  "requiresAdmin": true,
+  "estimatedSeconds": 600,
+  "steps": [
+    { "capability": "system.sfcScan", "params": {} }
+  ],
+  "expected": "Verificação concluída. Se algum arquivo estava corrompido, foi reparado.",
+  "onError": {
+    "system.sfcUnrepairable": "O SFC encontrou problemas que não conseguiu reparar sozinho. Execute a Skill \"Reparar imagem do Windows (DISM)\" e depois rode o SFC novamente.",
+    "denied": "Esta ação precisa de privilégios de administrador.",
+    "default": "Não foi possível concluir a verificação do sistema. Veja o log."
+  }
+}

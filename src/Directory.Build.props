@@ -1,0 +1,13 @@
+<Project>
+  <!-- Configuração comum a todos os projetos .NET do ConvergasControl -->
+  <PropertyGroup>
+    <TargetFramework>net9.0-windows</TargetFramework>
+    <LangVersion>latest</LangVersion>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <TreatWarningsAsErrors>false</TreatWarningsAsErrors>
+    <InvariantGlobalization>true</InvariantGlobalization>
+    <Product>ConvergasControl</Product>
+    <Company>Convergas</Company>
+  </PropertyGroup>
+</Project>

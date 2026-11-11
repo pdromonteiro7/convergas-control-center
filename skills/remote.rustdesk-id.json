@@ -1,0 +1,17 @@
+{
+  "id": "remote.rustdesk-id",
+  "name": "Ver ID de acesso remoto (RustDesk)",
+  "category": "Remoto",
+  "icon": "external",
+  "description": "Mostra o ID do RustDesk desta máquina, para acesso remoto de suporte. Requer o RustDesk instalado.",
+  "requiresAdmin": false,
+  "estimatedSeconds": 4,
+  "steps": [
+    { "capability": "remote.getRustDeskId" }
+  ],
+  "expected": "ID de acesso remoto obtido.",
+  "onError": {
+    "remote.notInstalled": "O RustDesk não está instalado nesta máquina. Instale-o para habilitar o acesso remoto.",
+    "default": "Não foi possível obter o ID do RustDesk. Veja o log."
+  }
+}

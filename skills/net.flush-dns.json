@@ -1,0 +1,17 @@
+{
+  "id": "net.flush-dns",
+  "name": "Limpar Cache DNS",
+  "category": "Rede",
+  "icon": "globe",
+  "description": "Apaga o cache local de nomes (DNS), forçando o Windows a consultar os servidores DNS novamente. Corrige sites que não abrem mesmo com a internet funcionando, ou logo após apontar um domínio novo.",
+  "requiresAdmin": false,
+  "estimatedSeconds": 5,
+  "steps": [
+    { "capability": "network.flushDns", "params": {} }
+  ],
+  "expected": "Cache DNS limpo com sucesso.",
+  "onError": {
+    "network.flushFailed": "Não foi possível limpar o cache DNS.",
+    "default": "Falha ao limpar o cache DNS. Veja o log."
+  }
+}

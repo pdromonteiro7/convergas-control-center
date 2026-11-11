@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="pt-BR" data-theme="dark" data-density="comfortable">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Convergas · Control Center</title>
+<meta name="app-build" content="2026-07-16-pdfviewer2" />
+<meta name="description" content="Convergas Control Center — Qualidade e T.I. Single source of truth da operação." />
+<link rel="icon" href="assets/logo-icone.png" />
+<link rel="stylesheet" href="css/fonts.css" />
+<link rel="stylesheet" href="css/styles.css" />
+</head>
+<body class="booting">
+<canvas id="bgfx" aria-hidden="true"></canvas>
+
+<div class="app-shell">
+  <!-- ===== SIDEBAR ===== -->
+  <aside class="side">
+    <div class="side-card">
+      <button class="brand" id="brandHome" title="Voltar à Home">
+        <span class="flame"><img src="assets/logo-icone.png" alt="Convergas" /></span>
+        <span class="bt">
+          <span class="nm">Convergas</span>
+          <span class="tg-row"><span class="tg">CONTROL CENTER</span><span class="brand-area" id="brandArea">T.I</span></span>
+        </span>
+      </button>
+
+      <nav class="nav" id="nav"><!-- preenchido por área --></nav>
+
+      <div class="side-foot">
+        <button class="home-link" id="homeLink"><span data-icon="home"></span>Trocar de área</button>
+        <div class="sys-pulse" id="sysPulse">
+          <span class="pulse-dot"></span>
+          <span class="pulse-tx">Sistema operacional</span>
+        </div>
+        <span class="side-ver">v1.0 · MVP</span>
+      </div>
+    </div>
+  </aside>
+
+  <!-- ===== MAIN ===== -->
+  <main class="main">
+    <header class="topbar">
+      <button class="tb-mini menu-btn" id="menuBtn" aria-label="Menu" data-icon="menu"></button>
+      <div class="tb-session" title="Setor atual">
+        <span class="tb-dot"></span>
+        <span class="tb-area" id="crumbRoot">Control Center</span>
+        <span class="tb-page" id="crumbCur" hidden></span>
+      </div>
+      <button class="tb-home" id="tbHome" aria-label="Voltar à Home" title="Voltar à Home" data-icon="home"></button>
+      <button class="tb-mini tb-fs" id="fsToggle" aria-label="Tela cheia" title="Tela cheia" data-icon="maximize"></button>
+      <button class="tb-mini tb-theme" id="themeToggle" aria-label="Alternar tema" data-icon="moon"></button>
+    </header>
+
+    <div class="view" id="view"><!-- pages render here --></div>
+  </main>
+</div>
+
+<!-- backdrop for mobile sidebar -->
+<div class="scrim" id="scrim"></div>
+
+<!-- ===== MODAL ROOT ===== -->
+<div class="modal-root" id="modalRoot" aria-hidden="true">
+  <div class="modal-card" id="modalCard" role="dialog" aria-modal="true"></div>
+</div>
+
+<!-- ===== HOME (roda de áreas, estilo GTA) ===== -->
+<div class="home-screen" id="homeScreen" aria-hidden="true">
+  <header class="home-head">
+    <span class="home-logo"><img src="assets/logo-icone.png" alt="Convergas" /></span>
+    <div class="home-tt">
+      <h1>Control Center</h1>
+      <p>Convergas · Qualidade e T.I</p>
+    </div>
+  </header>
+  <button class="home-fs" id="fsToggleHome" aria-label="Tela cheia" title="Tela cheia" data-icon="maximize"></button>
+
+  <div class="home-stage" id="homeStage">
+    <aside class="home-info" id="homeInfo" aria-live="polite"><!-- preview da área sob o cursor --></aside>
+    <div class="wheel" id="wheelMount"><!-- roda construída via JS (desktop) --></div>
+  </div>
+
+  <!-- versão mobile: grade de cards (populada via JS) -->
+  <div class="home-cards" id="homeCards"><!-- cards de área no celular --></div>
+
+  <!-- redes sociais + site (canto inferior direito) -->
+  <div class="home-social">
+    <a href="https://www.instagram.com/convergasfuelsystems/" target="_blank" rel="noopener noreferrer" title="Instagram" aria-label="Instagram da Convergas"><span data-icon="instagram"></span></a>
+    <a href="https://br.linkedin.com/company/convergas" target="_blank" rel="noopener noreferrer" title="LinkedIn" aria-label="LinkedIn da Convergas"><span data-icon="linkedin"></span></a>
+    <a href="https://www.convergas.com.br/" target="_blank" rel="noopener noreferrer" title="Site da Convergas" aria-label="Site da Convergas"><span data-icon="globe"></span></a>
+  </div>
+</div>
+
+<!-- ===== MOBILE NAV — tab bar flutuante + bottom sheet (só no celular) ===== -->
+<nav class="mnav" id="mnav" aria-label="Navegação rápida"></nav>
+<div class="msheet-scrim" id="msheetScrim" aria-hidden="true"></div>
+<section class="msheet" id="msheet" role="dialog" aria-modal="true" aria-hidden="true">
+  <span class="msheet-grab" aria-hidden="true"></span>
+  <div class="msheet-body" id="msheetBody"></div>
+</section>
+
+<!-- ===== TOASTS ===== -->
+<div class="toast-wrap" id="toastWrap"></div>
+
+<script src="js/icons.js"></script>
+<script src="js/supabase.js"></script>
+<script src="js/config.js"></script>
+<script src="js/cloud.js"></script>
+<script src="js/store.js"></script>
+<script src="js/app.js"></script>
+</body>
+</html>

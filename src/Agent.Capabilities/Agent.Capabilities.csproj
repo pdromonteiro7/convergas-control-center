@@ -1,0 +1,22 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <RootNamespace>ConvergasControl.Agent.Capabilities</RootNamespace>
+    <AssemblyName>ConvergasControl.Agent.Capabilities</AssemblyName>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- reiniciar serviços do Windows (service.restart) -->
+    <PackageReference Include="System.ServiceProcess.ServiceController" Version="9.0.0" />
+    <!-- JSON -->
+    <PackageReference Include="System.Text.Json" Version="9.0.0" />
+    <!-- gerar o papel de parede corporativo -->
+    <PackageReference Include="System.Drawing.Common" Version="9.0.0" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- fonte da verdade das capacidades: embutida no assembly -->
+    <EmbeddedResource Include="..\Shared.Contracts\schema\capability-registry.json" Link="capability-registry.json" />
+  </ItemGroup>
+
+</Project>

@@ -1,0 +1,8 @@
+# pasta temporária de screenshots (Chrome headless) — nunca deve ir pro deploy
+_shot/
+# fontes do app desktop e artefatos de build (o site estático não usa)
+src/
+dist/
+**/bin/
+**/obj/
+node_modules/

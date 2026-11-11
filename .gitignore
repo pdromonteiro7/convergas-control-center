@@ -1,0 +1,20 @@
+# Vercel
+.vercel
+
+# Dependências
+node_modules/
+
+# Artefatos de build do app desktop (.NET) — gerados por build/publish.ps1
+dist/
+**/bin/
+**/obj/
+
+# Pasta temporária de screenshots (Chrome headless)
+_shot/
+
+# Conteúdo estático pesado (PDFs de certificados) — vive no PC, servido pelo app
+assets/certs/
+
+# Sistema
+Thumbs.db
+.DS_Store

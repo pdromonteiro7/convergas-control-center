@@ -1,0 +1,16 @@
+{
+  "id": "sys.set-wallpaper",
+  "name": "Aplicar papel de parede corporativo",
+  "category": "Sistema",
+  "icon": "monitor",
+  "description": "Gera e aplica o papel de parede padrão da Convergas nesta máquina. Padroniza a identidade visual da frota.",
+  "requiresAdmin": false,
+  "estimatedSeconds": 5,
+  "steps": [
+    { "capability": "system.setWallpaper" }
+  ],
+  "expected": "Papel de parede corporativo aplicado.",
+  "onError": {
+    "default": "Não foi possível aplicar o papel de parede. Veja o log."
+  }
+}

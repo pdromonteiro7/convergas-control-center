@@ -1,0 +1,18 @@
+{
+  "id": "diag.ping",
+  "name": "Testar conectividade (ping)",
+  "category": "Diagnóstico",
+  "icon": "activity",
+  "description": "Envia pacotes a um host e mede se ele responde e com qual latência — confirma se a internet ou um servidor estão acessíveis. Faz uma quantidade finita de testes e mostra a estatística (diferente do ping contínuo).",
+  "requiresAdmin": false,
+  "estimatedSeconds": 8,
+  "steps": [
+    { "capability": "network.ping", "params": { "target": "8.8.8.8", "count": 4 } }
+  ],
+  "expected": "Teste de conectividade concluído.",
+  "onError": {
+    "network.unreachable": "O destino não respondeu — pode estar fora do ar ou sem rota.",
+    "network.dnsFail": "Não foi possível resolver o endereço do destino.",
+    "default": "Falha ao testar a conectividade. Veja o log."
+  }
+}

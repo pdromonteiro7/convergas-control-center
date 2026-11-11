@@ -1,0 +1,33 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <RootNamespace>ConvergasControl.Agent</RootNamespace>
+    <AssemblyName>ConvergasControl.Agent</AssemblyName>
+    <UserSecretsId>convergascontrol-agent</UserSecretsId>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Grpc.AspNetCore" Version="2.67.0" />
+    <PackageReference Include="Microsoft.Extensions.Hosting.WindowsServices" Version="9.0.0" />
+    <PackageReference Include="Microsoft.Data.Sqlite" Version="9.0.0" />
+    <PackageReference Include="Microsoft.Diagnostics.Tracing.TraceEvent" Version="3.1.16" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Agent.Capabilities\Agent.Capabilities.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- contrato gRPC: gera o servidor a partir do .proto compartilhado -->
+    <Protobuf Include="..\Shared.Contracts\proto\agent.v1.proto" GrpcServices="Server" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- catálogo de Skills copiado para a saída (carregado em runtime) -->
+    <Content Include="..\..\skills\*.json" Link="skills\%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" />
+    <!-- dados reais para o seed inicial (já incluído como Content pelo SDK; só marcamos p/ copiar) -->
+    <Content Update="seed\seed.json" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
+</Project>

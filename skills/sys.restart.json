@@ -1,0 +1,17 @@
+{
+  "id": "sys.restart",
+  "name": "Reiniciar o computador",
+  "category": "Sistema",
+  "icon": "refresh",
+  "description": "Reinicia o Windows com 60 segundos de aviso na tela, para o usuário salvar o trabalho. Pode ser cancelado com 'shutdown /a'.",
+  "requiresAdmin": true,
+  "estimatedSeconds": 5,
+  "steps": [
+    { "capability": "system.restart" }
+  ],
+  "expected": "Reinício agendado (60s). O usuário foi avisado.",
+  "onError": {
+    "denied": "Esta ação precisa de privilégios de administrador.",
+    "default": "Não foi possível agendar o reinício. Veja o log."
+  }
+}

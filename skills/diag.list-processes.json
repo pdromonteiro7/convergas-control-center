@@ -1,0 +1,17 @@
+{
+  "id": "diag.list-processes",
+  "name": "Listar processos",
+  "category": "Diagnóstico",
+  "icon": "list",
+  "description": "Lista os processos em execução com PID e uso de memória de cada um — útil para identificar programas travados ou pesados.",
+  "requiresAdmin": false,
+  "estimatedSeconds": 3,
+  "steps": [
+    { "capability": "probe.listProcesses", "params": { "top": 50 } }
+  ],
+  "expected": "Lista de processos coletada.",
+  "onError": {
+    "probe.unavailable": "Não foi possível listar os processos.",
+    "default": "Falha ao listar processos. Veja o log."
+  }
+}

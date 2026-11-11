@@ -1,0 +1,19 @@
+{
+  "id": "net.winsock-reset",
+  "name": "Reset de rede (Winsock)",
+  "category": "Rede",
+  "icon": "refresh",
+  "description": "Restaura o catálogo Winsock (camada de sockets do Windows) ao padrão de fábrica. Resolve conexões presas, erros de proxy/LSP e internet que parou após VPN ou antivírus. Exige reinício para aplicar.",
+  "requiresAdmin": true,
+  "estimatedSeconds": 10,
+  "steps": [
+    { "capability": "network.winsockReset", "params": {} },
+    { "capability": "system.rebootPrompt", "params": { "reason": "Aplicar o reset da pilha de rede" } }
+  ],
+  "expected": "Pilha de rede restaurada. Reinicie o computador para aplicar.",
+  "onError": {
+    "network.resetFailed": "Não foi possível restaurar a pilha de rede.",
+    "denied": "Esta ação precisa de privilégios de administrador.",
+    "default": "Falha no reset de rede. Veja o log."
+  }
+}

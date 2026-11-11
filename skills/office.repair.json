@@ -1,0 +1,18 @@
+{
+  "id": "office.repair",
+  "name": "Reparar Office (Microsoft 365)",
+  "category": "Office",
+  "icon": "wrench",
+  "description": "Corrige aplicativos do Microsoft 365 que não abrem, travam ou apresentam erros de licença, reinstalando os arquivos do pacote. O modo Rápido funciona offline; o modo Online é mais completo e precisa de internet.",
+  "requiresAdmin": false,
+  "estimatedSeconds": 300,
+  "steps": [
+    { "capability": "office.repair", "params": { "mode": "quick" } }
+  ],
+  "expected": "Reparo do Office concluído.",
+  "onError": {
+    "office.notInstalled": "O Microsoft 365 não parece estar instalado nesta máquina.",
+    "office.repairFailed": "Não foi possível reparar o Office.",
+    "default": "Falha ao reparar o Office. Veja o log."
+  }
+}
