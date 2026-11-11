@@ -3560,7 +3560,7 @@
         <div class="panel">
           <div class="set-row">
             <div class="sr-main"><span class="sr-ico">${ic('flash')}</span>
-              <div class="sr-tx"><b>Partículas de fundo</b><span>Efeito visual sutil de rede no plano de fundo.</span></div></div>
+              <div class="sr-tx"><b>Fundo animado</b><span>Aurora suave em movimento atrás das telas.</span></div></div>
             <label class="switch sr-ctl"><input type="checkbox" id="setBgfx" ${s.bgfx !== false ? 'checked' : ''}><span class="sl"></span></label>
           </div>
         </div>
@@ -3627,7 +3627,7 @@
       setTheme(b.dataset.themeTile);
       $$('[data-theme-tile]', wrap).forEach((x) => x.classList.toggle('on', x === b));
     }));
-    $('#setBgfx', wrap).onchange = (e) => { Store.setSetting('bgfx', e.target.checked); toggleBgfx(e.target.checked); toast(e.target.checked ? 'Partículas ativadas' : 'Partículas desativadas', 'info'); };
+    $('#setBgfx', wrap).onchange = (e) => { Store.setSetting('bgfx', e.target.checked); toggleBgfx(e.target.checked); toast(e.target.checked ? 'Fundo animado ativado' : 'Fundo animado desativado', 'info'); };
     $('#setGuideUrl', wrap).onchange = (e) => { Store.setSetting('guidelineUrl', e.target.value.trim()); toast('Link do guideline salvo', 'ok'); };
     const saveCompany = (k, v) => { const c = Object.assign({}, Store.get('settings').company || {}); c[k] = v; Store.setSetting('company', c); };
     [['coLegal', 'legal'], ['coCnpj', 'cnpj'], ['coPhone', 'phone'], ['coAddress', 'address'], ['coCity', 'city'], ['coUf', 'uf'], ['coCep', 'cep'], ['coEmail', 'email'], ['coSite', 'site']]
@@ -4401,45 +4401,187 @@
   $('#homeLink').onclick = goHome;
   $('#tbHome').onclick = goHome;
 
-  /* ---------- Home: painel de entrada por área ---------- */
-  // cada área mostra um número ao vivo (alertas, chamados, OS…) para quem chega já saber onde agir
+  /* ---------- Home: seletor orbital de áreas ----------
+     Roda de seleção estilo "instrumento": anel com marcações, arco seletor com mola que segue o
+     cursor (ângulo em relação ao centro), núcleo de vidro com o conteúdo da área e números ao vivo.
+     Mouse, teclado (← → ↵ 1–6) e toque (1º toque seleciona, 2º entra). */
   const HOME_AREAS = [
-    { area: 'qualidade', label: 'Qualidade', icon: 'award', color: 'var(--ok)', desc: 'Certificados INMETRO, calibração de equipamentos, EPI e laboratórios parceiros.',
+    { area: 'qualidade', label: 'Qualidade', icon: 'award', color: '#46D39A', desc: 'Certificados INMETRO, calibração, EPI e laboratórios parceiros.',
       stat: () => { const n = qaAlerts().length; return n ? { v: n, l: n === 1 ? 'alerta de validade' : 'alertas de validade', tone: 'warn' } : { v: '✓', l: 'Certificados em dia', tone: 'ok' }; } },
-    { area: 'pos-vendas', label: 'Pós-Vendas', icon: 'phone', color: '#E879A6', desc: 'Chamados de clientes, garantias e RNC — controle para IATF 16949 e ISO 9001.', isNew: true,
+    { area: 'pos-vendas', label: 'Pós-Vendas', icon: 'phone', color: '#F472B6', desc: 'Chamados de clientes, garantias e RNC — IATF 16949 e ISO 9001.', isNew: true,
       stat: () => { const s = pvStats(); if (s.atrasados.length) return { v: s.atrasados.length, l: `atrasado(s) · ${s.abertos.length} em aberto`, tone: 'danger' }; if (s.rncPend.length) return { v: s.rncPend.length, l: `aguardando RNC · ${s.abertos.length} em aberto`, tone: 'warn' }; return { v: s.abertos.length, l: s.abertos.length === 1 ? 'chamado em aberto' : 'chamados em aberto', tone: s.abertos.length ? 'info' : 'ok' }; } },
-    { area: 'manutencao', label: 'Manutenção', icon: 'wrench', color: 'var(--warn)', desc: 'Ordens de serviço, preventivas, máquinas, peças e calendário.',
+    { area: 'manutencao', label: 'Manutenção', icon: 'wrench', color: '#F5B840', desc: 'Ordens de serviço, preventivas, máquinas, peças e calendário.',
       stat: () => { const n = Store.get('serviceOrders').filter((o) => o.kind === 'os' && !['finalizada', 'concluida', 'cancelada'].includes(o.status)).length; return { v: n, l: n === 1 ? 'ordem de serviço aberta' : 'ordens de serviço abertas', tone: n ? 'info' : 'ok' }; } },
-    { area: 'programacao', label: 'Programação', icon: 'calendar', color: '#A78BFA', desc: 'Atividades do PCP, pedidos, não conformidades internas e cadastros.',
+    { area: 'programacao', label: 'Programação', icon: 'calendar', color: '#A78BFA', desc: 'Atividades do PCP, pedidos, não conformidades e cadastros.',
       stat: () => { const t = todayISO(); const l = Store.get('progAtividades') || []; const late = l.filter((a) => a.status !== 'done' && a.prazo && a.prazo < t).length; return late ? { v: late, l: 'atividade(s) atrasada(s)', tone: 'warn' } : { v: l.filter((a) => a.status !== 'done').length, l: 'atividades em andamento', tone: 'info' }; } },
-    { area: 'ti', label: 'T.I', icon: 'cpu', color: 'var(--accent)', desc: 'Computadores, impressoras, telefonia, licenças, comandos e cofre.',
+    { area: 'ti', label: 'T.I', icon: 'cpu', color: '#5CE1E6', desc: 'Computadores, impressoras, telefonia, licenças, comandos e cofre.',
       stat: () => { const n = computeAlerts().length; return n ? { v: n, l: n === 1 ? 'alerta de infraestrutura' : 'alertas de infraestrutura', tone: 'warn' } : { v: '✓', l: 'Infraestrutura sem alertas', tone: 'ok' }; } },
-    { area: 'sistemas', label: 'Sistemas', icon: 'grid', color: 'var(--blue-future)', desc: 'Acesso rápido às plataformas da Convergas: Homologa, App de produção e TV.',
+    { area: 'sistemas', label: 'Sistemas', icon: 'grid', color: '#3FA9F5', desc: 'Plataformas da Convergas: Homologa, App de produção e TV.',
       stat: () => ({ v: SISTEMAS.length, l: 'plataformas disponíveis', tone: 'info' }) },
   ];
   const GUIDELINE = { area: 'guideline', ext: true };
+  const HX = { sel: -1, cur: 0, vel: 0, target: 0, raf: null, leaving: false, touch: false, stats: [] };
+  const hxReduce = () => { try { return window.matchMedia('(prefers-reduced-motion: reduce)').matches; } catch (e) { return false; } };
 
   function buildHome() {
-    const grid = $('#homeGrid'); if (!grid) return;
-    grid.innerHTML = HOME_AREAS.map((a, i) => {
-      let st = { v: '—', l: '', tone: '' };
-      try { st = a.stat(); } catch (e) {}
-      return `<button class="hm-card" style="--ac:${a.color}" data-i="${i}">
-        <span class="hm-card-top">
-          <span class="hm-ico" data-icon="${a.icon}"></span>
-          <span class="hm-name">${esc(a.label)}${a.isNew ? '<span class="hm-new">Novo</span>' : ''}</span>
-          <span class="hm-go" data-icon="arrowUpRight"></span>
-        </span>
-        <span class="hm-desc">${esc(a.desc)}</span>
-        <span class="hm-stat t-${st.tone || 'none'}"><b>${esc(String(st.v))}</b><span>${esc(st.l)}</span></span>
-      </button>`;
-    }).join('');
-    Icons.apply(grid);
-    $$('.hm-card', grid).forEach((b) => (b.onclick = () => selectWheel(HOME_AREAS[+b.dataset.i])));
+    const mount = $('#wheelMount'); if (!mount) return;
+    const N = HOME_AREAS.length, step = 360 / N;
+    HX.stats = HOME_AREAS.map((a) => { try { return a.stat(); } catch (e) { return { v: '—', l: '', tone: '' }; } });
+    // marcações do anel (estilo mostrador de instrumento)
+    let ticks = '';
+    for (let i = 0; i < 120; i++) { const big = i % 10 === 0, mid = i % 5 === 0; ticks += `<line x1="500" y1="${big ? 18 : mid ? 24 : 28}" x2="500" y2="36" transform="rotate(${i * 3} 500 500)" class="${big ? 'tk-b' : mid ? 'tk-m' : ''}"/>`; }
+    const arc = (r, a0, a1) => { const p = (a) => [500 + r * Math.sin(a * Math.PI / 180), 500 - r * Math.cos(a * Math.PI / 180)]; const [x0, y0] = p(a0), [x1, y1] = p(a1); return `M${x0.toFixed(1)} ${y0.toFixed(1)} A${r} ${r} 0 0 1 ${x1.toFixed(1)} ${y1.toFixed(1)}`; };
+    mount.innerHTML = `
+      <svg class="hx-dial" viewBox="0 0 1000 1000" aria-hidden="true">
+        <circle class="hx-r hx-r-out" cx="500" cy="500" r="482"/>
+        <g class="hx-ticks">${ticks}</g>
+        <circle class="hx-r hx-r-dash" cx="500" cy="500" r="446"/>
+        <circle class="hx-r hx-r-track" cx="500" cy="500" r="372"/>
+        ${HOME_AREAS.map((a, i) => `<path class="hx-seg" data-i="${i}" d="${arc(372, i * step - step / 2 + 4, i * step + step / 2 - 4)}" style="--c:${a.color}"/>`).join('')}
+        <g class="hx-sel" id="hxSel">
+          <path class="hx-arc-glow" d="${arc(372, -step / 2 + 3, step / 2 - 3)}"/>
+          <path class="hx-arc" d="${arc(372, -step / 2 + 3, step / 2 - 3)}"/>
+          <line class="hx-beam" x1="500" y1="236" x2="500" y2="166"/>
+          <circle class="hx-pip" cx="500" cy="54" r="7"/>
+        </g>
+        <circle class="hx-r hx-r-in" cx="500" cy="500" r="262"/>
+      </svg>
+      ${HOME_AREAS.map((a, i) => { const st = HX.stats[i]; const alert = st.tone === 'warn' || st.tone === 'danger';
+        return `<button class="hx-node" role="option" data-i="${i}" style="--a:${i * step}deg;--c:${a.color};--d:${i * 60}ms" aria-label="${esc(a.label)}">
+          <span class="hx-orb"><span class="hx-orb-i" data-icon="${a.icon}"></span>${alert ? `<span class="hx-flag t-${st.tone}">${esc(String(st.v))}</span>` : ''}</span>
+          <span class="hx-lbl"><small>${String(i + 1).padStart(2, '0')}</small>${esc(a.label)}</span>
+        </button>`; }).join('')}
+      <div class="hx-hub" id="hxHub"><div class="hx-hub-in" id="hxHubIn"></div></div>`;
+    Icons.apply(mount);
+    hxHub(-1);
+    // mantém a seleção anterior ao voltar para a Home
+    if (HX.sel >= 0) { const s = HX.sel; HX.sel = -1; hxSelect(s, true); }
+
+    $$('.hx-node', mount).forEach((b) => {
+      b.onpointerenter = (e) => { if (e.pointerType === 'mouse') hxSelect(+b.dataset.i); };
+      b.onclick = (e) => {
+        const i = +b.dataset.i;
+        if (HX.touch && HX.sel !== i) { hxSelect(i); return; } // toque: 1º seleciona, 2º entra
+        hxSelect(i); hxEnter();
+      };
+    });
+    $('#hxHub', mount).onclick = () => { if (HX.sel >= 0) hxEnter(); };
+    // índice lateral (telas largas): mesma seleção da roda
+    const ix = $('#homeIndex');
+    if (ix) {
+      ix.innerHTML = HOME_AREAS.map((a, i) => { const st = HX.stats[i]; return `<button class="hx-ix" data-i="${i}" style="--c:${a.color};--d:${200 + i * 50}ms"><span class="hx-ix-n">${String(i + 1).padStart(2, '0')}</span><span class="hx-ix-t">${esc(a.label)}</span><span class="hx-ix-s t-${st.tone || 'none'}">${esc(String(st.v))}</span></button>`; }).join('');
+      $$('.hx-ix', ix).forEach((b) => { b.onmouseenter = () => hxSelect(+b.dataset.i); b.onclick = () => { hxSelect(+b.dataset.i); hxEnter(); }; });
+    }
     const h = new Date().getHours();
-    const greet = $('#homeGreet'); if (greet) greet.textContent = h < 12 ? 'Bom dia' : h < 18 ? 'Boa tarde' : 'Boa noite';
+    const greet = $('#homeGreet'); if (greet) greet.textContent = h < 5 ? 'Boa noite' : h < 12 ? 'Bom dia' : h < 18 ? 'Boa tarde' : 'Boa noite';
     homeClock();
+    hxIntro();
   }
+
+  // conteúdo do núcleo (crossfade a cada troca)
+  function hxHub(i) {
+    const host = $('#hxHubIn'); if (!host) return;
+    const el = document.createElement('div'); el.className = 'hx-hub-c';
+    if (i < 0) {
+      el.innerHTML = `<img class="hx-hub-logo" src="assets/logo-icone.png" alt="">
+        <b class="hx-hub-t">Control Center</b>
+        <p class="hx-hub-d">Passe o cursor pela roda ou use as setas para escolher uma área.</p>`;
+    } else {
+      const a = HOME_AREAS[i], st = HX.stats[i] || {};
+      el.innerHTML = `<span class="hx-hub-k"><span class="hx-hub-ic" data-icon="${a.icon}"></span>${String(i + 1).padStart(2, '0')} / ${String(HOME_AREAS.length).padStart(2, '0')}${a.isNew ? '<em>Novo</em>' : ''}</span>
+        <b class="hx-hub-t">${esc(a.label)}</b>
+        <p class="hx-hub-d">${esc(a.desc)}</p>
+        <span class="hx-hub-s t-${st.tone || 'none'}"><b>${esc(String(st.v))}</b>${esc(st.l || '')}</span>
+        <span class="hx-hub-cta">Entrar <span data-icon="arrowUpRight"></span></span>`;
+    }
+    Icons.apply(el);
+    $$('.hx-hub-c', host).forEach((old) => { old.classList.add('out'); setTimeout(() => old.remove(), 260); });
+    host.appendChild(el);
+  }
+
+  function hxSelect(i, instant) {
+    const mount = $('#wheelMount'); if (!mount || HX.leaving) return;
+    const N = HOME_AREAS.length;
+    i = ((i % N) + N) % N;
+    if (i === HX.sel) return;
+    const first = HX.sel < 0;
+    HX.sel = i;
+    const a = HOME_AREAS[i];
+    const scr = $('#homeScreen'); if (scr) scr.style.setProperty('--hx-sel', a.color);
+    $$('#homeIndex .hx-ix').forEach((n) => n.classList.toggle('on', +n.dataset.i === i));
+    mount.classList.add('has-sel');
+    $$('.hx-node', mount).forEach((n) => { const on = +n.dataset.i === i; n.classList.toggle('on', on); n.setAttribute('aria-selected', on ? 'true' : 'false'); });
+    $$('.hx-seg', mount).forEach((s) => s.classList.toggle('on', +s.dataset.i === i));
+    // ângulo alvo pelo caminho mais curto (a mola cuida do resto)
+    const want = i * (360 / N);
+    let d = ((want - HX.cur) % 360 + 540) % 360 - 180;
+    HX.target = HX.cur + d;
+    if (first || instant || hxReduce()) { HX.cur = HX.target; HX.vel = 0; hxApply(); }
+    else hxSpring();
+    hxHub(i);
+  }
+  function hxApply() { const g = $('#hxSel'); if (g) g.setAttribute('transform', `rotate(${HX.cur.toFixed(2)} 500 500)`); }
+  function hxSpring() {
+    if (HX.raf) return;
+    const tick = () => {
+      // mola criticamente amortecida (rápida, sem quicar demais)
+      HX.vel += (HX.target - HX.cur) * 0.14; HX.vel *= 0.68; HX.cur += HX.vel;
+      hxApply();
+      if (Math.abs(HX.target - HX.cur) < 0.05 && Math.abs(HX.vel) < 0.05) { HX.cur = HX.target; hxApply(); HX.raf = null; return; }
+      HX.raf = requestAnimationFrame(tick);
+    };
+    HX.raf = requestAnimationFrame(tick);
+  }
+  function hxIntro() {
+    const mount = $('#wheelMount'); if (!mount) return;
+    HX.leaving = false;
+    mount.classList.remove('hx-leave', 'hx-ready'); void mount.offsetWidth;
+    mount.classList.add('hx-ready');
+  }
+  function hxEnter() {
+    if (HX.sel < 0 || HX.leaving) return;
+    const a = HOME_AREAS[HX.sel];
+    const mount = $('#wheelMount');
+    HX.leaving = true;
+    if (mount && !hxReduce()) mount.classList.add('hx-leave');
+    setTimeout(() => { HX.leaving = false; selectWheel(a); }, hxReduce() ? 0 : 420);
+  }
+
+  // seleção pelo ângulo do cursor em relação ao centro da roda (como um menu radial)
+  (function hxPointer() {
+    const stage = $('#homeStage'); if (!stage) return;
+    stage.addEventListener('pointermove', (e) => {
+      const scr = $('#homeScreen'); if (scr) { scr.style.setProperty('--mx', e.clientX + 'px'); scr.style.setProperty('--my', e.clientY + 'px'); }
+      if (e.pointerType !== 'mouse') return;
+      HX.touch = false;
+      const w = $('#wheelMount'); if (!w) return;
+      const r = w.getBoundingClientRect();
+      const cx = r.left + r.width / 2, cy = r.top + r.height / 2;
+      const dx = e.clientX - cx, dy = e.clientY - cy, dist = Math.hypot(dx, dy);
+      if (dist < r.width * 0.27 || dist > r.width * 0.62) return; // núcleo e fora da roda não mudam a seleção
+      const ang = (Math.atan2(dx, -dy) * 180 / Math.PI + 360) % 360;
+      hxSelect(Math.round(ang / (360 / HOME_AREAS.length)));
+    });
+    stage.addEventListener('pointerdown', (e) => { if (e.pointerType !== 'mouse') HX.touch = true; });
+    stage.addEventListener('click', (e) => {
+      if (e.target.closest('.hx-node, .hx-hub')) return;
+      const w = $('#wheelMount'); if (!w || HX.sel < 0 || HX.touch) return;
+      const r = w.getBoundingClientRect();
+      const d = Math.hypot(e.clientX - (r.left + r.width / 2), e.clientY - (r.top + r.height / 2));
+      if (d > r.width * 0.27 && d < r.width * 0.55) hxEnter();
+    });
+  })();
+  document.addEventListener('keydown', (e) => {
+    const scr = $('#homeScreen');
+    if (!scr || !scr.classList.contains('show') || modalCloser) return;
+    if (e.target && /input|textarea|select/i.test(e.target.tagName)) return;
+    const N = HOME_AREAS.length;
+    if (e.key === 'ArrowRight' || e.key === 'ArrowDown') { e.preventDefault(); hxSelect(HX.sel < 0 ? 0 : HX.sel + 1); }
+    else if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') { e.preventDefault(); hxSelect(HX.sel < 0 ? N - 1 : HX.sel - 1); }
+    else if (e.key === 'Enter' || e.key === ' ') { if (HX.sel >= 0) { e.preventDefault(); hxEnter(); } }
+    else if (/^[1-9]$/.test(e.key) && +e.key <= N) { hxSelect(+e.key - 1); }
+  });
+
   function homeClock() {
     const el = $('#homeClock'); if (!el) return;
     const d = new Date();
@@ -4505,30 +4647,10 @@
 
 
   /* ---------- particle background ---------- */
-  let bgfxRAF = null;
+  // fundo animado: aurora suave em CSS (substitui as partículas). Desligado = fundo estático.
   function toggleBgfx(on) {
-    const cv = $('#bgfx');
-    if (!on) { cv.style.display = 'none'; if (bgfxRAF) cancelAnimationFrame(bgfxRAF); bgfxRAF = null; return; }
-    cv.style.display = 'block';
-    const ctx = cv.getContext('2d'); let w, h, pts;
-    function resize() { w = cv.width = innerWidth; h = cv.height = innerHeight; pts = Array.from({ length: Math.min(46, Math.floor(w / 34)) }, () => ({ x: Math.random() * w, y: Math.random() * h, vx: (Math.random() - .5) * .25, vy: (Math.random() - .5) * .25 })); }
-    resize(); addEventListener('resize', resize);
-    function draw() {
-      const light = document.documentElement.getAttribute('data-theme') === 'light';
-      ctx.clearRect(0, 0, w, h);
-      const col = light ? '14,154,162' : '92,225,230';
-      for (let i = 0; i < pts.length; i++) {
-        const p = pts[i]; p.x += p.vx; p.y += p.vy;
-        if (p.x < 0 || p.x > w) p.vx *= -1; if (p.y < 0 || p.y > h) p.vy *= -1;
-        ctx.beginPath(); ctx.arc(p.x, p.y, 1.4, 0, 7); ctx.fillStyle = `rgba(${col},${light ? .4 : .55})`; ctx.fill();
-        for (let j = i + 1; j < pts.length; j++) {
-          const q = pts[j], dx = p.x - q.x, dy = p.y - q.y, d = Math.hypot(dx, dy);
-          if (d < 130) { ctx.beginPath(); ctx.moveTo(p.x, p.y); ctx.lineTo(q.x, q.y); ctx.strokeStyle = `rgba(${col},${(1 - d / 130) * (light ? .08 : .12)})`; ctx.lineWidth = 1; ctx.stroke(); }
-        }
-      }
-      bgfxRAF = requestAnimationFrame(draw);
-    }
-    draw();
+    const cv = $('#bgfx'); if (cv) cv.style.display = 'none';
+    document.documentElement.classList.toggle('fx-off', !on);
   }
 
   /* =====================================================================

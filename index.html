@@ -9,9 +9,11 @@
 <link rel="icon" href="assets/logo-icone.png" />
 <link rel="stylesheet" href="css/fonts.css" />
 <link rel="stylesheet" href="css/styles.css" />
+<link rel="stylesheet" href="css/theme.css" />
 </head>
 <body class="booting">
 <canvas id="bgfx" aria-hidden="true"></canvas>
+<div class="fx-bg" aria-hidden="true"><span class="fx-aur a1"></span><span class="fx-aur a2"></span><span class="fx-grain"></span></div>
 
 <div class="app-shell">
   <!-- ===== SIDEBAR ===== -->
@@ -64,39 +66,45 @@
   <div class="modal-card" id="modalCard" role="dialog" aria-modal="true"></div>
 </div>
 
-<!-- ===== HOME — painel de entrada por área ===== -->
+<!-- ===== HOME — seletor orbital de áreas ===== -->
 <div class="home-screen" id="homeScreen" aria-hidden="true">
-  <div class="hm-wrap">
-    <header class="hm-top">
-      <div class="hm-brand">
-        <img src="assets/logo-icone.png" alt="Convergas" />
-        <div class="hm-brand-tx"><b>Convergas</b><span>Control Center</span></div>
-      </div>
-      <div class="hm-tools">
-        <span class="hm-clock" id="homeClock"></span>
-        <button class="hm-tool" id="themeToggleHome" aria-label="Alternar tema" title="Alternar tema" data-icon="moon"></button>
-        <button class="hm-tool" id="fsToggleHome" aria-label="Tela cheia" title="Tela cheia" data-icon="maximize"></button>
-      </div>
-    </header>
-
-    <section class="hm-hero">
-      <span class="hm-kicker">Qualidade · Pós-vendas · Operações · T.I</span>
-      <h1 id="homeGreet">Bem-vindo</h1>
-      <p>Escolha uma área para começar. Os números de cada cartão são atualizados automaticamente.</p>
-    </section>
-
-    <section class="hm-grid" id="homeGrid" aria-label="Áreas"><!-- cartões das áreas (via JS) --></section>
-
-    <footer class="hm-foot">
-      <span class="hm-copy">Convergas Fuel Systems · Control Center v1.1</span>
-      <div class="hm-links">
-        <button class="hm-link" id="homeGuideline"><span data-icon="book"></span>Manual da marca</button>
-        <a href="https://www.convergas.com.br/" target="_blank" rel="noopener noreferrer" class="hm-link"><span data-icon="globe"></span>convergas.com.br</a>
-        <a href="https://www.instagram.com/convergasfuelsystems/" target="_blank" rel="noopener noreferrer" class="hm-soc" title="Instagram" aria-label="Instagram da Convergas"><span data-icon="instagram"></span></a>
-        <a href="https://br.linkedin.com/company/convergas" target="_blank" rel="noopener noreferrer" class="hm-soc" title="LinkedIn" aria-label="LinkedIn da Convergas"><span data-icon="linkedin"></span></a>
-      </div>
-    </footer>
+  <div class="hx-bg" aria-hidden="true">
+    <span class="hx-aur a1"></span><span class="hx-aur a2"></span><span class="hx-aur a3"></span>
+    <span class="hx-dots"></span><span class="hx-spot"></span><span class="hx-grain"></span>
   </div>
+
+  <header class="hx-top">
+    <div class="hx-brand">
+      <img src="assets/logo-icone.png" alt="Convergas" />
+      <div class="hx-brand-tx"><b>Convergas</b><span>Control Center</span></div>
+    </div>
+    <div class="hx-status"><span class="hx-live" aria-hidden="true"></span><span id="homeClock"></span></div>
+    <div class="hx-tools">
+      <button class="hx-tool" id="themeToggleHome" aria-label="Alternar tema" title="Alternar tema" data-icon="moon"></button>
+      <button class="hx-tool" id="fsToggleHome" aria-label="Tela cheia" title="Tela cheia" data-icon="maximize"></button>
+    </div>
+  </header>
+
+  <main class="hx-stage" id="homeStage">
+    <div class="hx-intro">
+      <span class="hx-kick" id="homeKick">Painel de operações</span>
+      <h1 id="homeGreet">Bem-vindo</h1>
+      <p>Selecione uma área na roda para começar. Os números são atualizados em tempo real.</p>
+    </div>
+    <div class="hx-wheel" id="wheelMount" role="listbox" aria-label="Áreas do Control Center"></div>
+    <nav class="hx-index" id="homeIndex" aria-label="Índice de áreas"></nav>
+  </main>
+
+  <footer class="hx-foot">
+    <span class="hx-tip">Toque numa área para ver os detalhes · toque de novo para entrar</span>
+    <div class="hx-keys" aria-hidden="true"><kbd>←</kbd><kbd>→</kbd><span>navegar</span><kbd>↵</kbd><span>entrar</span><kbd>1–6</kbd><span>atalho</span></div>
+    <div class="hx-links">
+      <button class="hx-link" id="homeGuideline"><span data-icon="book"></span>Manual da marca</button>
+      <a href="https://www.convergas.com.br/" target="_blank" rel="noopener noreferrer" class="hx-link"><span data-icon="globe"></span>convergas.com.br</a>
+      <a href="https://www.instagram.com/convergasfuelsystems/" target="_blank" rel="noopener noreferrer" class="hx-soc" title="Instagram" aria-label="Instagram da Convergas"><span data-icon="instagram"></span></a>
+      <a href="https://br.linkedin.com/company/convergas" target="_blank" rel="noopener noreferrer" class="hx-soc" title="LinkedIn" aria-label="LinkedIn da Convergas"><span data-icon="linkedin"></span></a>
+    </div>
+  </footer>
 </div>
 
 <!-- ===== MOBILE NAV — tab bar flutuante + bottom sheet (só no celular) ===== -->
