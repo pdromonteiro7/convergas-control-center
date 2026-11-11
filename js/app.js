@@ -4782,7 +4782,9 @@ void main(){
     RL.busy = true;
     rlShow((NAV[area] || {}).label, TITLES[route] || '');
     const hc = HOME_AREAS.find((a) => a.area === area); if (hc) bgTint(hc.color);
-    setTimeout(() => { try { go(route); } catch (e) { console.error(e); } setTimeout(rlHide, 420); }, 260);
+    // barra enche em ~1,4s; a página troca por baixo logo no início e a tela some quando a barra completa
+    setTimeout(() => { try { go(route); } catch (e) { console.error(e); } }, 180);
+    setTimeout(rlHide, 1450);
   }
   window.navTo = navTo;
 
@@ -5535,7 +5537,7 @@ void main(){
     // tela definida — liberar a renderização (remove o estado de carregamento)
     document.body.classList.remove('booting');
     // tela de abertura: logo por um instante e revela o app
-    setTimeout(rlHide, 700);
+    setTimeout(rlHide, 1450);
     // offline-first: já renderizou do cache local; agora sincroniza com a nuvem por cima
     syncCloud();
   }
