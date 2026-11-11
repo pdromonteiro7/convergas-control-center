@@ -899,7 +899,6 @@ tr.tr-click { cursor: pointer; }
 .mstat-ring.plain .mstat-v { font-size: 1.2rem; overflow-wrap: anywhere; }
 .mstat-k { display: inline-flex; align-items: center; gap: 6px; font-size: .74rem; color: var(--text-3); font-weight: 600; letter-spacing: .02em; }
 .mstat-k svg { width: 13px; height: 13px; color: var(--mc); flex: none; }
-@media (prefers-reduced-motion: reduce) { .mstat::before { animation: none; } }
 @supports not (background: color-mix(in srgb, red, blue)) {
   .mstat::before { display: none; }
   .mr-arc { filter: none; }
@@ -1201,7 +1200,6 @@ tr.tr-click { cursor: pointer; }
 .qstat.t-ok .qstat-ico::after { border-color: var(--ok); }
 .qstat.t-info .qstat-ico { color: var(--blue-future); border-color: color-mix(in srgb, var(--blue-future) 26%, transparent); background: radial-gradient(circle at 30% 25%, color-mix(in srgb, var(--blue-future) 14%, transparent), transparent 75%), var(--bg-3); box-shadow: 0 0 0 5px color-mix(in srgb, var(--blue-future) 12%, transparent); }
 .qstat.t-info .qstat-ico::after { border-color: var(--blue-future); }
-@media (prefers-reduced-motion: reduce) { .qstat-ico::after, .qstat-ico svg { animation: none; } }
 
 /* lista de certificados (tabela) */
 .cert-table td { padding-top: 12px; padding-bottom: 12px; }
@@ -1261,9 +1259,6 @@ tr.tr-click { cursor: pointer; }
   .hide-sm { display: none !important; }
 }
 
-@media (prefers-reduced-motion: reduce) {
-  * { animation-duration: .01ms !important; transition-duration: .05ms !important; }
-}
 
 /* ===== Wizard de Ordem de Serviço (3 etapas) ===== */
 .wiz-head { display: flex; align-items: center; gap: 4px; margin: 0 0 20px; padding: 13px 16px; background: var(--bg-3); border: 1px solid var(--line); border-radius: 14px; }
