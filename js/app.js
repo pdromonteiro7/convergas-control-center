@@ -1450,7 +1450,8 @@
     return a;
   }
 
-  /* =========================== PAINEL =========================== */
+  /* =========================== PAINEL (indicadores — mesma linguagem circular da Home) =========================== */
+  const PV_TIPO_COR = ['#5CE1E6', '#A78BFA', '#F5B840', '#3FA9F5', '#FF7A7A', '#46D39A', '#F472B6', '#94A3B8'];
   PAGES['pv-painel'] = () => {
     pageShell('Pós-Vendas', 'Painel de pós-vendas', 'Reclamações, garantias e atendimento ao cliente — indicadores para IATF 16949 e ISO 9001.',
       `<button class="btn primary" id="pvNew">${ic('plus')}Novo chamado</button>`);
@@ -1466,65 +1467,116 @@
     const custo = all.filter((c) => pvDay(c.criadoEm).slice(0, 4) === y).reduce((acc, c) => acc + (Number((c.atendimento || {}).custoTotal) || 0), 0);
     const notas = all.map((c) => Number((c.encerramento || {}).satisfacao)).filter((n) => n > 0);
     const sat = notas.length ? (notas.reduce((a, b) => a + b, 0) / notas.length) : null;
+    const MES = ['jan', 'fev', 'mar', 'abr', 'mai', 'jun', 'jul', 'ago', 'set', 'out', 'nov', 'dez'];
 
-    const kpi = (icon, val, label, meta, tone, go2) => `<div class="ind-card${tone ? ' t-' + tone : ''}${go2 ? ' pvx-click' : ''}" ${go2 ? `data-pvgo="${go2}"` : ''}><div class="ind-head"><span class="ind-ico">${ic(icon)}</span><span class="ind-label">${esc(label)}</span></div><div class="ind-val">${esc(val)}</div><div class="ind-foot">${meta ? `<span class="ind-pill">${esc(meta)}</span>` : ''}</div></div>`;
-    const w = document.createElement('div');
-    w.innerHTML = `
-      <div class="section-head"><h2><span class="sh-ico">${ic('activity')}</span>Situação agora</h2></div>
-      <div class="ind-grid">
-        ${kpi('list', s.abertos.length, 'Chamados em aberto', s.semTriagem.length ? `${s.semTriagem.length} sem triagem` : 'Todos triados', s.semTriagem.length ? 'warn' : 'ok', 'abertos')}
-        ${kpi('clock', s.atrasados.length, 'Atrasados', s.atrasados.length ? 'Fora do prazo' : 'Nenhum', s.atrasados.length ? 'danger' : 'ok', 'atrasados')}
-        ${kpi('award', s.rncPend.length, 'Aguardando RNC', 'Fila de RNC', s.rncPend.length ? 'warn' : 'ok', 'qualidade')}
-        ${kpi('check', encMes.length, 'Encerrados no mês', new Date().toLocaleDateString('pt-BR', { month: 'long' }), '')}
-      </div>
-      <div class="section-head"><h2><span class="sh-ico">${ic('flash')}</span>Desempenho em ${y}</h2></div>
-      <div class="ind-grid">
-        ${kpi('clock', tMedio == null ? '—' : tMedio.toFixed(1) + ' d', 'Tempo médio até encerrar', `${ano.length} encerrado(s)`, '')}
-        ${kpi('check', noPrazo == null ? '—' : noPrazo + '%', 'Encerrados no prazo', 'Meta 90%', noPrazo == null ? '' : noPrazo >= 90 ? 'ok' : 'warn')}
-        ${kpi('shield', pvMoney(custo), 'Custo de garantia/atendimento', 'No ano', '')}
-        ${kpi('users', sat == null ? '—' : sat.toFixed(1) + ' / 5', 'Satisfação do cliente', `${notas.length} avaliação(ões)`, sat == null ? '' : sat >= 4 ? 'ok' : 'warn')}
-      </div>
-      <div class="pvx-charts">
-        <div class="panel panel-pad"><div class="pvx-ch-h"><b>Chamados por mês</b><span>últimos 12 meses</span></div><div id="pvChMes"></div></div>
-        <div class="panel panel-pad"><div class="pvx-ch-h"><b>Por tipo de ocorrência</b><span>${all.length} no total</span></div><div id="pvChTipo"></div></div>
-        <div class="panel panel-pad"><div class="pvx-ch-h"><b>Clientes com mais chamados</b><span>reincidência</span></div><div id="pvChCli"></div></div>
-        <div class="panel panel-pad"><div class="pvx-ch-h"><b>Procedência</b><span>após triagem</span></div><div id="pvChProc"></div></div>
-      </div>
-      <div class="section-head"><h2><span class="sh-ico">${ic('alert')}</span>Precisam de atenção</h2></div>
-      <div id="pvAtt"></div>`;
-    view.appendChild(w);
-
-    // chamados por mês (12 meses)
+    // 12 meses: abertos x encerrados
     const meses = []; const d0 = new Date(); d0.setDate(1);
-    for (let i = 11; i >= 0; i--) { const d = new Date(d0.getFullYear(), d0.getMonth() - i, 1); meses.push(d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0')); }
-    const porMes = meses.map((m) => all.filter((c) => pvDay(c.criadoEm).slice(0, 7) === m).length);
-    const max = Math.max(1, ...porMes);
-    $('#pvChMes', w).innerHTML = `<div class="pvx-cols">${meses.map((m, i) => `<div class="pvx-col" title="${porMes[i]} chamado(s)"><span class="pvx-col-v">${porMes[i] || ''}</span><span class="pvx-col-b" style="height:${Math.round((porMes[i] / max) * 100)}%"></span><span class="pvx-col-l">${['jan', 'fev', 'mar', 'abr', 'mai', 'jun', 'jul', 'ago', 'set', 'out', 'nov', 'dez'][+m.slice(5) - 1]}</span></div>`).join('')}</div>`;
-    const hbars = (rows, empty) => {
-      const mx = Math.max(1, ...rows.map((r) => r[1]));
-      return rows.length && rows.some((r) => r[1]) ? `<div class="pvx-hbars">${rows.map(([l, v, col]) => `<div class="pvx-hb"><span class="pvx-hb-l">${esc(l)}</span><span class="pvx-hb-t"><span style="width:${Math.round((v / mx) * 100)}%${col ? ';background:' + col : ''}"></span></span><span class="pvx-hb-v">${v}</span></div>`).join('')}</div>` : `<div class="pvx-muted pvx-empty">${esc(empty)}</div>`;
-    };
-    $('#pvChTipo', w).innerHTML = hbars(Object.keys(PV_TIPOS).map((k) => [PV_TIPOS[k].short, all.filter((c) => c.tipo === k).length]).filter((r) => r[1]).sort((a, b) => b[1] - a[1]), 'Sem chamados ainda.');
-    const porCli = {}; all.forEach((c) => { const n = pvClienteNome(c); porCli[n] = (porCli[n] || 0) + 1; });
-    $('#pvChCli', w).innerHTML = hbars(Object.entries(porCli).sort((a, b) => b[1] - a[1]).slice(0, 6), 'Sem chamados ainda.');
+    for (let i = 11; i >= 0; i--) { const d = new Date(d0.getFullYear(), d0.getMonth() - i, 1); meses.push({ k: d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0'), l: MES[d.getMonth()], y: d.getFullYear() }); }
+    meses.forEach((m) => { m.o = all.filter((c) => pvDay(c.criadoEm).slice(0, 7) === m.k).length; m.c = enc.filter((c) => c.encerramento.data.slice(0, 7) === m.k).length; });
+    const mx = Math.max(1, ...meses.map((m) => Math.max(m.o, m.c)));
+    const W = 520, H = 170, bw = W / 12;
+    const bars = meses.map((m, i) => {
+      const x = i * bw + bw * 0.16, w = bw * 0.32;
+      const bar = (v, xx, col) => { const h = (v / mx) * (H - 22); return v ? `<rect x="${xx.toFixed(1)}" y="${(H - h).toFixed(1)}" width="${w.toFixed(1)}" height="${h.toFixed(1)}" rx="3" fill="${col}"/><text x="${(xx + w / 2).toFixed(1)}" y="${(H - h - 5).toFixed(1)}">${v}</text>` : `<rect x="${xx.toFixed(1)}" y="${H - 2}" width="${w.toFixed(1)}" height="2" rx="1" class="qad-zero"/>`; };
+      return `<g class="qad-bar" style="--d:${300 + i * 45}ms">${bar(m.o, x, '#5CE1E6')}${bar(m.c, x + w + bw * 0.04, '#46D39A')}</g>`;
+    }).join('');
+
+    // mostrador: % encerrados no prazo (meta 90%) + anel interno = satisfação
+    const pz = noPrazo == null ? 0 : noPrazo;
+    const dial = qaDialSvg(noPrazo == null ? [] : [{ k: 'prazo', n: pz, c: '#46D39A' }, { k: 'fora', n: 100 - pz, c: '#FF7A7A' }], sat == null ? 0 : Math.round((sat / 5) * 100))
+      .replace('</svg>', `<g class="pvp-goal" transform="rotate(324 160 160)"><line x1="160" y1="30" x2="160" y2="58"/><circle cx="160" cy="26" r="3.5"/></g></svg>`);
+
+    const el = document.createElement('section'); el.className = 'pvd pvp';
+    el.innerHTML = `
+      <div class="pvd-orbit">
+        <div class="pvp-cap"><b>Desempenho em ${y}</b><span>${ano.length} ${ano.length === 1 ? 'chamado encerrado' : 'chamados encerrados'}</span></div>
+        <div class="pvd-dial">${dial}
+          <div class="pvd-core">
+            ${noPrazo == null ? '<b>—</b>' : `<b data-count="${noPrazo}" data-suf="%">0%</b>`}
+            <span>encerrados no prazo</span>
+            <small class="${noPrazo != null && noPrazo < 90 ? 'below' : ''}"><i class="pvd-dot ${noPrazo != null && noPrazo < 90 ? 'warn' : 'ok'}"></i>meta <em>90%</em></small>
+          </div>
+        </div>
+        <div class="pvp-kpis">
+          <div><span>${ic('clock')}Tempo médio</span><b>${tMedio == null ? '—' : `<em data-count="${tMedio.toFixed(1)}" data-dec="1">0</em> d`}</b></div>
+          <div><span>${ic('users')}Satisfação</span><b>${sat == null ? '—' : `<em data-count="${sat.toFixed(1)}" data-dec="1">0</em><small>/5</small>`}</b></div>
+          <div><span>${ic('shield')}Custo no ano</span><b class="pvp-money">${esc(pvMoney(custo))}</b></div>
+        </div>
+      </div>
+      <div class="pvd-side">
+        <div class="pvd-tiles">
+          <button type="button" class="pvd-tile t-info" data-pvgo="abertos"><span class="pvd-ti">${ic('list')}</span><b data-count="${s.abertos.length}">0</b><span>Em aberto</span><small>${s.semTriagem.length ? `${s.semTriagem.length} sem triagem` : 'todos triados'}</small></button>
+          <button type="button" class="pvd-tile t-danger${s.atrasados.length ? ' hot' : ''}" data-pvgo="atrasados"><span class="pvd-ti">${ic('clock')}</span><b data-count="${s.atrasados.length}">0</b><span>Atrasados</span><small>${s.atrasados.length ? 'fora do prazo' : 'nenhum'}</small></button>
+          <button type="button" class="pvd-tile t-warn" data-pvgo="qualidade"><span class="pvd-ti">${ic('award')}</span><b data-count="${s.rncPend.length}">0</b><span>Aguardando RNC</span><small>na fila da Qualidade</small></button>
+          <button type="button" class="pvd-tile t-ok" data-pvgo="encerrado"><span class="pvd-ti">${ic('check')}</span><b data-count="${encMes.length}">0</b><span>Encerrados</span><small>em ${new Date().toLocaleDateString('pt-BR', { month: 'long' })}</small></button>
+        </div>
+        <div class="pvd-trend">
+          <div class="pvd-trend-h"><b>Chamados por mês <small>últimos 12 meses</small></b><span><i class="pvd-dot o"></i>Abertos <em>${meses.reduce((a, m) => a + m.o, 0)}</em></span><span><i class="pvd-dot c"></i>Encerrados <em>${meses.reduce((a, m) => a + m.c, 0)}</em></span></div>
+          <svg class="pvd-spark qad-bars" viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" aria-hidden="true">
+            ${[0.25, 0.5, 0.75].map((f) => `<line class="pvd-grid" x1="0" x2="${W}" y1="${(H * f).toFixed(1)}" y2="${(H * f).toFixed(1)}"/>`).join('')}
+            ${bars}
+          </svg>
+          <div class="qad-axis">${meses.map((m, i) => `<span>${m.l}${i === 0 || m.l === 'jan' ? `<small>${String(m.y).slice(2)}</small>` : ''}</span>`).join('')}</div>
+        </div>
+      </div>`;
+    view.appendChild(el); Icons.apply(el);
+
+    // análises: tipo (rosca), clientes (ranking), procedência (faixa)
+    const tipos = Object.keys(PV_TIPOS).map((k, i) => ({ k, l: PV_TIPOS[k].short, i: PV_TIPOS[k].icon, n: all.filter((c) => c.tipo === k).length, c: PV_TIPO_COR[i % PV_TIPO_COR.length] })).filter((t) => t.n).sort((a, b) => b.n - a.n);
+    const tt = tipos.reduce((a, t) => a + t.n, 0);
+    let acc = 0; const donut = tipos.map((t, i) => { const len = (t.n / tt) * 100; const g = tipos.length > 1 ? 1.5 : 0; const a = `<circle class="pvp-don" cx="60" cy="60" r="48" pathLength="100" style="--c:${t.c};--len:${Math.max(0.5, len - g)};--off:${-acc};--d:${300 + i * 120}ms"/>`; acc += len; return a; }).join('');
+    const porCli = {}; all.forEach((c) => { const n = pvClienteNome(c); if (!porCli[n]) porCli[n] = { n: 0, id: c.clienteId, ab: 0 }; porCli[n].n++; if (pvAberto(c)) porCli[n].ab++; });
+    const rank = Object.entries(porCli).sort((a, b) => b[1].n - a[1].n).slice(0, 5); const rmx = Math.max(1, ...rank.map((r) => r[1].n));
     const proc = { Procedente: 0, Improcedente: 0, 'Sem defeito (NTF)': 0, 'Em análise': 0 };
     all.filter((c) => c.status !== 'cancelado').forEach((c) => { if ((c.atendimento || {}).ntf) proc['Sem defeito (NTF)']++; else { const p = (c.triagem || {}).procedencia || 'Em análise'; proc[p] = (proc[p] || 0) + 1; } });
-    $('#pvChProc', w).innerHTML = hbars([['Procedente', proc.Procedente, 'var(--danger)'], ['Improcedente', proc.Improcedente, 'var(--ok)'], ['Sem defeito (NTF)', proc['Sem defeito (NTF)'], 'var(--blue-future)'], ['Em análise', proc['Em análise'], 'var(--text-3)']], 'Sem chamados ainda.');
+    const procL = [['Procedente', '#FF7A7A', 'defeito confirmado'], ['Improcedente', '#46D39A', 'sem responsabilidade'], ['Sem defeito (NTF)', '#3FA9F5', 'nada encontrado'], ['Em análise', 'color-mix(in srgb, var(--text) 30%, transparent)', 'aguardando triagem']].map(([l, c, s2]) => ({ l, c, s: s2, n: proc[l] || 0 }));
+    const pt = procL.reduce((a, p) => a + p.n, 0);
+    const an = document.createElement('section'); an.className = 'pvp-an';
+    an.innerHTML = `
+      <div class="pvp-card" style="--d:0ms">
+        <div class="pvp-card-h"><b>Por tipo de ocorrência</b><span>${all.length} no total</span></div>
+        ${tt ? `<div class="pvp-donut-w"><div class="pvp-donut"><svg viewBox="0 0 120 120" aria-hidden="true"><circle class="pvp-don-t" cx="60" cy="60" r="48"/>${donut}</svg><span><b data-count="${tt}">0</b><small>chamados</small></span></div>
+          <div class="pvp-leg">${tipos.map((t) => `<div style="--c:${t.c}"><i></i><span>${esc(t.l)}</span><b>${t.n}</b><small>${Math.round((100 * t.n) / tt)}%</small></div>`).join('')}</div></div>` : `<div class="qf-empty">${ic('check')}<span>Sem chamados ainda.</span></div>`}
+      </div>
+      <div class="pvp-card" style="--d:80ms">
+        <div class="pvp-card-h"><b>Clientes com mais chamados</b><span>reincidência</span></div>
+        ${rank.length ? `<div class="pvp-rank">${rank.map(([nm, r], i) => `<button type="button" class="pvp-rk" data-cli="${esc(r.id || '')}" style="--w:${Math.round((100 * r.n) / rmx)}%;--d:${300 + i * 90}ms">
+            <span class="pvp-rk-n">${i + 1}</span><span class="qf-av" style="--h:${pvHue(nm)}">${esc(pvInitials(nm))}</span>
+            <span class="pvp-rk-m"><span class="pvp-rk-t"><b>${esc(nm)}</b><em>${r.n}</em></span><span class="pvp-rk-b"><i></i></span>${r.ab ? `<small>${r.ab} em aberto</small>` : '<small>nenhum em aberto</small>'}</span>
+          </button>`).join('')}</div>` : `<div class="qf-empty">${ic('check')}<span>Sem chamados ainda.</span></div>`}
+      </div>
+      <div class="pvp-card" style="--d:160ms">
+        <div class="pvp-card-h"><b>Procedência</b><span>após a triagem</span></div>
+        ${pt ? `<div class="qband-bar pvp-pbar">${procL.filter((p) => p.n).map((p, i) => `<i style="--w:${(100 * p.n) / pt}%;--c:${p.c};--d:${300 + i * 120}ms" title="${esc(p.l)}: ${p.n}"></i>`).join('')}</div>
+          <div class="pvp-proc">${procL.map((p) => `<div style="--c:${p.c}"><i></i><span><b>${esc(p.l)}</b><small>${esc(p.s)}</small></span><em>${p.n}</em><small class="pc">${Math.round((100 * p.n) / pt)}%</small></div>`).join('')}</div>` : `<div class="qf-empty">${ic('check')}<span>Sem chamados ainda.</span></div>`}
+      </div>`;
+    view.appendChild(an); Icons.apply(an);
 
+    // precisam de atenção
     const att = []; const seen = {};
-    const push = (c, why, cls) => { if (seen[c.id]) return; seen[c.id] = 1; att.push({ c, why, cls }); };
-    s.atrasados.forEach((c) => push(c, 'Prazo vencido', 'danger'));
-    s.rncPend.filter(pvAberto).forEach((c) => push(c, 'Aguardando RNC da Qualidade', 'warn'));
-    s.semTriagem.forEach((c) => push(c, 'Sem triagem', 'info'));
-    $('#pvAtt', w).innerHTML = att.length ? `<div class="pvx-list">${att.slice(0, 12).map(({ c, why, cls }) => pvRow(c, `<span class="badge ${cls}">${esc(why)}</span>`)).join('')}</div>`
-      : `<div class="tbl-wrap">${emptyState('check', 'Nada pendente', 'Nenhum chamado atrasado, sem triagem ou aguardando RNC.')}</div>`;
-    Icons.apply(view);
-    pvBindRows(w);
-    $$('[data-pvgo]', w).forEach((el) => (el.onclick = () => {
-      const g = el.dataset.pvgo;
+    const push = (c, why, col) => { if (seen[c.id]) return; seen[c.id] = 1; att.push({ c, why, col }); };
+    s.atrasados.forEach((c) => push(c, 'Prazo vencido', '#FF7A7A'));
+    s.rncPend.filter(pvAberto).forEach((c) => push(c, 'Aguardando RNC', '#F5B840'));
+    s.semTriagem.forEach((c) => push(c, 'Sem triagem', '#3FA9F5'));
+    const at = document.createElement('section'); at.className = 'pvp-att';
+    at.innerHTML = `<div class="section-head"><h2><span class="sh-ico">${ic('alert')}</span>Precisam de atenção</h2>${att.length ? `<span class="pvf-n">${att.length}</span>` : ''}</div>
+      ${att.length ? `<div class="pvp-att-g">${att.slice(0, 12).map(({ c, why, col }, i) => { const t = PV_TIPOS[c.tipo] || PV_TIPOS.reclamacao; const nm = pvClienteNome(c); const age = pvAge(c);
+        return `<button type="button" class="qf-card" data-pvid="${c.id}" style="--c:${col};animation-delay:${i * 50}ms">
+          <span class="qf-card-top"><b class="mono">${esc(c.numero)}</b><span class="pvp-why" style="--c:${col}">${esc(why)}</span></span>
+          <span class="qf-card-cli"><span class="qf-av" style="--h:${pvHue(nm)}">${esc(pvInitials(nm))}</span><span>${esc(nm)}</span></span>
+          <span class="qf-card-sub">${ic(t.icon)}<span>${esc(t.short)}${(c.produto || {}).descricao ? ' · ' + esc(c.produto.descricao) : ''}</span></span>
+          <span class="qf-card-tags">${pvPrazoBadge(c)}<span class="qf-age">${age ? `aberto há ${age} ${age === 1 ? 'dia' : 'dias'}` : 'aberto hoje'}</span></span>
+        </button>`; }).join('')}</div>`
+      : `<div class="qf-empty pvp-ok">${ic('check')}<span>Nada pendente — nenhum chamado atrasado, sem triagem ou aguardando RNC.</span></div>`}`;
+    view.appendChild(at); Icons.apply(at); pvBindRows(at);
+
+    $$('[data-pvgo]', el).forEach((b) => (b.onclick = () => {
+      const g = b.dataset.pvgo;
       if (g === 'qualidade') return navTo('pv-qualidade');
-      pvFilt.st = g === 'atrasados' ? 'atrasados' : 'abertos'; go('pv-chamados');
+      pvFilt.st = g; go('pv-chamados');
     }));
+    $$('.pvp-rk[data-cli]', an).forEach((b) => (b.onclick = () => { if (!b.dataset.cli) return; pvFilt.cli = b.dataset.cli; pvFilt.st = 'todos'; go('pv-chamados'); }));
+    requestAnimationFrame(() => requestAnimationFrame(() => { el.classList.add('in'); an.classList.add('in'); pvCountUp(el); pvCountUp(an); }));
   };
 
   // linha compacta de chamado (usada no painel e na fila)
