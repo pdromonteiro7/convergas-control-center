@@ -1626,8 +1626,8 @@
       <div class="pvf-meta"><span id="pvMeta"></span><button type="button" class="pvf-clear" id="pvClear">${ic('x')}Limpar filtros</button></div>`;
     view.appendChild(tb); Icons.apply(tb);
     const tipoIcons = { '': 'list' }; Object.keys(PV_TIPOS).forEach((k) => { tipoIcons[k] = PV_TIPOS[k].icon; });
-    ccSelect($('#pvTipo', tb), { icons: tipoIcons, search: false, cls: 'pvf-ccs', shortAll: 'Tipo' });
-    ccSelect($('#pvCli', tb), { icon: 'users', search: true, cls: 'pvf-ccs', shortAll: 'Cliente' });
+    ccSelect($('#pvTipo', tb), { icons: tipoIcons, search: false, cls: 'pvf-ccs', shortAll: 'Tipo', minWidth: 240 });
+    ccSelect($('#pvCli', tb), { icon: 'users', search: true, cls: 'pvf-ccs', shortAll: 'Cliente', minWidth: 260 });
     const holder = document.createElement('div'); view.appendChild(holder);
     const render = () => {
       let l = all.slice();
@@ -1913,8 +1913,10 @@
     sel.classList.add('ccs-native'); sel.tabIndex = -1;
     const items = () => Array.from(sel.options).map((o) => ({ v: o.value, t: o.textContent }));
     const btn = document.createElement('button'); btn.type = 'button'; btn.className = 'ccs-btn'; btn.setAttribute('aria-haspopup', 'listbox');
-    const pop = document.createElement('div'); pop.className = 'ccs-pop'; pop.setAttribute('role', 'listbox');
-    wrap.appendChild(btn); wrap.appendChild(pop);
+    // a lista flutua no <body> (position: fixed) enquanto está aberta: nunca fica atrás de outro
+    // elemento nem é cortada por cartões com overflow; abre para cima ou para baixo conforme o espaço
+    const pop = document.createElement('div'); pop.className = 'ccs-pop' + (opts.cls ? ' ' + opts.cls + '-pop' : ''); pop.setAttribute('role', 'listbox');
+    wrap.appendChild(btn);
     const icon = (v) => (opts.icons && opts.icons[v]) || '';
     const paintBtn = () => {
       const cur = items().find((x) => x.v === sel.value) || items()[0] || { v: '', t: '' };
@@ -1940,16 +1942,50 @@
         q.onkeydown = keys;
       }
     };
+    const GAP = 6, MARGIN = 10;
+    let natH = 0, natW = 0, backTimer = 0;
+    const place = () => {
+      if (!wrap.isConnected) { close(); return; }
+      const r = btn.getBoundingClientRect();
+      const vv = window.visualViewport; const vh = vv ? vv.height : innerHeight; const vw = document.documentElement.clientWidth;
+      if (r.bottom < 0 || r.top > vh) { close(); return; }                // o campo saiu da tela
+      const w = Math.min(Math.max(r.width, opts.minWidth || 0, natW), 360, vw - MARGIN * 2);
+      const left = Math.min(Math.max(MARGIN, r.left), vw - MARGIN - w);
+      const below = vh - r.bottom - GAP - MARGIN, above = r.top - GAP - MARGIN;
+      const need = Math.min(natH, 380);
+      const up = below < need && above > below;                           // só sobe se embaixo não couber e em cima tiver mais espaço
+      const maxH = Math.max(120, Math.min(up ? above : below, 420));
+      pop.style.width = w + 'px'; pop.style.left = left + 'px'; pop.style.maxHeight = maxH + 'px';
+      if (up) { pop.style.top = 'auto'; pop.style.bottom = (innerHeight - r.top + GAP) + 'px'; }
+      else { pop.style.bottom = 'auto'; pop.style.top = (r.bottom + GAP) + 'px'; }
+      pop.classList.toggle('up', up);
+    };
+    const onMove = () => { if (wrap.classList.contains('open')) place(); };
     const open = () => {
       if (wrap.classList.contains('open')) return;
       $$('.ccs.open').forEach((x) => x !== wrap && x.ccsClose && x.ccsClose());
-      build(); wrap.classList.add('open'); btn.setAttribute('aria-expanded', 'true');
-      // abre para cima se não couber embaixo
-      const r = btn.getBoundingClientRect(); wrap.classList.toggle('up', innerHeight - r.bottom < 300 && r.top > 300);
+      clearTimeout(backTimer);
+      build();
+      // mede o tamanho natural da lista antes de posicionar
+      document.body.appendChild(pop);
+      pop.classList.remove('show', 'up'); pop.style.cssText = 'left:-9999px;top:0;max-height:none;width:auto';
+      natH = pop.scrollHeight; natW = Math.ceil(pop.getBoundingClientRect().width);
+      place();
+      wrap.classList.add('open'); btn.setAttribute('aria-expanded', 'true');
+      requestAnimationFrame(() => pop.classList.add('show'));
+      addEventListener('scroll', onMove, true); addEventListener('resize', onMove);
+      if (window.visualViewport) visualViewport.addEventListener('resize', onMove);
       const l = list(); active = Math.max(0, l.findIndex((x) => x.classList.contains('on'))); hilite(active);
-      const q = $('.ccs-q input', pop); if (q) setTimeout(() => q.focus(), 30);
+      // no celular não abre o teclado sozinho (ele encolheria a tela e esconderia a lista)
+      const q = $('.ccs-q input', pop); if (q && !matchMedia('(pointer: coarse)').matches) setTimeout(() => q.focus({ preventScroll: true }), 30);
     };
-    const close = () => { wrap.classList.remove('open'); btn.setAttribute('aria-expanded', 'false'); };
+    const close = () => {
+      if (!wrap.classList.contains('open')) return;
+      wrap.classList.remove('open'); btn.setAttribute('aria-expanded', 'false'); pop.classList.remove('show');
+      removeEventListener('scroll', onMove, true); removeEventListener('resize', onMove);
+      if (window.visualViewport) visualViewport.removeEventListener('resize', onMove);
+      backTimer = setTimeout(() => { if (!wrap.classList.contains('open') && pop.parentNode) pop.remove(); }, 250);
+    };
     wrap.ccsClose = close;
     const choose = (v) => { const changed = sel.value !== v; sel.value = v; paintBtn(); close(); btn.focus(); if (changed) sel.dispatchEvent(new Event('change', { bubbles: true })); };
     function keys(e) {
@@ -1961,7 +1997,8 @@
     }
     btn.onclick = () => (wrap.classList.contains('open') ? close() : open());
     btn.onkeydown = keys;
-    document.addEventListener('mousedown', (e) => { if (!wrap.contains(e.target)) close(); });
+    document.addEventListener('mousedown', (e) => { if (!wrap.contains(e.target) && !pop.contains(e.target)) close(); });
+    document.addEventListener('touchstart', (e) => { if (wrap.classList.contains('open') && !wrap.contains(e.target) && !pop.contains(e.target)) close(); }, { passive: true });
     sel.addEventListener('change', paintBtn);
     wrap.ccsRefresh = paintBtn;
     paintBtn();

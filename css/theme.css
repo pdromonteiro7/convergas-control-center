@@ -1701,3 +1701,15 @@ body:has(.modal-root.open .modal-card.cf-sheet) .app-shell, body:has(.modal-root
 .field:has(.ccs.open), .form-grid:has(.ccs.open), .cf-f:has(.ccs.open), .wz-pane .form-grid:has(.ccs.open) { position: relative; z-index: 60; }
 .ccs-pop { background: var(--bg-2) !important; backdrop-filter: none !important; -webkit-backdrop-filter: none !important; }
 [data-theme="light"] .ccs-pop { background: #fff !important; }
+
+/* ---------- lista suspensa flutuante (fica no <body>, posição calculada) ---------- */
+.ccs-pop { position: fixed; z-index: 400; display: flex; flex-direction: column; top: 0; left: 0; min-width: 0; max-width: calc(100vw - 20px);
+  opacity: 0; visibility: hidden; pointer-events: none; transform: translateY(-6px) scale(.985); transform-origin: top center;
+  transition: opacity .18s var(--ease), transform .28s var(--ease-spring), visibility 0s .18s; }
+.ccs-pop.up { transform: translateY(6px) scale(.985); transform-origin: bottom center; }
+.ccs-pop.show { opacity: 1; visibility: visible; pointer-events: auto; transform: none; transition: opacity .18s var(--ease), transform .3s var(--ease-spring), visibility 0s; }
+.ccs-pop .ccs-q { flex: none; }
+.ccs-pop .ccs-list { flex: 1 1 auto; min-height: 0; max-height: none; overflow-y: auto; overscroll-behavior: contain; -webkit-overflow-scrolling: touch; scrollbar-width: thin; scrollbar-color: color-mix(in srgb, var(--text) 25%, transparent) transparent; }
+.ccs-pop .ccs-list::-webkit-scrollbar { width: 8px; }
+.ccs-pop .ccs-list::-webkit-scrollbar-thumb { background: color-mix(in srgb, var(--text) 22%, transparent); border-radius: 8px; border: 2px solid transparent; background-clip: padding-box; }
+@media (pointer: coarse) { .ccs-pop .ccs-opt { min-height: 44px; } }
