@@ -1452,7 +1452,6 @@ html.fx-off .lgx.on .lgx-mark svg { animation: none; }
 .cf-card-ft .cf-chip { margin: 0; color: var(--text-2); background: color-mix(in srgb, var(--text) 6%, transparent); border-color: var(--line); }
 .cf-card-ft .cf-chip.on { color: var(--accent); background: var(--accent-soft); border-color: color-mix(in srgb, var(--accent) 35%, transparent); }
 .cf-ok { position: fixed; border-radius: 0; z-index: 30; }
-@media (max-width: 1499px) { .cf { grid-template-columns: 1fr; max-width: 1180px; } .cf-side { display: none; } }
 /* cartão estreito: rótulo do segmento em cima e CNPJ/fantasia em linhas próprias */
 @container (max-width: 470px) {
   .cf-seg-row { flex-direction: column; align-items: stretch; gap: 8px; }
@@ -1583,3 +1582,34 @@ body:has(.modal-root.open .modal-card.cf-sheet) .app-shell, body:has(.modal-root
 
 .cf-prev span[data-icon] { display: grid; place-items: center; width: 18px; height: 18px; }
 .cf-prev span[data-icon] svg { width: 18px; height: 18px; }
+
+/* cadastro de cliente — UMA etapa por vez também no computador (segue a linha do tempo do topo) */
+.cf { grid-template-columns: minmax(0, 780px) 340px; justify-content: center; max-width: none; }
+.cf-main { grid-template-columns: 1fr; }
+.cf-col { display: contents; }
+.cf-o1 { order: 1; } .cf-o2 { order: 2; } .cf-o3 { order: 3; } .cf-o4 { order: 4; }
+.cf.guided .cf-sec:not(.cur) { display: none; }
+.cf.guided .cf-sec.cur { opacity: 1; filter: none; padding: 22px 26px 26px; border-radius: 22px; }
+.cf.guided .cf-sec.in-r { animation: cfInR .5s var(--ease) both; }
+.cf.guided .cf-sec.in-l { animation: cfInL .5s var(--ease) both; }
+.cf.guided .cf-sec > header { margin-bottom: 18px; }
+.cf.guided .cf-sec > header b { font-size: 1.15rem; letter-spacing: -.01em; }
+.cf.guided .cf-sec .cf-n { width: 30px; height: 30px; border-radius: 10px; font-size: .86rem; }
+.cf.guided .cf-grid { gap: 16px 16px; }
+.cf.guided .cf-in input { height: 48px; font-size: .95rem; }
+.cf.guided .cf-f textarea { min-height: 96px; height: 96px; }
+.cf.guided .cf-seg-row { margin-top: 18px; }
+.cf.guided .cf-seg button { height: 44px; }
+.cf.guided .cf-req { gap: 18px 28px; }
+.cf.guided .cf-grid.cf-txt { margin-top: 18px; }
+.cf-side { display: block; position: sticky; top: 0; }
+@media (max-width: 1099px) { .cf { grid-template-columns: minmax(0, 780px); } .cf-side { display: none; } }
+@media (max-width: 760px) {
+  .cf.guided .cf-sec.cur { padding: 16px 14px 18px; border-radius: 16px; }
+  .cf.guided .cf-sec > header b { font-size: 1rem; }
+  .cf.guided .cf-in input { height: 46px; font-size: 16px; }
+  .cf.guided .cf-f textarea { min-height: 56px; height: 56px; }
+  .cf.guided .cf-req { gap: 14px; }
+  .cf.guided .cf-grid.cf-txt { margin-top: 14px; gap: 12px; }
+}
+@media (max-width: 760px) { .cf.guided .cf-sec > header small { display: none; } .cf.guided .cf-sec > header { margin-bottom: 14px; } }
