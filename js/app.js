@@ -2243,8 +2243,10 @@
     };
     const filledOf = (i) => ({ 0: !!val('nome'), 1: !!(val('cidade') || val('endereco')), 2: !!(val('contatoNome') || val('contatoEmail') || val('contatoFone')), 3: true })[i];
     const steps = document.createElement('ol'); steps.className = 'cf-steps';
-    steps.innerHTML = `<span class="cf-steps-line"><i></i></span>` + SECS.map((x, i) => `<li><button type="button" data-st="${i}"><span class="cf-st-dot"><b>${i + 1}</b>${ic('check')}</span><span class="cf-st-tx"><b>${esc(x.t)}</b><small>${esc(x.s)}</small></span></button></li>`).join('');
-    head.querySelector('.mh-tt').after(steps); Icons.apply(steps);
+    steps.innerHTML = `<span class="cf-steps-line"><i></i></span>` + SECS.map((x, i) => `<li><button type="button" data-st="${i}" title="${i + 1}. ${esc(x.t)}" aria-label="Etapa ${i + 1}: ${esc(x.t)}"><span class="cf-st-dot"><b>${i + 1}</b>${ic('check')}</span><span class="cf-st-tx"><b>${esc(x.t)}</b><small>${esc(x.s)}</small></span></button></li>`).join('');
+    Icons.apply(steps);
+    // a linha do tempo fica dentro do cartão da etapa atual (canto superior direito)
+    const dockSteps = () => { const h = $('header', secEl(cur)); if (h && steps.parentNode !== h) h.appendChild(steps); };
     w.classList.add('guided');
     let cur = 0, reached = editing ? 3 : 0;
     const showErr = (p) => {
@@ -2262,6 +2264,7 @@
         el.classList.toggle('done', done);
         const b = $(`[data-st="${i}"]`, steps); b.classList.toggle('cur', i === cur); b.classList.toggle('done', done); b.disabled = !editing && i > reached + 1;
       });
+      dockSteps();
       $('.cf-steps-line i', steps).style.width = (cur / (SECS.length - 1)) * 100 + '%';
       const last = cur === SECS.length - 1;
       const prev = $('#cfPrev', card); prev.style.visibility = cur === 0 ? 'hidden' : 'visible';
