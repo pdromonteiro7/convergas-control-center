@@ -1545,6 +1545,11 @@
     pageShell('Pós-Vendas', 'Chamados', 'Todos os chamados de clientes — da abertura pelo Comercial até o encerramento.',
       `<button class="btn primary" id="pvNew">${ic('plus')}Novo chamado</button>`);
     $('#pvNew').onclick = () => pvGoNovo();
+    view.appendChild(pvDash((f) => {
+      if (f === 'qualidade') return go('pv-qualidade');
+      const b = $(`#pvSeg button[data-s="${f}"]`);
+      if (b) { b.click(); const bar = b.closest('.pvf'); if (bar) bar.scrollIntoView({ behavior: 'smooth', block: 'start' }); }
+    }));
     const all = Store.get('pvChamados');
     const cnt = (f) => all.filter(f).length;
     const segs = [
@@ -1557,12 +1562,15 @@
       <div class="pvf-tabs" id="pvSeg" role="tablist"><span class="pvf-thumb" id="pvThumb"></span>${segs.map(([k, l, n]) => `<button role="tab" data-s="${k}" class="${pvFilt.st === k ? 'on' : ''}${k === 'atrasados' && n ? ' hot' : ''}">${l}<span class="pvf-n">${n}</span></button>`).join('')}</div>
       <div class="pvf-row">
         <label class="pvf-search">${ic('search')}<input id="pvQ" placeholder="Buscar nº, cliente, produto, lote…" value="${esc(pvFilt.q)}" autocomplete="off"><kbd>/</kbd><button type="button" class="pvf-x" id="pvQx" aria-label="Limpar busca">${ic('x')}</button></label>
-        <label class="pvf-dd${pvFilt.tipo ? ' set' : ''}">${ic('list')}<select id="pvTipo" aria-label="Tipo"><option value="">Todos os tipos</option>${Object.keys(PV_TIPOS).map((k) => `<option value="${k}" ${pvFilt.tipo === k ? 'selected' : ''}>${esc(PV_TIPOS[k].short)}</option>`).join('')}</select><span class="pvf-chev"></span></label>
-        <label class="pvf-dd${pvFilt.cli ? ' set' : ''}">${ic('users')}<select id="pvCli" aria-label="Cliente"><option value="">Todos os clientes</option>${clis.map((k) => `<option value="${k.id}" ${pvFilt.cli === k.id ? 'selected' : ''}>${esc(k.nome)}</option>`).join('')}</select><span class="pvf-chev"></span></label>
+        <div class="pvf-ddw"><select id="pvTipo" aria-label="Tipo"><option value="">Todos os tipos</option>${Object.keys(PV_TIPOS).map((k) => `<option value="${k}" ${pvFilt.tipo === k ? 'selected' : ''}>${esc(PV_TIPOS[k].short)}</option>`).join('')}</select></div>
+        <div class="pvf-ddw"><select id="pvCli" aria-label="Cliente"><option value="">Todos os clientes</option>${clis.map((k) => `<option value="${k.id}" ${pvFilt.cli === k.id ? 'selected' : ''}>${esc(k.nome)}</option>`).join('')}</select></div>
         <label class="pvf-tg${pvFilt.rnc ? ' set' : ''}" title="Mostrar só chamados que precisam de RNC"><input type="checkbox" id="pvRncOnly" ${pvFilt.rnc ? 'checked' : ''}><span class="pvf-sw"></span><span class="pvf-tg-l">Só com RNC</span><span class="pvf-tg-s">RNC</span></label>
       </div>
       <div class="pvf-meta"><span id="pvMeta"></span><button type="button" class="pvf-clear" id="pvClear">${ic('x')}Limpar filtros</button></div>`;
     view.appendChild(tb); Icons.apply(tb);
+    const tipoIcons = { '': 'list' }; Object.keys(PV_TIPOS).forEach((k) => { tipoIcons[k] = PV_TIPOS[k].icon; });
+    ccSelect($('#pvTipo', tb), { icons: tipoIcons, search: false, cls: 'pvf-ccs', shortAll: 'Tipo' });
+    ccSelect($('#pvCli', tb), { icon: 'users', search: true, cls: 'pvf-ccs', shortAll: 'Cliente' });
     const holder = document.createElement('div'); view.appendChild(holder);
     const render = () => {
       let l = all.slice();
@@ -1594,7 +1602,7 @@
     };
     // destaque que desliza até a aba de status ativa
     const thumb = () => { const on = $('#pvSeg button.on', tb), th = $('#pvThumb', tb); if (!on || !th) return; th.style.width = on.offsetWidth + 'px'; th.style.transform = `translateX(${on.offsetLeft}px)`; };
-    const mark = (el, on) => el.closest('.pvf-dd, .pvf-tg').classList.toggle('set', on);
+    const mark = (el, on) => { const box = el.closest('.pvf-tg'); if (box) box.classList.toggle('set', on); };
     $('#pvQ', tb).oninput = (e) => { pvFilt.q = e.target.value; render(); };
     $('#pvQx', tb).onclick = (e) => { e.preventDefault(); pvFilt.q = ''; $('#pvQ', tb).value = ''; render(); $('#pvQ', tb).focus(); };
     $('#pvTipo', tb).onchange = (e) => { pvFilt.tipo = e.target.value; mark(e.target, !!e.target.value); render(); };
@@ -1603,7 +1611,7 @@
     $('#pvClear', tb).onclick = () => {
       Object.assign(pvFilt, { q: '', tipo: '', cli: '', rnc: false });
       $('#pvQ', tb).value = ''; $('#pvTipo', tb).value = ''; $('#pvCli', tb).value = ''; $('#pvRncOnly', tb).checked = false;
-      $$('.pvf-dd, .pvf-tg', tb).forEach((x) => x.classList.remove('set')); render();
+      $$('.pvf-tg', tb).forEach((x) => x.classList.remove('set')); $$('.ccs', tb).forEach((x) => x.ccsRefresh && x.ccsRefresh()); render();
     };
     $$('#pvSeg button', tb).forEach((b) => (b.onclick = () => {
       pvFilt.st = b.dataset.s; $$('#pvSeg button', tb).forEach((x) => x.classList.toggle('on', x === b)); thumb();
@@ -1674,44 +1682,314 @@
     $('#pvCq', tb).oninput = (e) => render(e.target.value.trim());
     render('');
   };
-  function pvFormCliente(k, onDone) {
-    const editing = !!k; k = k || {};
-    const card = modal({
-      title: editing ? 'Editar cliente' : 'Novo cliente', sub: 'Pós-Vendas · cadastro',
-      body: `<div class="form-grid">
-        <div class="form-sec">${ic('users')}Identificação</div>
-        ${field('Nome / razão social', 'nome', k.nome, 'text', { full: true })}
-        ${field('CNPJ', 'cnpj', k.cnpj, 'text', { ph: '00.000.000/0000-00' })}
-        <div class="field"><label>Segmento</label><select name="segmento">${pvOpt(k.segmento || '', [''].concat(PV_SEGMENTOS))}</select></div>
-        ${field('Cidade', 'cidade', k.cidade)}
-        <div class="field"><label>UF</label><select name="uf">${pvOpt(k.uf || '', [''].concat(PV_UF))}</select></div>
-        <div class="form-sec">${ic('phone')}Contato principal</div>
-        ${field('Nome', 'contatoNome', k.contatoNome)}
-        ${field('E-mail', 'contatoEmail', k.contatoEmail, 'email')}
-        ${field('Telefone', 'contatoFone', k.contatoFone)}
-        ${field('Cargo / área', 'contatoCargo', k.contatoCargo)}
-        <div class="form-sec">${ic('award')}Requisitos do cliente (CSR)</div>
-        ${field('Prazo de resposta à RNC (dias)', 'prazoRespostaDias', k.prazoRespostaDias, 'number', { hint: 'Usado como prazo padrão quando o cliente envia RNC' })}
-        <div class="field"><label>Formato de resposta</label><select name="exige8D">${pvOpt(k.exige8D ? 'sim' : 'nao', [{ v: 'nao', t: 'Livre / relatório próprio' }, { v: 'sim', t: 'Exige 8D' }])}</select></div>
-        ${field('Requisitos específicos', 'csr', k.csr, 'textarea', { full: true, ph: 'Ex.: contenção em 24h, resposta pelo portal do cliente, formulário próprio, PPAP…' })}
-        ${field('Observações', 'obs', k.obs, 'textarea', { full: true })}
-      </div>`,
-      footer: `${editing ? `<button class="btn danger" id="pvCliDel">${ic('trash')}Excluir</button><span style="flex:1"></span>` : ''}<button class="btn ghost" data-close>Cancelar</button><button class="btn primary" id="saveBtn">${ic('check')}${editing ? 'Salvar' : 'Cadastrar'}</button>`,
-    });
-    $('#saveBtn', card).onclick = () => {
-      const d = readForm(card);
-      if (!d.nome) return toast('Informe o nome do cliente', 'warn');
-      d.exige8D = d.exige8D === 'sim'; d.prazoRespostaDias = d.prazoRespostaDias ? Number(d.prazoRespostaDias) : '';
-      const saved = editing ? Store.update('pvClientes', k.id, d) : Store.add('pvClientes', d);
-      toast(editing ? 'Cliente atualizado' : 'Cliente cadastrado'); closeModal();
-      if (onDone) onDone(saved); else go(currentRoute);
+  /* ---------- Lista suspensa própria (substitui o <select> nativo, que não dá para estilizar) ----------
+     Melhoria progressiva: o <select> continua no formulário (oculto) e recebe o valor + evento
+     "change", então todo o código que já lê/escuta o select segue funcionando.
+     opts: { icons: {valor: 'icone'}, search: bool, placeholder } */
+  function ccSelect(sel, opts) {
+    if (!sel || sel.dataset.ccs) return;
+    opts = opts || {};
+    sel.dataset.ccs = '1';
+    const wrap = document.createElement('div'); wrap.className = 'ccs' + (opts.cls ? ' ' + opts.cls : '');
+    sel.parentNode.insertBefore(wrap, sel); wrap.appendChild(sel);
+    sel.classList.add('ccs-native'); sel.tabIndex = -1;
+    const items = () => Array.from(sel.options).map((o) => ({ v: o.value, t: o.textContent }));
+    const btn = document.createElement('button'); btn.type = 'button'; btn.className = 'ccs-btn'; btn.setAttribute('aria-haspopup', 'listbox');
+    const pop = document.createElement('div'); pop.className = 'ccs-pop'; pop.setAttribute('role', 'listbox');
+    wrap.appendChild(btn); wrap.appendChild(pop);
+    const icon = (v) => (opts.icons && opts.icons[v]) || '';
+    const paintBtn = () => {
+      const cur = items().find((x) => x.v === sel.value) || items()[0] || { v: '', t: '' };
+      const ico = icon(cur.v) || opts.icon || '';
+      btn.innerHTML = `${ico ? `<span class="ccs-ic" data-icon="${ico}"></span>` : ''}<span class="ccs-v">${!sel.value && opts.shortAll ? `<span class="ccs-l">${esc(cur.t)}</span><span class="ccs-s">${esc(opts.shortAll)}</span>` : esc(cur.t || opts.placeholder || '—')}</span><span class="ccs-chev"></span>`;
+      wrap.classList.toggle('set', !!sel.value);
+      Icons.apply(btn);
     };
-    const del = $('#pvCliDel', card);
+    let active = -1;
+    const list = () => $$('.ccs-opt:not([hidden])', pop);
+    const hilite = (i) => { const l = list(); if (!l.length) return; active = (i + l.length) % l.length; l.forEach((x, j) => x.classList.toggle('act', j === active)); l[active].scrollIntoView({ block: 'nearest' }); };
+    const build = () => {
+      const its = items();
+      const useSearch = opts.search != null ? opts.search : its.length > 8;
+      pop.innerHTML = (useSearch ? `<div class="ccs-q">${ic('search')}<input type="text" placeholder="Buscar…" autocomplete="off"></div>` : '') +
+        `<div class="ccs-list">${its.map((x) => `<button type="button" role="option" class="ccs-opt${x.v === sel.value ? ' on' : ''}${x.v === '' ? ' ccs-all' : ''}" data-v="${esc(x.v)}">${icon(x.v) ? `<span class="ccs-ic" data-icon="${icon(x.v)}"></span>` : ''}<span class="ccs-t">${esc(x.t)}</span><span class="ccs-ck">${ic('check')}</span></button>`).join('')}</div>` +
+        `<div class="ccs-empty" hidden>Nada encontrado</div>`;
+      Icons.apply(pop);
+      $$('.ccs-opt', pop).forEach((o) => (o.onclick = () => choose(o.dataset.v)));
+      const q = $('.ccs-q input', pop);
+      if (q) {
+        q.oninput = () => { const t = q.value.trim().toLowerCase(); let n = 0; $$('.ccs-opt', pop).forEach((o) => { const hit = !t || o.textContent.toLowerCase().includes(t); o.hidden = !hit; if (hit) n++; }); $('.ccs-empty', pop).hidden = n > 0; hilite(0); };
+        q.onkeydown = keys;
+      }
+    };
+    const open = () => {
+      if (wrap.classList.contains('open')) return;
+      $$('.ccs.open').forEach((x) => x !== wrap && x.ccsClose && x.ccsClose());
+      build(); wrap.classList.add('open'); btn.setAttribute('aria-expanded', 'true');
+      // abre para cima se não couber embaixo
+      const r = btn.getBoundingClientRect(); wrap.classList.toggle('up', innerHeight - r.bottom < 300 && r.top > 300);
+      const l = list(); active = Math.max(0, l.findIndex((x) => x.classList.contains('on'))); hilite(active);
+      const q = $('.ccs-q input', pop); if (q) setTimeout(() => q.focus(), 30);
+    };
+    const close = () => { wrap.classList.remove('open'); btn.setAttribute('aria-expanded', 'false'); };
+    wrap.ccsClose = close;
+    const choose = (v) => { const changed = sel.value !== v; sel.value = v; paintBtn(); close(); btn.focus(); if (changed) sel.dispatchEvent(new Event('change', { bubbles: true })); };
+    function keys(e) {
+      if (e.key === 'ArrowDown') { e.preventDefault(); if (!wrap.classList.contains('open')) open(); else hilite(active + 1); }
+      else if (e.key === 'ArrowUp') { e.preventDefault(); hilite(active - 1); }
+      else if (e.key === 'Enter' && wrap.classList.contains('open')) { e.preventDefault(); e.stopPropagation(); const l = list(); if (l[active]) choose(l[active].dataset.v); }
+      else if (e.key === 'Escape' && wrap.classList.contains('open')) { e.preventDefault(); e.stopPropagation(); close(); btn.focus(); }
+      else if (e.key === 'Tab') close();
+    }
+    btn.onclick = () => (wrap.classList.contains('open') ? close() : open());
+    btn.onkeydown = keys;
+    document.addEventListener('mousedown', (e) => { if (!wrap.contains(e.target)) close(); });
+    sel.addEventListener('change', paintBtn);
+    wrap.ccsRefresh = paintBtn;
+    paintBtn();
+  }
+
+  /* ---------- Motor de fluxo guiado (reutilizável) ----------
+     Monta trilha de etapas + painéis + rodapé dentro de um contêiner e cuida de navegação,
+     validação, animação e Enter para avançar. Usado no cadastro de cliente. */
+  function wzShell(steps, panes) {
+    return `<ol class="wz-steps" aria-label="Etapas" style="grid-template-columns:repeat(${steps.length},minmax(0,1fr))">
+        <span class="wz-line" style="left:calc(18px + ${50 / steps.length}% - 4px);right:calc(18px + ${50 / steps.length}% - 4px)"><span class="wz-line-fill"></span></span>
+        ${steps.map((s, i) => `<li><button type="button" class="wz-st" data-go="${i}"><span class="wz-dot"><span class="wz-n">${i + 1}</span><span class="wz-ok">${ic('check')}</span></span><span class="wz-st-tx"><b>${esc(s.t)}</b><small>${esc(s.s)}</small></span></button></li>`).join('')}
+      </ol>
+      <div class="wz-card"><div class="wz-panes">${panes.map((h, i) => `<section class="wz-pane" data-p="${i}">${h}</section>`).join('')}</div>
+        <footer class="wz-foot"><button type="button" class="btn ghost wz-prev">${ic('chevron')}Voltar</button><span class="wz-count">Enter para continuar</span><button type="button" class="btn primary wz-next"></button></footer></div>`;
+  }
+  function wzRun(w, cfg) {
+    const N = cfg.steps.length;
+    let step = 0, reached = cfg.editing ? N - 1 : 0;
+    const shake = (el) => { if (!el) return; el.classList.remove('wz-shake'); void el.offsetWidth; el.classList.add('wz-shake'); };
+    const markErr = (i, on) => { const b = $$('.wz-st', w)[i]; if (b) b.classList.toggle('err', on); };
+    const ok = (i) => { const r = cfg.check ? cfg.check(i, shake) : true; markErr(i, !r); return r; };
+    // ao corrigir (digitar/escolher), some o aviso vermelho da etapa
+    w.addEventListener('input', () => markErr(step, false));
+    w.addEventListener('click', (e) => { if (e.target.closest('.wz-pane button')) markErr(step, false); });
+    const paint = (dir) => {
+      $$('.wz-pane', w).forEach((p) => {
+        const on = +p.dataset.p === step; p.classList.toggle('on', on); p.classList.remove('in-r', 'in-l');
+        if (on) { void p.offsetWidth; p.classList.add(dir < 0 ? 'in-l' : 'in-r'); }
+      });
+      $$('.wz-st', w).forEach((b, i) => { b.classList.toggle('cur', i === step); b.classList.toggle('done', i !== step && i <= reached && (i < step || i < N - 1)); b.disabled = i > reached; });
+      $('.wz-line-fill', w).style.width = (step / (N - 1)) * 100 + '%';
+      const S = cfg.steps[step], pane = $(`.wz-pane[data-p="${step}"]`, w);
+      if (!$('.wz-head', pane)) pane.insertAdjacentHTML('afterbegin', `<header class="wz-head"><span class="wz-kick">Etapa ${step + 1} de ${N}</span><h2>${esc(S.h)}</h2><p>${esc(S.p)}</p></header>`);
+      $('.wz-prev', w).style.visibility = step === 0 ? 'hidden' : 'visible';
+      $('.wz-count', w).textContent = step < N - 1 ? 'Enter para continuar' : '';
+      const nx = $('.wz-next', w);
+      nx.innerHTML = step < N - 1 ? `Continuar <span class="wz-nx-t">· ${esc(cfg.steps[step + 1].t)}</span>${ic('arrowUpRight')}` : `${ic('check')}${esc(cfg.finalLabel || 'Concluir')}`;
+      nx.classList.toggle('final', step === N - 1); Icons.apply(nx);
+      if (cfg.onEnter) cfg.onEnter(step);
+      setTimeout(() => { const f = $('input:not([type=hidden]):not([type=checkbox]), textarea', pane); if (f && !('ontouchstart' in window)) f.focus({ preventScroll: true }); }, 380);
+    };
+    const goStep = (i) => {
+      if (i === step) return;
+      if (i > step) { for (let s = step; s < i; s++) if (!ok(s)) { if (s !== step) { step = s; paint(1); } return; } }
+      const dir = i > step ? 1 : -1; step = i; reached = Math.max(reached, i); paint(dir);
+    };
+    $$('.wz-st', w).forEach((b) => (b.onclick = () => goStep(+b.dataset.go)));
+    $('.wz-prev', w).onclick = () => { if (step > 0) goStep(step - 1); };
+    $('.wz-next', w).onclick = () => { if (step < N - 1) { if (ok(step)) goStep(step + 1); } else { for (let s = 0; s < N; s++) if (!ok(s)) { goStep(s); return; } cfg.onFinish(); } };
+    w.addEventListener('keydown', (e) => {
+      if (e.key !== 'Enter' || e.shiftKey || /textarea/i.test(e.target.tagName) || e.target.closest('.ccs')) return;
+      if (/input/i.test(e.target.tagName)) { e.preventDefault(); $('.wz-next', w).click(); }
+    });
+    paint(1);
+    return { goStep, get step() { return step; } };
+  }
+
+  /* =========================== CLIENTE — cadastro guiado =========================== */
+  const PV_SEG_IC = { 'Montadora / OEM': 'cpu', 'Distribuidor / Revenda': 'box', 'Convertedora / Oficina': 'wrench', 'Frotista': 'activity', 'Consumidor final': 'users', 'Outro': 'grid' };
+  const PV_SEG_DESC = { 'Montadora / OEM': 'Fabricante de veículos', 'Distribuidor / Revenda': 'Revende os kits', 'Convertedora / Oficina': 'Instala e converte', 'Frotista': 'Frota própria', 'Consumidor final': 'Pessoa física', 'Outro': 'Outro perfil' };
+  const pvMaskCnpj = (v) => { const d = String(v || '').replace(/\D/g, '').slice(0, 14); return d.replace(/^(\d{2})(\d)/, '$1.$2').replace(/^(\d{2})\.(\d{3})(\d)/, '$1.$2.$3').replace(/\.(\d{3})(\d)/, '.$1/$2').replace(/(\d{4})(\d)/, '$1-$2'); };
+  const pvMaskFone = (v) => { const d = String(v || '').replace(/\D/g, '').slice(0, 11); if (d.length <= 10) return d.replace(/^(\d{2})(\d)/, '($1) $2').replace(/(\d{4})(\d)/, '$1-$2'); return d.replace(/^(\d{2})(\d)/, '($1) $2').replace(/(\d{5})(\d)/, '$1-$2'); };
+  function pvFormCliente(k, onDone) {
+    const editing = !!(k && k.id); k = k || {};
+    const STEPS = [
+      { t: 'Empresa', s: 'Quem é', h: 'Qual é o cliente?', p: 'Nome, CNPJ e o perfil do cliente.' },
+      { t: 'Local e contato', s: 'Onde e com quem', h: 'Onde fica e com quem falar?', p: 'Cidade e a pessoa de referência para os chamados.' },
+      { t: 'Requisitos', s: 'CSR do cliente', h: 'O que este cliente exige?', p: 'Requisitos específicos (CSR — IATF 4.3.2) aplicados aos chamados dele.' },
+      { t: 'Revisão', s: 'Conferir', h: 'Tudo certo?', p: 'Confira os dados antes de salvar.' },
+    ];
+    const prazos = [5, 10, 15, 30];
+    const pz = k.prazoRespostaDias ? Number(k.prazoRespostaDias) : '';
+    const panes = [
+      `<div class="field full wz-big"><label>Nome / razão social <span class="wz-req">obrigatório</span></label><input name="nome" value="${esc(k.nome || '')}" placeholder="Ex.: Transportes Andorinha Ltda" autocomplete="off"></div>
+       <div class="form-grid">${field('CNPJ', 'cnpj', k.cnpj, 'text', { ph: '00.000.000/0000-00' })}<div></div></div>
+       <div class="wz-sub">${ic('grid')}Segmento</div>
+       <div class="wz-segs">${PV_SEGMENTOS.map((s) => `<button type="button" class="wz-seg${k.segmento === s ? ' on' : ''}" data-seg="${esc(s)}"><span class="wz-seg-ic">${ic(PV_SEG_IC[s] || 'grid')}</span><b>${esc(s)}</b><small>${esc(PV_SEG_DESC[s] || '')}</small></button>`).join('')}</div>
+       <input type="hidden" name="segmento" value="${esc(k.segmento || '')}">`,
+      `<div class="form-grid">${field('Cidade', 'cidade', k.cidade, 'text', { ph: 'Ex.: Campinas' })}<div class="field"><label>UF</label><select name="uf">${pvOpt(k.uf || '', [{ v: '', t: 'Selecione' }].concat(PV_UF))}</select></div></div>
+       <div class="wz-sub">${ic('phone')}Contato principal</div>
+       <div class="form-grid">
+         ${field('Nome', 'contatoNome', k.contatoNome, 'text', { ph: 'Pessoa de referência' })}
+         ${field('Cargo / área', 'contatoCargo', k.contatoCargo, 'text', { ph: 'Ex.: Qualidade, Compras' })}
+         ${field('E-mail', 'contatoEmail', k.contatoEmail, 'email', { ph: 'nome@empresa.com.br' })}
+         ${field('Telefone', 'contatoFone', k.contatoFone, 'text', { ph: '(00) 00000-0000' })}
+       </div>`,
+      `<div class="field full"><label>Prazo para responder uma RNC deste cliente</label>
+         <div class="wz-chips">${prazos.map((d) => `<button type="button" class="wz-chip${pz === d ? ' on' : ''}" data-pz="${d}">${d} dias</button>`).join('')}<button type="button" class="wz-chip${pz && !prazos.includes(pz) ? ' on' : ''}" data-pz="outro">Outro</button><button type="button" class="wz-chip${!pz ? ' on' : ''}" data-pz="">Sem prazo definido</button></div>
+         <div class="wz-pz-other${pz && !prazos.includes(pz) ? ' open' : ''}"><input type="number" min="1" name="prazoRespostaDias" value="${esc(pz)}" placeholder="Dias"><span>dias</span></div>
+         <span class="hint">Vira o prazo padrão do chamado quando o cliente envia RNC.</span></div>
+       <div class="field full"><label>Formato da resposta</label>
+         <div class="wz-opts">
+           <button type="button" class="wz-opt${k.exige8D ? '' : ' on'}" data-8d="nao"><span class="wz-opt-ic">${ic('file')}</span><b>Livre / relatório próprio</b><small>A Qualidade responde no formato da Convergas.</small></button>
+           <button type="button" class="wz-opt${k.exige8D ? ' on' : ''}" data-8d="sim"><span class="wz-opt-ic">${ic('award')}</span><b>Exige 8D</b><small>Resposta obrigatória no método 8D (D1 a D8).</small></button>
+         </div><input type="hidden" name="exige8D" value="${k.exige8D ? 'sim' : 'nao'}"></div>
+       ${field('Requisitos específicos', 'csr', k.csr, 'textarea', { full: true, ph: 'Ex.: contenção em 24h, resposta pelo portal do cliente, formulário próprio, PPAP…' })}
+       ${field('Observações', 'obs', k.obs, 'textarea', { full: true })}`,
+      `<div class="wz-sum" data-sum></div>${editing ? `<button type="button" class="wz-del" data-del>${ic('trash')}Excluir este cliente</button>` : ''}`,
+    ];
+    const card = modal({ title: editing ? 'Editar cliente' : 'Novo cliente', sub: 'Pós-Vendas · cadastro guiado', body: `<div class="wz wz-modal pvx-form">${wzShell(STEPS, panes)}</div>` });
+    const w = $('.wz', card);
+    Icons.apply(w);
+    const val = (n) => { const el = $(`[name="${n}"]`, w); return el ? el.value.trim() : ''; };
+    const set = (n, v) => { const el = $(`[name="${n}"]`, w); if (el) el.value = v; };
+    // máscaras
+    const cnpj = $('[name="cnpj"]', w); cnpj.oninput = () => { cnpj.value = pvMaskCnpj(cnpj.value); };
+    const fone = $('[name="contatoFone"]', w); fone.oninput = () => { fone.value = pvMaskFone(fone.value); };
+    // segmento
+    $$('[data-seg]', w).forEach((b) => (b.onclick = () => { const on = !b.classList.contains('on'); $$('[data-seg]', w).forEach((x) => x.classList.toggle('on', x === b && on)); set('segmento', on ? b.dataset.seg : ''); }));
+    // prazo
+    $$('[data-pz]', w).forEach((b) => (b.onclick = () => {
+      $$('[data-pz]', w).forEach((x) => x.classList.toggle('on', x === b));
+      const other = $('.wz-pz-other', w);
+      if (b.dataset.pz === 'outro') { other.classList.add('open'); setTimeout(() => $('[name="prazoRespostaDias"]', w).focus(), 50); }
+      else { other.classList.remove('open'); set('prazoRespostaDias', b.dataset.pz); }
+    }));
+    $$('[data-8d]', w).forEach((b) => (b.onclick = () => { $$('[data-8d]', w).forEach((x) => x.classList.toggle('on', x === b)); set('exige8D', b.dataset['8d']); }));
+    ccSelect($('[name="uf"]', w), { search: true, icon: 'pin' });
+    const summary = () => {
+      const d = readForm(w);
+      const row = (l, v) => v ? `<div class="wz-sr"><span>${esc(l)}</span><b>${esc(v)}</b></div>` : '';
+      const blk = (i, body) => `<div class="wz-sb" style="--d:${i * 60}ms"><div class="wz-sb-h"><span class="wz-sb-n">${i + 1}</span><b>${esc(STEPS[i].t)}</b><button type="button" class="wz-edit" data-go="${i}">${ic('edit')}Editar</button></div>${body || '<p class="pvx-muted">Nada informado.</p>'}</div>`;
+      $('[data-sum]', w).innerHTML = `
+        <div class="wz-hero"><span class="wz-av wz-av-lg" style="--h:${pvHue(d.nome)}">${esc(pvInitials(d.nome))}</span>
+          <div><small>${editing ? 'Editar cliente' : 'Novo cliente'}${d.segmento ? ' · ' + esc(d.segmento) : ''}</small><b>${esc(d.nome || '—')}</b></div>
+          <div class="wz-hero-m"><span>Resposta à RNC</span><b>${d.prazoRespostaDias ? esc(d.prazoRespostaDias) + ' dias' : '—'}</b>${d.exige8D === 'sim' ? '<span class="badge info plain">Exige 8D</span>' : ''}</div></div>
+        <div class="wz-sgrid">
+          ${blk(0, row('CNPJ', d.cnpj) + row('Segmento', d.segmento))}
+          ${blk(1, row('Local', [d.cidade, d.uf].filter(Boolean).join(' / ')) + row('Contato', [d.contatoNome, d.contatoCargo].filter(Boolean).join(' · ')) + row('E-mail', d.contatoEmail) + row('Telefone', d.contatoFone))}
+          ${blk(2, row('Prazo RNC', d.prazoRespostaDias ? d.prazoRespostaDias + ' dias' : '') + row('Formato', d.exige8D === 'sim' ? 'Exige 8D' : 'Livre') + (d.csr ? `<p class="wz-quote">${esc(d.csr)}</p>` : ''))}
+        </div>`;
+      Icons.apply($('[data-sum]', w));
+      $$('[data-sum] [data-go]', w).forEach((b) => (b.onclick = () => run.goStep(+b.dataset.go)));
+    };
+    const run = wzRun(w, {
+      steps: STEPS, editing, finalLabel: editing ? 'Salvar alterações' : 'Cadastrar cliente',
+      check: (i, shake) => {
+        if (i === 0 && !val('nome')) { toast('Informe o nome do cliente', 'warn'); shake($('.wz-big', w)); return false; }
+        if (i === 0 && val('cnpj') && val('cnpj').replace(/\D/g, '').length !== 14) { toast('CNPJ incompleto — confira os 14 dígitos', 'warn'); shake(cnpj.closest('.field')); return false; }
+        if (i === 1 && val('contatoEmail') && !/^\S+@\S+\.\S+$/.test(val('contatoEmail'))) { toast('E-mail do contato parece inválido', 'warn'); shake($('[name="contatoEmail"]', w).closest('.field')); return false; }
+        return true;
+      },
+      onEnter: (i) => { if (i === STEPS.length - 1) summary(); },
+      onFinish: () => {
+        const d = readForm(w);
+        d.exige8D = d.exige8D === 'sim'; d.prazoRespostaDias = d.prazoRespostaDias ? Number(d.prazoRespostaDias) : '';
+        const saved = editing ? Store.update('pvClientes', k.id, d) : Store.add('pvClientes', d);
+        w.insertAdjacentHTML('beforeend', `<div class="wz-success"><span class="wz-success-ic">${ic('check')}</span><b>${editing ? 'Cliente atualizado' : 'Cliente cadastrado'}</b><small>${esc(saved.nome)}</small></div>`);
+        Icons.apply(w);
+        setTimeout(() => { closeModal(); if (onDone) onDone(saved); else go(currentRoute); }, 1000);
+      },
+    });
+    const del = $('[data-del]', w);
     if (del) del.onclick = () => {
       const n = Store.get('pvChamados').filter((c) => c.clienteId === k.id).length;
       if (n) return toast(`Cliente tem ${n} chamado(s) — não pode ser excluído`, 'warn');
       confirmDialog(`Excluir o cliente "${esc(k.nome)}"?`, () => { Store.remove('pvClientes', k.id); toast('Cliente excluído', 'info'); go(currentRoute); });
     };
+  }
+
+  /* =========================== PAINEL DA ABA CHAMADOS ===========================
+     Mesma linguagem da Home: mostrador circular com marcações, anéis por status (clicáveis),
+     anel interno de "no prazo", cartões de indicadores e curva dos últimos 30 dias. */
+  function pvCountUp(root) {
+    $$('[data-count]', root).forEach((el) => {
+      const to = Number(el.dataset.count) || 0, dec = Number(el.dataset.dec || 0), suf = el.dataset.suf || '';
+      const t0 = performance.now(), dur = 1100;
+      const tick = (now) => { const k = Math.min(1, (now - t0) / dur), e = 1 - Math.pow(1 - k, 3); el.textContent = (to * e).toFixed(dec).replace('.', ',') + suf; if (k < 1) requestAnimationFrame(tick); };
+      requestAnimationFrame(tick);
+    });
+  }
+  function pvDash(onFilter) {
+    const all = Store.get('pvChamados') || [];
+    const s = pvStats();
+    const ab = s.abertos;
+    const segs = [
+      { k: 'aberto', l: 'Triagem', n: ab.filter((c) => c.status === 'aberto').length, c: '#3FA9F5' },
+      { k: 'tratativa', l: 'Tratativa', n: ab.filter((c) => c.status === 'tratativa').length, c: '#F5B840' },
+      { k: 'verificacao', l: 'Verificação', n: ab.filter((c) => c.status === 'verificacao').length, c: '#A78BFA' },
+    ];
+    const tot = ab.length;
+    const noPrazo = tot ? Math.round(100 * (tot - s.atrasados.length) / tot) : 100;
+    const today = todayISO();
+    const encMes = all.filter((c) => c.status === 'encerrado' && (c.encerramento || {}).data && c.encerramento.data.slice(0, 7) === today.slice(0, 7)).length;
+    // 30 dias: abertos x encerrados por dia
+    const days = []; for (let i = 29; i >= 0; i--) days.push(addDays(today, -i));
+    const opened = days.map((d) => all.filter((c) => pvDay(c.criadoEm) === d).length);
+    const closed = days.map((d) => all.filter((c) => (c.encerramento || {}).data === d).length);
+    // curva = acumulado móvel de 7 dias (com poucos chamados por dia, o valor diário vira "picos")
+    const win = (pick) => days.map((d) => { const from = addDays(d, -6); return all.filter((c) => { const v = pick(c); return v && v >= from && v <= d; }).length; });
+    const oRoll = win((c) => pvDay(c.criadoEm)), cRoll = win((c) => (c.encerramento || {}).data);
+    const mx = Math.max(1, ...oRoll, ...cRoll);
+    const W = 520, H = 120, px = (i) => (i / 29) * W, py = (v) => H - 8 - (v / mx) * (H - 22);
+    const smooth = (arr) => arr.map((v, i) => { const x = px(i), y = py(v); if (!i) return `M${x},${y}`; const x0 = px(i - 1), y0 = py(arr[i - 1]), cx = (x0 + x) / 2; return `C${cx},${y0} ${cx},${y} ${x},${y}`; }).join(' ');
+    const oPath = smooth(oRoll), cPath = smooth(cRoll);
+    // anéis (pathLength = 100)
+    let acc = 0; const gap = tot > 1 ? 1.2 : 0;
+    const arcs = segs.filter((x) => x.n).map((x) => { const len = (x.n / tot) * 100; const a = { ...x, start: acc, len: Math.max(0.5, len - gap) }; acc += len; return a; });
+    let ticks = ''; for (let i = 0; i < 90; i++) { const big = i % 15 === 0; ticks += `<line x1="160" y1="${big ? 6 : 10}" x2="160" y2="16" transform="rotate(${i * 4} 160 160)" class="${big ? 'b' : ''}"/>`; }
+    const el = document.createElement('section'); el.className = 'pvd';
+    el.innerHTML = `
+      <div class="pvd-orbit">
+        <div class="pvd-dial">
+          <svg viewBox="0 0 320 320" aria-hidden="true">
+            <g class="pvd-ticks">${ticks}</g>
+            <circle class="pvd-r" cx="160" cy="160" r="138"/>
+            <circle class="pvd-track" cx="160" cy="160" r="118"/>
+            ${arcs.map((a, i) => `<circle class="pvd-arc" data-k="${a.k}" cx="160" cy="160" r="118" pathLength="100" style="--c:${a.c};--len:${a.len};--off:${-a.start};--d:${200 + i * 140}ms"/>`).join('')}
+            ${!tot ? `<circle class="pvd-arc pvd-arc-ok" cx="160" cy="160" r="118" pathLength="100" style="--c:#46D39A;--len:100;--off:0;--d:200ms"/>` : ''}
+            <circle class="pvd-track pvd-track-in" cx="160" cy="160" r="96"/>
+            <circle class="pvd-sla" cx="160" cy="160" r="96" pathLength="100" style="--len:${noPrazo}"/>
+          </svg>
+          <div class="pvd-core">
+            <b data-count="${tot}">0</b>
+            <span>${tot === 1 ? 'chamado em aberto' : 'chamados em aberto'}</span>
+            <small><i class="pvd-dot ok"></i><em data-count="${noPrazo}" data-suf="%">0%</em> no prazo</small>
+          </div>
+        </div>
+        <div class="pvd-legend">${segs.map((x) => `<button type="button" data-f="${x.k}" style="--c:${x.c}"><i></i><span>${x.l}</span><b>${x.n}</b></button>`).join('')}</div>
+      </div>
+      <div class="pvd-side">
+        <div class="pvd-tiles">
+          <button type="button" class="pvd-tile t-danger${s.atrasados.length ? ' hot' : ''}" data-f="atrasados"><span class="pvd-ti">${ic('clock')}</span><b data-count="${s.atrasados.length}">0</b><span>Atrasados</span><small>${s.atrasados.length ? 'fora do prazo' : 'nenhum'}</small></button>
+          <button type="button" class="pvd-tile t-warn" data-f="qualidade"><span class="pvd-ti">${ic('award')}</span><b data-count="${s.rncPend.length}">0</b><span>RNC pendente</span><small>fila da Qualidade</small></button>
+          <button type="button" class="pvd-tile t-info" data-f="aberto"><span class="pvd-ti">${ic('clipboard')}</span><b data-count="${s.semTriagem.length}">0</b><span>Sem triagem</span><small>aguardando decisão</small></button>
+          <button type="button" class="pvd-tile t-ok" data-f="encerrado"><span class="pvd-ti">${ic('check')}</span><b data-count="${encMes}">0</b><span>Encerrados</span><small>neste mês</small></button>
+        </div>
+        <div class="pvd-trend">
+          <div class="pvd-trend-h"><b>Últimos 30 dias <small>acumulado de 7 dias</small></b><span><i class="pvd-dot o"></i>Abertos <em>${opened.reduce((a, b) => a + b, 0)}</em></span><span><i class="pvd-dot c"></i>Encerrados <em>${closed.reduce((a, b) => a + b, 0)}</em></span></div>
+          <svg class="pvd-spark" viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" aria-hidden="true">
+            <defs><linearGradient id="pvdFill" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#5CE1E6" stop-opacity=".35"/><stop offset="1" stop-color="#5CE1E6" stop-opacity="0"/></linearGradient></defs>
+            ${[0.25, 0.5, 0.75].map((f) => `<line class="pvd-grid" x1="0" x2="${W}" y1="${(H * f).toFixed(1)}" y2="${(H * f).toFixed(1)}"/>`).join('')}
+            <path class="pvd-area" d="${oPath} L${W},${H} L0,${H} Z"/>
+            <path class="pvd-line o" d="${oPath}" pathLength="100"/>
+            <path class="pvd-line c" d="${cPath}" pathLength="100"/>
+          </svg>
+          <div class="pvd-axis"><span>${fmtDate(days[0]).slice(0, 5)}</span><span>${fmtDate(days[15]).slice(0, 5)}</span><span>hoje</span></div>
+        </div>
+      </div>`;
+    Icons.apply(el);
+    $$('[data-f]', el).forEach((b) => (b.onclick = () => onFilter(b.dataset.f)));
+    $$('.pvd-arc[data-k]', el).forEach((a) => { a.onclick = () => onFilter(a.dataset.k); a.onmouseenter = () => el.classList.add('hl-' + a.dataset.k); a.onmouseleave = () => el.classList.remove('hl-' + a.dataset.k); });
+    $$('.pvd-legend [data-f]', el).forEach((b) => { b.onmouseenter = () => el.classList.add('hl-' + b.dataset.f); b.onmouseleave = () => el.classList.remove('hl-' + b.dataset.f); });
+    requestAnimationFrame(() => requestAnimationFrame(() => { el.classList.add('in'); pvCountUp(el); }));
+    return el;
   }
 
   /* =========================== NOVO CHAMADO (Comercial) — fluxo guiado ===========================
@@ -1848,6 +2126,7 @@
     view.appendChild(w); Icons.apply(w);
 
     const form = w;
+    ccSelect($('[name="uf"]', w), { search: true, icon: 'pin' });
     const val = (n) => { const el = $(`[name="${n}"]`, form); return el ? (el.type === 'checkbox' ? el.checked : el.value.trim()) : ''; };
     const set = (n, v) => { const el = $(`[name="${n}"]`, form); if (el) el.value = v; };
 
@@ -1862,7 +2141,7 @@
       $$('.wz-cli[data-cli]', w).forEach((b) => b.classList.toggle('on', b.dataset.cli === id));
       const k = pvCliente(id);
       if (k) {
-        const fill = (n, v) => { const el = $(`[name="${n}"]`, form); if (el && !el.value && v) el.value = v; };
+        const fill = (n, v) => { const el = $(`[name="${n}"]`, form); if (el && !el.value && v) { el.value = v; if (el.tagName === 'SELECT') el.dispatchEvent(new Event('change')); } };
         fill('contatoNome', k.contatoNome); fill('contatoInfo', [k.contatoEmail, k.contatoFone].filter(Boolean).join(' · ')); fill('cidade', k.cidade); fill('uf', k.uf);
       }
       $('#wzCliMore', w).classList.add('open');
