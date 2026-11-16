@@ -1297,6 +1297,7 @@
   try { pvCurrentId = sessionStorage.getItem('pv_current') || null; } catch (e) {}
   const pvFilt = { st: 'abertos', q: '', tipo: '', cli: '', rnc: false };
   let pvNovoDraft = null; // edição da abertura (reaproveita o formulário de novo chamado)
+  let pvNovoPreCli = null; // novo chamado aberto a partir do perfil do cliente
 
   function pvMe() { try { return localStorage.getItem('pv_me') || ''; } catch (e) { return ''; } }
   function setPvMe(n) { try { localStorage.setItem('pv_me', n || ''); } catch (e) {} }
@@ -1860,45 +1861,292 @@
     });
   }
 
+  /* =========================== GRÁFICO DE ROSCA 3D ===========================
+     Rosca em perspectiva (topo + paredes laterais) desenhada em SVG e girando devagar.
+     segs: [{ k, l, n, c }]  ·  o: { center: { v, l }, w, h } — passar o mouse destaca a fatia. */
+  function pie3d(segs, o) {
+    o = Object.assign({ w: 320, h: 230, R: 128, r: 70, k: 0.46, d: 26, spin: 9 }, o || {});
+    const tot = segs.reduce((a, x) => a + x.n, 0);
+    const el = document.createElement('div'); el.className = 'p3d';
+    const cx = o.w / 2, cy = (o.h - o.d) / 2 + 2;
+    el.innerHTML = `<svg viewBox="0 0 ${o.w} ${o.h}" aria-hidden="true">
+        <defs><radialGradient id="p3dSh" cx="50%" cy="50%" r="50%"><stop offset="0" stop-color="#000" stop-opacity=".45"/><stop offset="1" stop-color="#000" stop-opacity="0"/></radialGradient>
+        <linearGradient id="p3dGl" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#fff" stop-opacity=".22"/><stop offset=".55" stop-color="#fff" stop-opacity="0"/></linearGradient></defs>
+        <ellipse class="p3d-shadow" cx="${cx}" cy="${cy + o.d + 10}" rx="${o.R * 1.02}" ry="${o.R * o.k * 0.75}" fill="url(#p3dSh)"/>
+        <g class="p3d-g"></g></svg>
+      ${o.center ? `<div class="p3d-c" style="top:${((cy) / o.h) * 100}%"><b>${esc(String(o.center.v))}</b><span>${esc(o.center.l || '')}</span></div>` : ''}`;
+    const g = $('.p3d-g', el);
+    const data = tot ? segs.filter((x) => x.n) : [{ k: '_', l: '', n: 1, c: 'color-mix(in srgb, var(--text) 16%, transparent)' }];
+    const T = tot || 1;
+    const TAU = Math.PI * 2;
+    const P = (rad, a, dy) => `${(cx + rad * Math.cos(a)).toFixed(2)},${(cy + rad * o.k * Math.sin(a) + (dy || 0)).toFixed(2)}`;
+    const shade = (c, p) => `color-mix(in srgb, ${c} ${p}%, #000)`;
+    let rot = -Math.PI / 2 - 0.35, hover = null, last = 0, raf = 0;
+    // quebra [a1,a2] em pedaços que não cruzam 0/π (frente/trás) e têm no máx. 90°
+    const chunks = (a1, a2) => {
+      const out = []; let a = a1;
+      while (a < a2 - 1e-6) {
+        const n = ((a % Math.PI) + Math.PI) % Math.PI; let b = a + (Math.PI - n || Math.PI);
+        b = Math.min(b, a + Math.PI / 2, a2); out.push([a, b]); a = b;
+      }
+      return out;
+    };
+    const draw = () => {
+      let acc = rot; const gap = data.length > 1 ? 0.025 : 0;
+      const inner = [], outer = [], tops = [];
+      data.forEach((x, i) => {
+        const span = (x.n / T) * TAU; const a1 = acc + gap / 2, a2 = acc + span - gap / 2; acc += span;
+        const lift = hover === i ? -7 : 0; const col = x.c;
+        chunks(a1, a2).forEach(([s, e]) => {
+          const mid = (s + e) / 2, front = Math.sin(mid) > 0;
+          if (front) outer.push({ z: Math.sin(mid), i, d: `M${P(o.R, s, lift)} A${o.R},${o.R * o.k} 0 0 1 ${P(o.R, e, lift)} L${P(o.R, e, lift + o.d)} A${o.R},${o.R * o.k} 0 0 0 ${P(o.R, s, lift + o.d)} Z`, f: shade(col, 62) });
+          else inner.push({ i, d: `M${P(o.r, s, lift)} A${o.r},${o.r * o.k} 0 0 1 ${P(o.r, e, lift)} L${P(o.r, e, lift + o.d)} A${o.r},${o.r * o.k} 0 0 0 ${P(o.r, s, lift + o.d)} Z`, f: shade(col, 48) });
+          tops.push({ i, d: `M${P(o.R, s, lift)} A${o.R},${o.R * o.k} 0 0 1 ${P(o.R, e, lift)} L${P(o.r, e, lift)} A${o.r},${o.r * o.k} 0 0 0 ${P(o.r, s, lift)} Z`, f: col });
+        });
+      });
+      outer.sort((a, b) => a.z - b.z);
+      const path = (p, cls) => `<path class="${cls}" data-i="${p.i}" d="${p.d}" style="fill:${p.f};stroke:${p.f}"/>`;
+      g.innerHTML = inner.map((p) => path(p, 'p3d-in')).join('') + outer.map((p) => path(p, 'p3d-out')).join('') + tops.map((p) => path(p, 'p3d-top')).join('')
+        + `<ellipse class="p3d-gloss" cx="${cx}" cy="${cy}" rx="${o.R}" ry="${o.R * o.k}" fill="url(#p3dGl)"/>`;
+    };
+    const still = () => document.documentElement.classList.contains('fx-off');
+    const loop = (t) => {
+      if (!el.isConnected) { if (last) return; }
+      const dt = last ? Math.min(64, t - last) : 16; last = t;
+      if (hover == null && !still() && !document.hidden) { rot += (o.spin * Math.PI / 180) * (dt / 1000); draw(); }
+      raf = requestAnimationFrame(loop);
+    };
+    draw();
+    setTimeout(() => { if (el.isConnected) raf = requestAnimationFrame(loop); }, 50);
+    el.addEventListener('mousemove', (e) => { const p = e.target.closest && e.target.closest('path[data-i]'); const i = p ? +p.dataset.i : null; if (i !== hover) { hover = i; draw(); el.dispatchEvent(new CustomEvent('p3dhover', { detail: i == null ? null : data[i].k })); } });
+    el.addEventListener('mouseleave', () => { hover = null; draw(); el.dispatchEvent(new CustomEvent('p3dhover', { detail: null })); });
+    el.p3dHighlight = (k) => { const i = data.findIndex((x) => x.k === k); hover = i < 0 ? null : i; draw(); };
+    return el;
+  }
+  // legenda do 3D (sincroniza o destaque nos dois sentidos)
+  function pie3dLegend(chart, segs, onClick) {
+    const tot = segs.reduce((a, x) => a + x.n, 0) || 1;
+    const lg = document.createElement('div'); lg.className = 'p3d-leg';
+    lg.innerHTML = segs.map((x) => `<button type="button" data-k="${esc(x.k)}" style="--c:${x.c}"><i></i><span>${esc(x.l)}</span><b>${x.n}</b><small>${Math.round((100 * x.n) / tot)}%</small></button>`).join('');
+    $$('button', lg).forEach((b) => { b.onmouseenter = () => chart.p3dHighlight(b.dataset.k); b.onmouseleave = () => chart.p3dHighlight(null); if (onClick) b.onclick = () => onClick(b.dataset.k); });
+    chart.addEventListener('p3dhover', (e) => $$('button', lg).forEach((b) => b.classList.toggle('hl', b.dataset.k === e.detail)));
+    return lg;
+  }
+  const pvStars = (v) => `<span class="pvs-stars" style="--v:${Math.max(0, Math.min(5, v || 0)) * 20}%" aria-label="${v ? v.toFixed(1).replace('.', ',') : 'sem'} de 5"><span>★★★★★</span><span class="on">★★★★★</span></span>`;
+  const pvSatOf = (list) => { const n = list.map((c) => Number((c.encerramento || {}).satisfacao)).filter((x) => x > 0); return { avg: n.length ? n.reduce((a, b) => a + b, 0) / n.length : null, n: n.length }; };
+  const PV_SEG_COR = { Frotista: '#5CE1E6', Montadora: '#A78BFA', 'Consumidor final': '#F5B840', Outro: '#3FA9F5', '': 'color-mix(in srgb, var(--text) 26%, transparent)' };
+  const pvSegKey = (k) => (k.segmento === 'Frotista' || k.segmento === 'Montadora' || k.segmento === 'Consumidor final') ? k.segmento : (k.segmento ? 'Outro' : '');
+  // barras de 12 meses (abertos x encerrados) — usada no perfil
+  function pvBars12(list) {
+    const MES = ['jan', 'fev', 'mar', 'abr', 'mai', 'jun', 'jul', 'ago', 'set', 'out', 'nov', 'dez'];
+    const meses = []; const d0 = new Date(); d0.setDate(1);
+    for (let i = 11; i >= 0; i--) { const d = new Date(d0.getFullYear(), d0.getMonth() - i, 1); meses.push({ k: d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0'), l: MES[d.getMonth()], y: d.getFullYear() }); }
+    meses.forEach((m) => { m.o = list.filter((c) => pvDay(c.criadoEm).slice(0, 7) === m.k).length; m.c = list.filter((c) => ((c.encerramento || {}).data || '').slice(0, 7) === m.k).length; });
+    const mx = Math.max(1, ...meses.map((m) => Math.max(m.o, m.c)));
+    const W = 520, H = 150, bw = W / 12;
+    const bars = meses.map((m, i) => {
+      const x = i * bw + bw * 0.16, w = bw * 0.32;
+      const bar = (v, xx, col) => { const h = (v / mx) * (H - 22); return v ? `<rect x="${xx.toFixed(1)}" y="${(H - h).toFixed(1)}" width="${w.toFixed(1)}" height="${h.toFixed(1)}" rx="3" fill="${col}"/><text x="${(xx + w / 2).toFixed(1)}" y="${(H - h - 5).toFixed(1)}">${v}</text>` : `<rect x="${xx.toFixed(1)}" y="${H - 2}" width="${w.toFixed(1)}" height="2" rx="1" class="qad-zero"/>`; };
+      return `<g class="qad-bar" style="--d:${300 + i * 45}ms">${bar(m.o, x, '#5CE1E6')}${bar(m.c, x + w + bw * 0.04, '#46D39A')}</g>`;
+    }).join('');
+    return { o: meses.reduce((a, m) => a + m.o, 0), c: meses.reduce((a, m) => a + m.c, 0), html: `<svg class="pvd-spark qad-bars" viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" aria-hidden="true">${[0.25, 0.5, 0.75].map((f) => `<line class="pvd-grid" x1="0" x2="${W}" y1="${(H * f).toFixed(1)}" y2="${(H * f).toFixed(1)}"/>`).join('')}${bars}</svg>
+      <div class="qad-axis">${meses.map((m, i) => `<span>${m.l}${i === 0 || m.l === 'jan' ? `<small>${String(m.y).slice(2)}</small>` : ''}</span>`).join('')}</div>` };
+  }
+
+  /* =========================== CLIENTES — painel + lista =========================== */
+  let pvCliSeg = '';
+  let pvCliId = null; try { pvCliId = sessionStorage.getItem('pv_cli') || null; } catch (e) {}
+  function pvOpenCli(id) { pvCliId = id; try { sessionStorage.setItem('pv_cli', id); } catch (e) {} navTo('pv-cliente'); }
+
   PAGES['pv-clientes'] = () => {
-    pageShell('Pós-Vendas', 'Clientes', 'Cadastro de clientes, contatos e requisitos específicos (CSR) que valem para os chamados.',
+    pageShell('Pós-Vendas', 'Clientes', 'Carteira de clientes, satisfação e requisitos específicos (CSR) — clique num cliente para ver o perfil completo.',
       `<button class="btn primary" id="pvNewCli">${ic('plus')}Novo cliente</button>`);
     $('#pvNewCli').onclick = () => pvFormCliente();
     const clis = Store.get('pvClientes').slice().sort((a, b) => a.nome.localeCompare(b.nome));
-    const ch = Store.get('pvChamados');
-    // faixa da integração com o LifeGas
+    const ch = Store.get('pvChamados').filter((c) => c.status !== 'cancelado');
+    const byCli = {}; ch.forEach((c) => { (byCli[c.clienteId] = byCli[c.clienteId] || []).push(c); });
+    const sat = pvSatOf(ch);
+    const ativos = clis.filter((k) => (byCli[k.id] || []).some(pvAberto));
+    const segs = [['Frotista', 'Frotista'], ['Montadora', 'Montadora'], ['Consumidor final', 'Consumidor final'], ['Outro', 'Outros'], ['', 'Sem segmento']]
+      .map(([k, l]) => ({ k, l, n: clis.filter((x) => pvSegKey(x) === k).length, c: PV_SEG_COR[k] })).filter((x) => x.n);
+    const lgN = clis.filter((k) => k.origem === 'lifegas' && !k.lgRemovido).length;
+
+    // painel
+    const el = document.createElement('section'); el.className = 'pvd pvc';
+    el.innerHTML = `
+      <div class="pvd-orbit">
+        <div class="pvd-dial">${qaDialSvg(segs.map((x) => ({ ...x, k: 'seg' + x.k })), sat.avg == null ? 0 : Math.round((sat.avg / 5) * 100))}
+          <div class="pvd-core">
+            <b data-count="${clis.length}">0</b>
+            <span>${clis.length === 1 ? 'cliente' : 'clientes'}</span>
+            <small><i class="pvd-dot ok"></i><em data-count="${ativos.length}">0</em> ativos</small>
+          </div>
+        </div>
+        <div class="pvd-legend pvc-leg">${segs.map((x) => `<button type="button" data-seg="${esc(x.k)}" style="--c:${x.c}" class="${pvCliSeg === x.k && pvCliSeg !== null ? '' : ''}"><i></i><span>${esc(x.l)}</span><b>${x.n}</b></button>`).join('')}</div>
+      </div>
+      <div class="pvd-side">
+        <div class="pvd-tiles">
+          <div class="pvd-tile t-warn pvc-sat"><span class="pvd-ti">${ic('award')}</span><b>${sat.avg == null ? '—' : `<span data-count="${sat.avg.toFixed(1)}" data-dec="1">0</span><small class="pvc-of">/5</small>`}</b><span>Satisfação geral</span><small>${sat.avg == null ? 'sem avaliações ainda' : `${pvStars(sat.avg)} ${sat.n} ${sat.n === 1 ? 'avaliação' : 'avaliações'}`}</small></div>
+          <button type="button" class="pvd-tile t-info" data-go="ativos"><span class="pvd-ti">${ic('activity')}</span><b data-count="${ativos.length}">0</b><span>Clientes ativos</span><small>com chamado em aberto</small></button>
+          <div class="pvd-tile t-ok"><span class="pvd-ti">${ic('refresh')}</span><b data-count="${lgN}">0</b><span>Vindos do LifeGas</span><small>sincronizados</small></div>
+          <div class="pvd-tile"><span class="pvd-ti">${ic('file')}</span><b data-count="${clis.filter((k) => k.exige8D).length}">0</b><span>Exigem 8D</span><small>resposta no método 8D</small></div>
+        </div>
+        <div class="pvd-trend pvc-3d">
+          <div class="pvd-trend-h"><b>Chamados por cliente <small>${ch.length} no total</small></b></div>
+          <div class="pvc-3d-b" id="pvc3d"></div>
+        </div>
+      </div>`;
+    view.appendChild(el); Icons.apply(el);
+    // 3D: top 5 clientes por nº de chamados + outros
+    const COR = ['#5CE1E6', '#A78BFA', '#F5B840', '#3FA9F5', '#FF7A7A', '#94A3B8'];
+    const rank = clis.map((k) => ({ k: k.id, l: k.fantasia || k.nome, n: (byCli[k.id] || []).length })).filter((x) => x.n).sort((a, b) => b.n - a.n);
+    const top = rank.slice(0, 5).map((x, i) => ({ ...x, c: COR[i] }));
+    const resto = rank.slice(5).reduce((a, x) => a + x.n, 0); if (resto) top.push({ k: '_outros', l: 'Outros', n: resto, c: COR[5] });
+    const chart = pie3d(top, { center: { v: ch.length, l: ch.length === 1 ? 'chamado' : 'chamados' } });
+    const host = $('#pvc3d', el); host.appendChild(chart);
+    host.appendChild(pie3dLegend(chart, top, (k) => { if (k !== '_outros') pvOpenCli(k); }));
+
+    // integração LifeGas (faixa compacta)
     const lgRows = (Store.get('lgClientes') || []).filter((r) => !r.removido);
-    const lgCli = clis.filter((k) => k.origem === 'lifegas' && !k.lgRemovido);
     const lgLast = (Store.get('lgClientes') || []).map((r) => r.syncEm || '').sort().pop();
     const lg = document.createElement('section'); lg.className = 'lgx' + (lgRows.length ? ' on' : '');
     lg.innerHTML = `<span class="lgx-mark"><span class="lgx-pulse"></span>${ic('refresh')}</span>
       <div class="lgx-tx"><b>${lgRows.length ? 'Integrado ao LifeGas' : 'Integração com o LifeGas'}</b>
-        <span>${lgRows.length ? `${lgCli.length} ${lgCli.length === 1 ? 'cliente vem' : 'clientes vêm'} do LifeGas e são atualizados automaticamente${lgLast ? ` · último envio ${esc(pvFmtDT(lgLast))}` : ''}` : 'Clientes cadastrados no LifeGas aparecem aqui automaticamente depois que a integração é ativada.'}</span></div>
+        <span>${lgRows.length ? `${lgN} ${lgN === 1 ? 'cliente vem' : 'clientes vêm'} do LifeGas e são atualizados automaticamente${lgLast ? ` · último envio ${esc(pvFmtDT(lgLast))}` : ''}` : 'Clientes cadastrados no LifeGas aparecem aqui automaticamente depois que a integração é ativada.'}</span></div>
       <div class="lgx-act">${lgRows.length ? '' : `<button class="btn" id="lgHow">${ic('book')}Como ativar</button>`}<button class="btn" id="lgSync">${ic('refresh')}Sincronizar agora</button></div>`;
     view.appendChild(lg); Icons.apply(lg);
     $('#lgSync', lg).onclick = (e) => lgSyncNow(e.currentTarget);
     const how = $('#lgHow', lg); if (how) how.onclick = lgHowTo;
-    const tb = document.createElement('div'); tb.className = 'toolbar';
-    tb.innerHTML = `<div class="filter-input">${ic('search')}<input id="pvCq" placeholder="Buscar cliente, CNPJ, cidade…"></div>`;
+
+    // filtros + lista
+    const tb = document.createElement('div'); tb.className = 'pvf';
+    const tabs = [['*', 'Todos', clis.length]].concat(segs.map((x) => [x.k, x.l, x.n]));
+    if (!tabs.some((t) => t[0] === pvCliSeg)) pvCliSeg = '*';
+    tb.innerHTML = `<div class="pvf-row"><div class="pvf-tabs" id="pvcTabs"><span class="pvf-thumb"></span>${tabs.map(([k, l, n]) => `<button data-s="${esc(k)}" class="${pvCliSeg === k ? 'on' : ''}">${esc(l)}<span class="pvf-n">${n}</span></button>`).join('')}</div>
+      <label class="pvf-search">${ic('search')}<input id="pvCq" placeholder="Buscar cliente, CNPJ, cidade…" autocomplete="off"><button type="button" class="pvf-x" id="pvCqx" aria-label="Limpar busca">${ic('x')}</button></label></div>`;
     view.appendChild(tb); Icons.apply(tb);
     const holder = document.createElement('div'); view.appendChild(holder);
-    const render = (q) => {
-      const l = q ? clis.filter((k) => JSON.stringify(k).toLowerCase().includes(q.toLowerCase())) : clis;
-      holder.innerHTML = l.length ? `<div class="tbl-wrap"><table class="data"><thead><tr><th>Cliente</th><th>Segmento</th><th>Contato</th><th>Prazo de resposta</th><th>Chamados</th><th></th></tr></thead><tbody>${l.map((k) => {
-        const mine = ch.filter((c) => c.clienteId === k.id); const ab = mine.filter(pvAberto).length;
-        return `<tr data-cli="${k.id}" class="pvx-tr"><td><div class="cell-main">${esc(k.nome)}${k.origem === 'lifegas' ? (k.lgRemovido ? ' <span class="badge danger plain" title="Este cliente foi excluído no LifeGas">Excluído no LifeGas</span>' : ' <span class="badge info plain lgx-badge" title="Cadastro vindo do LifeGas">LifeGas</span>') : ''}</div><div class="cell-sub">${esc([k.cnpj, [k.cidade, k.uf].filter(Boolean).join(' / ')].filter(Boolean).join(' · ') || '—')}</div></td>
-          <td>${esc(k.segmento || '—')}</td>
+    let q = '';
+    const render = () => {
+      let l = clis.slice();
+      if (pvCliSeg === 'ativos') l = ativos.slice(); else if (pvCliSeg !== '*') l = l.filter((k) => pvSegKey(k) === pvCliSeg);
+      if (q) l = l.filter((k) => JSON.stringify(k).toLowerCase().includes(q.toLowerCase()));
+      $('#pvCqx', tb).classList.toggle('show', !!q);
+      holder.innerHTML = l.length ? `<div class="tbl-wrap"><table class="data pvc-table"><thead><tr><th>Cliente</th><th>Segmento</th><th>Contato</th><th>Chamados</th><th>Satisfação</th><th></th></tr></thead><tbody>${l.map((k) => {
+        const mine = byCli[k.id] || []; const ab = mine.filter(pvAberto).length; const s = pvSatOf(mine);
+        return `<tr data-cli="${k.id}" class="pvx-tr"><td><div class="pvc-who"><span class="qf-av" style="--h:${pvHue(k.nome)}">${esc(pvInitials(k.nome))}</span><div><div class="cell-main">${esc(k.nome)}${k.origem === 'lifegas' ? (k.lgRemovido ? ' <span class="badge danger plain" title="Este cliente foi excluído no LifeGas">Excluído no LifeGas</span>' : ' <span class="badge info plain lgx-badge" title="Cadastro vindo do LifeGas">LifeGas</span>') : ''}</div><div class="cell-sub">${esc([k.cnpj, [k.cidade, k.uf].filter(Boolean).join(' / ')].filter(Boolean).join(' · ') || '—')}</div></div></div></td>
+          <td>${k.segmento ? `<span class="wz-cli-seg">${esc(k.segmento)}</span>` : '<span class="pvx-muted">—</span>'}</td>
           <td><div class="cell-main">${esc(k.contatoNome || '—')}</div><div class="cell-sub">${esc(k.contatoEmail || k.contatoFone || '')}</div></td>
-          <td>${k.prazoRespostaDias ? `${esc(k.prazoRespostaDias)} dias` : '—'}${k.exige8D ? ' <span class="badge info plain">Exige 8D</span>' : ''}</td>
           <td><b>${mine.length}</b>${ab ? ` <span class="badge warn plain">${ab} em aberto</span>` : ''}</td>
-          <td class="row-actions"><button class="mini-btn" data-clied="${k.id}" title="Editar">${ic('edit')}</button></td></tr>`;
-      }).join('')}</tbody></table></div>` : `<div class="tbl-wrap">${emptyState('users', clis.length ? 'Nenhum cliente encontrado' : 'Nenhum cliente cadastrado', clis.length ? 'Ajuste a busca.' : 'Cadastre aqui ou direto ao abrir um chamado.')}</div>`;
+          <td>${s.avg == null ? '<span class="pvx-muted">—</span>' : `${pvStars(s.avg)} <small class="pvx-muted">${s.avg.toFixed(1).replace('.', ',')}</small>`}</td>
+          <td class="row-actions"><button class="mini-btn" data-clied="${k.id}" title="Editar">${ic('edit')}</button><span class="pvc-go">${ic('arrowUpRight')}</span></td></tr>`;
+      }).join('')}</tbody></table></div>` : `<div class="tbl-wrap">${emptyState('users', clis.length ? 'Nenhum cliente encontrado' : 'Nenhum cliente cadastrado', clis.length ? 'Ajuste o filtro ou a busca.' : 'Cadastre aqui ou direto ao abrir um chamado.')}</div>`;
       Icons.apply(holder);
-      $$('tr[data-cli]', holder).forEach((tr) => (tr.onclick = (e) => { if (e.target.closest('[data-clied]')) return; pvFilt.cli = tr.dataset.cli; pvFilt.st = 'todos'; go('pv-chamados'); }));
+      $$('tr[data-cli]', holder).forEach((tr) => (tr.onclick = (e) => { if (e.target.closest('[data-clied]')) return; pvOpenCli(tr.dataset.cli); }));
       $$('[data-clied]', holder).forEach((b) => (b.onclick = () => pvFormCliente(Store.find('pvClientes', b.dataset.clied))));
     };
-    $('#pvCq', tb).oninput = (e) => render(e.target.value.trim());
-    render('');
+    const tabsEl = $('#pvcTabs', tb);
+    const setSeg = (k) => { pvCliSeg = k; $$('button', tabsEl).forEach((x) => x.classList.toggle('on', x.dataset.s === k)); tabsThumb(tabsEl); render(); };
+    $$('button', tabsEl).forEach((b) => (b.onclick = () => setSeg(b.dataset.s)));
+    $$('[data-seg]', el).forEach((b) => (b.onclick = () => { setSeg(b.dataset.seg); tb.scrollIntoView({ behavior: 'smooth', block: 'start' }); }));
+    $$('.pvd-arc[data-k]', el).forEach((a) => (a.onclick = () => setSeg(a.dataset.k.slice(3))));
+    const ativosBtn = $('[data-go="ativos"]', el); ativosBtn.onclick = () => { pvCliSeg = 'ativos'; $$('button', tabsEl).forEach((x) => x.classList.remove('on')); tabsThumb(tabsEl); render(); tb.scrollIntoView({ behavior: 'smooth', block: 'start' }); };
+    $('#pvCq', tb).oninput = (e) => { q = e.target.value.trim(); render(); };
+    $('#pvCqx', tb).onclick = (e) => { e.preventDefault(); q = ''; $('#pvCq', tb).value = ''; render(); };
+    render(); tabsThumbInit(tabsEl, 'pvc');
+    requestAnimationFrame(() => requestAnimationFrame(() => { el.classList.add('in'); pvCountUp(el); }));
+  };
+
+  /* =========================== PERFIL DO CLIENTE =========================== */
+  PAGES['pv-cliente'] = () => {
+    const k = pvCliId && Store.find('pvClientes', pvCliId);
+    if (!k) { go('pv-clientes'); return; }
+    const all = Store.get('pvChamados').filter((c) => c.clienteId === k.id);
+    const ch = all.filter((c) => c.status !== 'cancelado');
+    const ab = ch.filter(pvAberto), atr = ch.filter(pvAtrasado);
+    const enc = ch.filter((c) => c.status === 'encerrado' && (c.encerramento || {}).data);
+    const sat = pvSatOf(ch);
+    const dias = enc.map((c) => Math.max(0, daysBetween(pvDay(c.criadoEm), c.encerramento.data)));
+    const tMed = dias.length ? dias.reduce((a, b) => a + b, 0) / dias.length : null;
+    const noPrazo = enc.length ? Math.round((100 * enc.filter((c) => !c.prazo || c.encerramento.data <= c.prazo).length) / enc.length) : null;
+    const custo = ch.reduce((a, c) => a + (Number((c.atendimento || {}).custoTotal) || 0), 0);
+    const ult = ch.map((c) => pvDay(c.criadoEm)).sort().pop();
+
+    pageShell('Pós-Vendas', k.fantasia || k.nome, 'Perfil do cliente — visão geral, indicadores e histórico de chamados.',
+      `<button class="btn" id="pcBack">${ic('chevron')}Clientes</button><button class="btn" id="pcEdit">${ic('edit')}Editar</button><button class="btn primary" id="pcNew">${ic('plus')}Novo chamado</button>`);
+    $('#pcBack').onclick = () => go('pv-clientes');
+    $('#pcEdit').onclick = () => pvFormCliente(k, () => go('pv-cliente'));
+    $('#pcNew').onclick = () => { pvNovoPreCli = k.id; go('pv-novo'); };
+
+    const end = [k.endereco, [k.cidade, k.uf].filter(Boolean).join(' / '), k.cep].filter(Boolean).join(' · ');
+    const line = (icn, v, href) => v ? `<div class="pc-ln">${ic(icn)}${href ? `<a href="${href}">${esc(v)}</a>` : `<span>${esc(v)}</span>`}</div>` : '';
+    const hero = document.createElement('section'); hero.className = 'pc-hero';
+    hero.style.setProperty('--h', pvHue(k.nome));
+    hero.innerHTML = `
+      <div class="pc-id">
+        <span class="pc-av">${esc(pvInitials(k.nome))}</span>
+        <div class="pc-name"><b>${esc(k.nome)}</b>${k.fantasia ? `<span>${esc(k.fantasia)}</span>` : ''}
+          <div class="pc-chips">${k.segmento ? `<span class="wz-cli-seg">${esc(k.segmento)}</span>` : ''}${k.origem === 'lifegas' ? '<span class="badge info plain">LifeGas</span>' : ''}${k.exige8D ? '<span class="badge warn plain">Exige 8D</span>' : ''}${k.prazoRespostaDias ? `<span class="badge neutral plain">RNC em ${esc(k.prazoRespostaDias)} dias</span>` : ''}${ab.length ? `<span class="badge warn">${ab.length} em aberto</span>` : '<span class="badge ok plain">Nada em aberto</span>'}</div></div>
+      </div>
+      <div class="pc-info">
+        ${line('award', k.cnpj)}${line('pin', end)}
+        ${line('users', [k.contatoNome, k.contatoCargo].filter(Boolean).join(' · '))}
+        ${line('mail', k.contatoEmail, k.contatoEmail ? 'mailto:' + k.contatoEmail : '')}${line('phone', k.contatoFone, k.contatoFone ? 'tel:' + pvDig(k.contatoFone) : '')}
+        ${!k.cnpj && !end && !k.contatoNome && !k.contatoEmail && !k.contatoFone ? '<div class="pc-ln pvx-muted">Sem dados de contato — use Editar.</div>' : ''}
+      </div>
+      <div class="pc-sat">
+        <span class="pc-sat-k">Satisfação</span>
+        <b>${sat.avg == null ? '—' : sat.avg.toFixed(1).replace('.', ',')}</b>
+        ${pvStars(sat.avg || 0)}
+        <small>${sat.n ? `${sat.n} ${sat.n === 1 ? 'avaliação' : 'avaliações'}` : 'sem avaliações'}</small>
+      </div>`;
+    view.appendChild(hero); Icons.apply(hero);
+
+    const tile = (cls, icn, v, l, s, attrs) => `<div class="pvd-tile ${cls}" ${attrs || ''}><span class="pvd-ti">${ic(icn)}</span><b>${v}</b><span>${esc(l)}</span><small>${s}</small></div>`;
+    const tiles = document.createElement('section'); tiles.className = 'pc-tiles';
+    tiles.innerHTML = [
+      tile('t-info', 'list', `<span data-count="${ch.length}">0</span>`, 'Chamados', ult ? `último em ${fmtDate(ult)}` : 'nenhum ainda'),
+      tile('t-warn', 'clock', `<span data-count="${ab.length}">0</span>`, 'Em aberto', ab.length ? 'em tratativa' : 'tudo resolvido'),
+      tile('t-danger' + (atr.length ? ' hot' : ''), 'alert', `<span data-count="${atr.length}">0</span>`, 'Atrasados', atr.length ? 'fora do prazo' : 'nenhum'),
+      tile('t-ok', 'check', noPrazo == null ? '—' : `<span data-count="${noPrazo}" data-suf="%">0%</span>`, 'Encerrados no prazo', `${enc.length} ${enc.length === 1 ? 'encerrado' : 'encerrados'}`),
+      tile('', 'activity', tMed == null ? '—' : `<span data-count="${tMed.toFixed(1)}" data-dec="1">0</span><small class="pvc-of"> d</small>`, 'Tempo médio', 'da abertura ao encerramento'),
+      tile('', 'shield', `<span class="pc-money">${esc(pvMoney(custo))}</span>`, 'Custo de atendimento', 'soma dos chamados'),
+    ].join('');
+    view.appendChild(tiles); Icons.apply(tiles);
+
+    // gráficos: 3D por tipo · 12 meses · procedência
+    const tipos = Object.keys(PV_TIPOS).map((t, i) => ({ k: t, l: PV_TIPOS[t].short, n: ch.filter((c) => c.tipo === t).length, c: PV_TIPO_COR[i % PV_TIPO_COR.length] })).filter((x) => x.n).sort((a, b) => b.n - a.n);
+    const b12 = pvBars12(ch);
+    const proc = { Procedente: 0, Improcedente: 0, 'Sem defeito (NTF)': 0, 'Em análise': 0 };
+    ch.forEach((c) => { if ((c.atendimento || {}).ntf) proc['Sem defeito (NTF)']++; else { const p = (c.triagem || {}).procedencia || 'Em análise'; proc[p] = (proc[p] || 0) + 1; } });
+    const procL = [['Procedente', '#FF7A7A'], ['Improcedente', '#46D39A'], ['Sem defeito (NTF)', '#3FA9F5'], ['Em análise', 'color-mix(in srgb, var(--text) 30%, transparent)']].map(([l, c]) => ({ l, c, n: proc[l] || 0 }));
+    const pt = procL.reduce((a, p) => a + p.n, 0);
+    const charts = document.createElement('section'); charts.className = 'pc-charts pvd';
+    charts.innerHTML = `
+      <div class="pvp-card pc-3d" style="--d:0ms"><div class="pvp-card-h"><b>Chamados por tipo</b><span>${ch.length} no total</span></div><div class="pc-3d-b" id="pc3d"></div></div>
+      <div class="pvp-card" style="--d:80ms"><div class="pvp-card-h"><b>Últimos 12 meses</b><span><i class="pvd-dot o"></i> abertos ${b12.o} · <i class="pvd-dot c"></i> encerrados ${b12.c}</span></div>${b12.html}
+        <div class="pc-proc"><span class="pc-proc-h">Procedência</span>${pt ? `<div class="qband-bar pvp-pbar">${procL.filter((p) => p.n).map((p, i) => `<i style="--w:${(100 * p.n) / pt}%;--c:${p.c};--d:${300 + i * 120}ms" title="${esc(p.l)}: ${p.n}"></i>`).join('')}</div><div class="pc-proc-l">${procL.filter((p) => p.n).map((p) => `<span style="--c:${p.c}"><i></i>${esc(p.l)} <b>${p.n}</b></span>`).join('')}</div>` : '<span class="pvx-muted">Sem chamados.</span>'}</div>
+      </div>`;
+    view.appendChild(charts); Icons.apply(charts);
+    const c3 = pie3d(tipos, { center: { v: ch.length, l: ch.length === 1 ? 'chamado' : 'chamados' } });
+    $('#pc3d', charts).appendChild(c3); $('#pc3d', charts).appendChild(pie3dLegend(c3, tipos));
+    const an = charts; // animação das barras/faixas usa .in no .pvd e .pvp-an
+    an.classList.add('pvp-an');
+
+    // requisitos + histórico
+    const hist = document.createElement('section'); hist.className = 'pc-hist';
+    const sorted = all.slice().sort((a, b) => String(b.criadoEm).localeCompare(String(a.criadoEm)));
+    hist.innerHTML = `
+      ${k.csr || k.obs ? `<div class="pc-csr">${ic('award')}<div><b>Requisitos específicos do cliente</b>${k.csr ? `<p>${esc(k.csr)}</p>` : ''}${k.obs ? `<p class="pvx-muted">${esc(k.obs)}</p>` : ''}</div></div>` : ''}
+      <div class="section-head"><h2><span class="sh-ico">${ic('list')}</span>Histórico de chamados</h2><span class="pvf-n">${all.length}</span></div>
+      ${sorted.length ? `<div class="pvp-att-g">${sorted.map((c, i) => { const t = PV_TIPOS[c.tipo] || PV_TIPOS.reclamacao; const col = pvAtrasado(c) ? '#FF7A7A' : pvAberto(c) ? '#F5B840' : c.status === 'encerrado' ? '#46D39A' : '#94A3B8'; const sv = Number((c.encerramento || {}).satisfacao) || 0;
+        return `<button type="button" class="qf-card" data-pvid="${c.id}" style="--c:${col};animation-delay:${i * 40}ms">
+          <span class="qf-card-top"><b class="mono">${esc(c.numero)}</b>${pvBadge(PV_STATUS, c.status)}</span>
+          <span class="qf-card-sub">${ic(t.icon)}<span>${esc(t.short)}${(c.produto || {}).descricao ? ' · ' + esc(c.produto.descricao) : ''}</span></span>
+          <span class="qf-card-tags">${pvAberto(c) ? pvPrazoBadge(c) : sv ? pvStars(sv) : ''}<span class="qf-age">${fmtDate(pvDay(c.criadoEm))}</span></span>
+        </button>`; }).join('')}</div>` : `<div class="qf-empty pvp-ok">${ic('check')}<span>Nenhum chamado deste cliente ainda.</span></div>`}`;
+    view.appendChild(hist); Icons.apply(hist); pvBindRows(hist);
+    requestAnimationFrame(() => requestAnimationFrame(() => { charts.classList.add('in'); pvCountUp(tiles); }));
   };
   /* ---------- Lista suspensa própria (substitui o <select> nativo, que não dá para estilizar) ----------
      Melhoria progressiva: o <select> continua no formulário (oculto) e recebe o valor + evento
@@ -2468,6 +2716,7 @@
     const editing = !!(pvNovoDraft && pvNovoDraft.id);
     const c = editing ? Store.find('pvChamados', pvNovoDraft.id) || {} : {};
     pvNovoDraft = null;
+    const preCli = editing ? null : pvNovoPreCli; pvNovoPreCli = null;
     pageShell('Pós-Vendas', editing ? `Editar abertura · ${c.numero}` : 'Novo chamado', editing ? 'Dados registrados pelo Comercial na abertura.' : 'Abertura guiada em 5 etapas — leva cerca de 2 minutos.',
       `<button class="btn" id="pvBack">${ic('chevron')}${editing ? 'Voltar ao chamado' : 'Chamados'}</button>`);
     const leave = () => (editing ? pvOpen(c.id) : go('pv-chamados'));
@@ -2777,6 +3026,8 @@
     };
 
     paint(1);
+    // cliente já escolhido (novo chamado aberto pelo perfil do cliente)
+    if (preCli && pvCliente(preCli)) pickCli(preCli);
   };
 
   /* =========================== DETALHE DO CHAMADO =========================== */
@@ -5463,7 +5714,7 @@
   const TITLES = {}; const ROUTE_AREA = {};
   Object.keys(NAV).forEach((area) => NAV[area].groups.forEach((g) => g.items.forEach((it) => { TITLES[it.r] = it.t; if (it.r !== 'settings') ROUTE_AREA[it.r] = area; })));
   // páginas internas (fora do menu) que pertencem a uma área
-  ROUTE_AREA['pv-novo'] = 'pos-vendas'; ROUTE_AREA['pv-detalhe'] = 'pos-vendas';
+  ROUTE_AREA['pv-novo'] = 'pos-vendas'; ROUTE_AREA['pv-detalhe'] = 'pos-vendas'; ROUTE_AREA['pv-cliente'] = 'pos-vendas'; TITLES['pv-cliente'] = 'Perfil do cliente';
   TITLES['pv-novo'] = 'Novo chamado'; TITLES['pv-detalhe'] = 'Chamado';
   const AREA_HOME = { ti: 'dashboard', qualidade: 'qa-dashboard', sistemas: 'sistemas-home', 'pos-vendas': 'pv-painel', manutencao: 'manutencao-home', programacao: 'prog-atividades' };
 
@@ -5524,7 +5775,7 @@
     showApp();
     $('#crumbRoot').textContent = (NAV[currentArea] || {}).label || 'Control Center';
     crumb.textContent = TITLES[route] || route;
-    $$('.nav-item').forEach((a) => a.classList.toggle('active', a.dataset.route === route));
+    $$('.nav-item').forEach((a) => a.classList.toggle('active', a.dataset.route === route || (route === 'pv-cliente' && a.dataset.route === 'pv-clientes')));
     renderMobileNav(currentArea, route);
     view.innerHTML = '';
     PAGES[route]();
