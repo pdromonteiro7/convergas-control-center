@@ -2438,14 +2438,21 @@
 
     let clis = Store.get('pvClientes').slice().sort((a, b) => a.nome.localeCompare(b.nome));
     const pr = c.produto || {}, lc = c.local || {}, ct = c.contato || {}, rc = c.rncCliente || {};
+    // chamados antigos guardavam "e-mail · telefone" num campo só: separa para os campos novos
+    const ctOld = String(ct.info || '').split(/\s*[·|,;]\s*|\s+\/\s+/).filter(Boolean);
+    const ctEmail = ct.email || ctOld.find((x) => x.includes('@')) || '';
+    const ctFone = ct.fone || ctOld.find((x) => !x.includes('@') && /\d{4}/.test(x)) || '';
     const tipo = c.tipo || 'reclamacao', canal = c.canal || 'E-mail', prio = c.prioridade || 'media';
     const pending = []; // arquivos escolhidos antes de salvar
     const N = PV_WZ.length;
     let step = 0, reached = editing ? N - 1 : 0;
 
-    const cliCard = (k) => `<button type="button" class="wz-cli${c.clienteId === k.id ? ' on' : ''}" data-cli="${k.id}" style="--h:${pvHue(k.nome)}">
+    const cliCard = (k) => `<button type="button" class="wz-cli${c.clienteId === k.id ? ' on' : ''}" data-cli="${k.id}" style="--h:${pvHue(k.nome)}" title="${esc(k.nome)}">
         <span class="wz-av">${esc(pvInitials(k.nome))}</span>
-        <span class="wz-cli-tx"><b>${esc(k.nome)}</b><small>${esc([[k.cidade, k.uf].filter(Boolean).join(' / '), k.segmento].filter(Boolean).join(' · ') || 'Sem cidade cadastrada')}</small></span>
+        <span class="wz-cli-tx"><b>${esc(k.nome)}</b><small class="wz-cli-m">${esc([[k.cidade, k.uf].filter(Boolean).join(' / '), k.segmento].filter(Boolean).join(' · ') || 'Sem cidade cadastrada')}</small>${k.fantasia ? `<small class="wz-cli-d">${esc(k.fantasia)}</small>` : ''}</span>
+        <span class="wz-cli-c">${[k.cidade, k.uf].filter(Boolean).length ? esc([k.cidade, k.uf].filter(Boolean).join(' / ')) : '<i>—</i>'}</span>
+        <span class="wz-cli-c">${k.segmento ? `<em class="wz-cli-seg">${esc(k.segmento)}</em>` : '<i>—</i>'}</span>
+        <span class="wz-cli-c mono">${k.cnpj ? esc(k.cnpj) : '<i>—</i>'}</span>
         <span class="wz-cli-ck">${ic('check')}</span></button>`;
     const chip = (name, v, label, on, extra) => `<button type="button" class="wz-chip${on ? ' on' : ''}" data-chip="${name}" data-v="${esc(v)}" ${extra || ''}>${label}</button>`;
 
@@ -2462,6 +2469,7 @@
           <section class="wz-pane" data-p="0">
             <div class="wz-search">${ic('search')}<input id="wzCliQ" placeholder="Buscar cliente por nome, cidade ou CNPJ…" autocomplete="off"></div>
             <div class="wz-clis" id="wzClis">
+              <div class="wz-cli-head" aria-hidden="true"><span></span><span>Cliente</span><span>Cidade</span><span>Segmento</span><span>CNPJ</span><span></span></div>
               <button type="button" class="wz-cli wz-cli-new" id="wzCliNew"><span class="wz-av">${ic('plus')}</span><span class="wz-cli-tx"><b>Novo cliente</b><small>Cadastrar agora</small></span></button>
               ${clis.map(cliCard).join('')}
             </div>
@@ -2469,10 +2477,11 @@
             <div class="wz-csr" id="wzCsr" hidden></div>
             <div class="wz-reveal${c.clienteId ? ' open' : ''}" id="wzCliMore"><div class="wz-reveal-in">
               <div class="wz-sub">${ic('phone')}Contato e local da ocorrência</div>
-              <div class="form-grid">
+              <div class="form-grid wz-g3">
                 ${field('Contato no cliente', 'contatoNome', ct.nome, 'text', { ph: 'Nome de quem relatou' })}
-                ${field('E-mail / telefone', 'contatoInfo', ct.info)}
-                ${field('Cidade da ocorrência', 'cidade', lc.cidade)}
+                ${field('E-mail', 'contatoEmail', ctEmail, 'email', { ph: 'nome@empresa.com.br' })}
+                ${field('Telefone', 'contatoFone', ctFone, 'tel', { ph: '(00) 00000-0000' })}
+                <div class="field wz-c2">${`<label>Cidade da ocorrência</label><input name="cidade" value="${esc(lc.cidade || '')}" placeholder="Município">`}</div>
                 <div class="field"><label>UF</label><select name="uf">${pvOpt(lc.uf || '', [''].concat(PV_UF))}</select></div>
                 ${field('Endereço / unidade / oficina', 'endereco', lc.endereco, 'text', { full: true, ph: 'Onde o produto está ou onde aconteceu' })}
               </div>
@@ -2549,6 +2558,10 @@
     ccSelect($('[name="uf"]', w), { search: true, icon: 'pin' });
     const val = (n) => { const el = $(`[name="${n}"]`, form); return el ? (el.type === 'checkbox' ? el.checked : el.value.trim()) : ''; };
     const set = (n, v) => { const el = $(`[name="${n}"]`, form); if (el) el.value = v; };
+    // contato: telefone formatado e e-mail em minúsculas
+    const foneEl = $('[name="contatoFone"]', w); foneEl.setAttribute('inputmode', 'tel'); foneEl.maxLength = 15;
+    foneEl.addEventListener('input', () => { foneEl.value = pvMaskFone(foneEl.value); });
+    const mailEl = $('[name="contatoEmail"]', w); mailEl.addEventListener('blur', () => { mailEl.value = mailEl.value.trim().toLowerCase(); });
 
     /* ---- etapa 1: clientes em cartões ---- */
     const csr = () => {
@@ -2562,7 +2575,7 @@
       const k = pvCliente(id);
       if (k) {
         const fill = (n, v) => { const el = $(`[name="${n}"]`, form); if (el && !el.value && v) { el.value = v; if (el.tagName === 'SELECT') el.dispatchEvent(new Event('change')); } };
-        fill('contatoNome', k.contatoNome); fill('contatoInfo', [k.contatoEmail, k.contatoFone].filter(Boolean).join(' · ')); fill('cidade', k.cidade); fill('uf', k.uf);
+        fill('contatoNome', k.contatoNome); fill('contatoEmail', k.contatoEmail); fill('contatoFone', k.contatoFone ? pvMaskFone(k.contatoFone) : ''); fill('cidade', k.cidade); fill('uf', k.uf);
       }
       $('#wzCliMore', w).classList.add('open');
       csr(); markErr(0, false);
@@ -2629,7 +2642,7 @@
           <div class="wz-hero-m"><span>Prazo previsto</span><b>${fmtDate(editing ? (c.prazo || prazo) : prazo)}</b>${pvBadge(PV_PRIO, pk)}</div>
         </div>
         <div class="wz-sgrid">
-          ${blk(0, row('Contato', [d.contatoNome, d.contatoInfo].filter(Boolean).join(' · ')) + row('Local', [d.endereco, d.cidade, d.uf].filter(Boolean).join(' · ')))}
+          ${blk(0, row('Contato', d.contatoNome) + row('E-mail', d.contatoEmail) + row('Telefone', d.contatoFone) + row('Local', [d.endereco, d.cidade, d.uf].filter(Boolean).join(' · ')))}
           ${blk(1, `<p class="wz-quote">${esc(d.descricao || '—')}</p>` + row('Data', fmtDate(d.dataOcorrencia)) + row('Canal', d.canal) + (d.seguranca ? row('Segurança / legal', 'Sim — tratado como crítico') : ''))}
           ${blk(2, (row('Produto', [d.codigo, d.prodDescricao].filter(Boolean).join(' — ')) + row('Lote / série', [d.lote, d.serie].filter(Boolean).join(' / ')) + row('Nota fiscal', d.nf) + row('Aplicação', d.aplicacao) + row('Quantidade', d.quantidade)) || '<p class="pvx-muted">Nenhum dado de produto informado.</p>')}
           ${blk(3, row('RNC do cliente', rncTem ? ['Sim', d.rncNumero && 'nº ' + d.rncNumero, d.rncPrazo && 'resposta até ' + fmtDate(d.rncPrazo)].filter(Boolean).join(' · ') : 'Não') + (editing ? '' : row('Anexos', (files('rnc_cliente') + files('abertura')) ? `${files('rnc_cliente') + files('abertura')} arquivo(s)` : 'Nenhum')))}
@@ -2643,6 +2656,8 @@
     const shake = (el) => { if (!el) return; el.classList.remove('wz-shake'); void el.offsetWidth; el.classList.add('wz-shake'); };
     const check = (i) => {
       if (i === 0 && !val('clienteId')) { toast('Selecione o cliente (ou cadastre um novo)', 'warn'); shake($('#wzClis', w)); markErr(0, true); return false; }
+      if (i === 0 && val('contatoEmail') && !/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(val('contatoEmail'))) { toast('E-mail do contato parece inválido', 'warn'); shake(mailEl.closest('.field')); markErr(0, true); return false; }
+      if (i === 0 && val('contatoFone') && pvDig(val('contatoFone')).length < 10) { toast('Telefone do contato incompleto', 'warn'); shake(foneEl.closest('.field')); markErr(0, true); return false; }
       if (i === 1 && !val('descricao')) { toast('Descreva o problema relatado pelo cliente', 'warn'); shake($('.wz-desc', w)); descEl.focus(); markErr(1, true); return false; }
       if (i === 4 && !val('abertoPor')) { toast('Informe quem está abrindo o chamado', 'warn'); shake($('.wz-by', w)); return false; }
       return true;
@@ -2696,7 +2711,7 @@
       const rncTem = d.rncTem === 'sim';
       const obj = {
         clienteId: d.clienteId, clienteNome: k ? k.nome : '',
-        contato: { nome: d.contatoNome, info: d.contatoInfo },
+        contato: { nome: d.contatoNome, email: d.contatoEmail, fone: d.contatoFone, info: [d.contatoEmail, d.contatoFone].filter(Boolean).join(' · ') },
         local: { cidade: d.cidade, uf: d.uf, endereco: d.endereco },
         tipo: d.tipo, descricao: d.descricao, dataOcorrencia: d.dataOcorrencia, canal: d.canal,
         prioridade: d.seguranca ? 'critica' : d.prioridade, seguranca: !!d.seguranca,
@@ -2763,7 +2778,7 @@
           ${sec(1, 'file', 'Abertura — Comercial', 'done', `
             <p class="pvx-desc">${esc(c.descricao || '')}</p>
             <div class="pvx-kvs">
-              ${kvt('Cliente', pvClienteNome(c))}${kvt('Contato', [ (c.contato || {}).nome, (c.contato || {}).info ].filter(Boolean).join(' · '))}
+              ${kvt('Cliente', pvClienteNome(c))}${kvt('Contato', (c.contato || {}).nome)}${kvt('E-mail', (c.contato || {}).email || (String((c.contato || {}).info || '').match(/[^\s·]+@[^\s·]+/) || [''])[0])}${kvt('Telefone', (c.contato || {}).fone || ((c.contato || {}).email ? '' : String((c.contato || {}).info || '').replace(/[^\s·]+@[^\s·]+/, '').replace(/^[\s·]+|[\s·]+$/g, '')))}
               ${kvt('Local', [(c.local || {}).endereco, (c.local || {}).cidade, (c.local || {}).uf].filter(Boolean).join(' · '))}${kvt('Data da ocorrência', fmtDate(c.dataOcorrencia))}
               ${kvt('Canal', c.canal)}${kvt('Produto', [(c.produto || {}).codigo, (c.produto || {}).descricao].filter(Boolean).join(' — '))}
               ${kvt('Lote / série', [(c.produto || {}).lote, (c.produto || {}).serie].filter(Boolean).join(' / '))}${kvt('Nota fiscal', (c.produto || {}).nf)}

@@ -1665,3 +1665,34 @@ body:has(.modal-root.open .modal-card.cf-sheet) .app-shell, body:has(.modal-root
   box-shadow: 0 0 0 34px color-mix(in srgb, var(--accent) 3%, transparent), 0 0 0 70px color-mix(in srgb, var(--accent) 2%, transparent), inset 0 0 80px color-mix(in srgb, var(--accent) 5%, transparent); }
 .cf.guided .cf-sec.cur > * { position: relative; z-index: 1; }
 @media (max-width: 760px) { .cf.guided .cf-sec.cur::after { display: none; } }
+
+/* Novo chamado — clientes em lista (computador) e contato em 3 colunas */
+.wz-cli-head { display: none; }
+.wz-cli-c, .wz-cli-d { display: none; }
+@media (min-width: 761px) {
+  .wz-clis { grid-template-columns: 1fr; gap: 6px; max-height: 340px; padding: 0 2px 2px; align-content: start; }
+  .wz-cli-head { display: grid; position: sticky; top: 0; z-index: 2; grid-template-columns: 36px minmax(0, 2.6fr) minmax(0, 1.2fr) minmax(0, 1fr) 170px 22px; gap: 14px; padding: 8px 14px 8px; font-size: .68rem; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; color: var(--text-3);
+    background: color-mix(in srgb, var(--bg-2) 92%, transparent); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); border-bottom: 1px solid var(--line); }
+  .wz-cli { display: grid; grid-template-columns: 36px minmax(0, 2.6fr) minmax(0, 1.2fr) minmax(0, 1fr) 170px 22px; gap: 14px; align-items: center; padding: 10px 14px; border-radius: 12px; }
+  .wz-cli:hover { transform: none; background: color-mix(in srgb, var(--text) 5%, transparent); }
+  .wz-cli .wz-av { width: 36px; height: 36px; border-radius: 10px; font-size: .78rem; }
+  .wz-cli-tx b { white-space: normal; overflow: visible; line-height: 1.3; overflow-wrap: anywhere; }
+  .wz-cli-tx .wz-cli-m { display: none; }
+  .wz-cli-tx .wz-cli-d { display: block; }
+  .wz-cli-c { display: block; min-width: 0; font-size: .84rem; color: var(--text-2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .wz-cli-c.mono { font-variant-numeric: tabular-nums; font-size: .82rem; }
+  .wz-cli-c i { font-style: normal; color: var(--text-3); }
+  .wz-cli-seg { font-style: normal; display: inline-flex; align-items: center; height: 22px; padding: 0 9px; border-radius: 999px; font-size: .72rem; font-weight: 600; color: var(--accent); background: var(--accent-soft); border: 1px solid color-mix(in srgb, var(--accent) 28%, transparent); }
+  .wz-cli-new { grid-template-columns: 36px minmax(0, 1fr) 22px; border-style: dashed; }
+  .wz-cli-new .wz-cli-tx small { display: block; }
+  .wz-g3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .wz-g3 .wz-c2 { grid-column: span 2; }
+}
+.wz-cli-seg { max-width: 100%; display: inline-block !important; line-height: 22px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; vertical-align: middle; }
+@media (min-width: 761px) {
+  .wz-cli-head, .wz-cli { grid-template-columns: 36px minmax(0, 2.4fr) minmax(0, 1.1fr) minmax(0, 1.3fr) 170px 22px; }
+  .wz-cli-new { grid-template-columns: 36px minmax(0, 1fr) 22px; }
+}
+@media (max-width: 760px) {
+  .wz-cli-tx b { white-space: normal; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; line-height: 1.3; }
+}
