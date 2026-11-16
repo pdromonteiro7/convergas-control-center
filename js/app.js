@@ -1283,7 +1283,7 @@
     fechada: { label: 'RNC encerrada', cls: 'ok' },
   };
   const PV_CANAIS = ['E-mail', 'Telefone', 'WhatsApp', 'Visita', 'Portal do cliente', 'Representante'];
-  const PV_SEGMENTOS = ['Montadora / OEM', 'Distribuidor / Revenda', 'Convertedora / Oficina', 'Frotista', 'Consumidor final', 'Outro'];
+  const PV_SEGMENTOS = ['Frotista', 'Montadora', 'Consumidor final'];
   const PV_UF = 'AC AL AP AM BA CE DF ES GO MA MT MS MG PA PB PR PE PI RJ RN RS RO RR SC SP SE TO'.split(' ');
   const PV_LOCAIS_CONT = ['Estoque Convergas', 'Em trânsito', 'Cliente', 'Fornecedor', 'Produção (WIP)'];
   const PV_DOCS = ['DFMEA', 'PFMEA', 'Plano de controle', 'Instrução de trabalho', 'Dispositivo à prova de erro', 'Lições aprendidas'];
@@ -2020,102 +2020,211 @@
     return { goStep, get step() { return step; } };
   }
 
-  /* =========================== CLIENTE — cadastro guiado =========================== */
-  const PV_SEG_IC = { 'Montadora / OEM': 'cpu', 'Distribuidor / Revenda': 'box', 'Convertedora / Oficina': 'wrench', 'Frotista': 'activity', 'Consumidor final': 'users', 'Outro': 'grid' };
-  const PV_SEG_DESC = { 'Montadora / OEM': 'Fabricante de veículos', 'Distribuidor / Revenda': 'Revende os kits', 'Convertedora / Oficina': 'Instala e converte', 'Frotista': 'Frota própria', 'Consumidor final': 'Pessoa física', 'Outro': 'Outro perfil' };
-  const pvMaskCnpj = (v) => { const d = String(v || '').replace(/\D/g, '').slice(0, 14); return d.replace(/^(\d{2})(\d)/, '$1.$2').replace(/^(\d{2})\.(\d{3})(\d)/, '$1.$2.$3').replace(/\.(\d{3})(\d)/, '.$1/$2').replace(/(\d{4})(\d)/, '$1-$2'); };
-  const pvMaskFone = (v) => { const d = String(v || '').replace(/\D/g, '').slice(0, 11); if (d.length <= 10) return d.replace(/^(\d{2})(\d)/, '($1) $2').replace(/(\d{4})(\d)/, '$1-$2'); return d.replace(/^(\d{2})(\d)/, '($1) $2').replace(/(\d{5})(\d)/, '$1-$2'); };
+  /* =========================== CLIENTE — cadastro (tela única, padrão LifeGas) ===========================
+     CNPJ completo → busca na Receita (BrasilAPI) e preenche o que estiver vazio.
+     CEP completo → busca o endereço (BrasilAPI, reserva ViaCEP).
+     Todos os campos com máscara/limite. Ficha do cliente ao lado, montada ao vivo. */
+  const PV_SEG3 = [
+    { v: 'Frotista', i: 'activity', s: 'Frota própria' },
+    { v: 'Montadora', i: 'cpu', s: 'Fabricante / OEM' },
+    { v: 'Consumidor final', i: 'users', s: 'Pessoa ou empresa' },
+  ];
+  const pvDig = (v) => String(v || '').replace(/\D/g, '');
+  const pvMaskCnpj = (v) => { const d = pvDig(v).slice(0, 14); if (d.length > 12) return `${d.slice(0, 2)}.${d.slice(2, 5)}.${d.slice(5, 8)}/${d.slice(8, 12)}-${d.slice(12)}`; if (d.length > 8) return `${d.slice(0, 2)}.${d.slice(2, 5)}.${d.slice(5, 8)}/${d.slice(8)}`; if (d.length > 5) return `${d.slice(0, 2)}.${d.slice(2, 5)}.${d.slice(5)}`; if (d.length > 2) return `${d.slice(0, 2)}.${d.slice(2)}`; return d; };
+  const pvMaskCep = (v) => { const d = pvDig(v).slice(0, 8); return d.length > 5 ? `${d.slice(0, 5)}-${d.slice(5)}` : d; };
+  const pvMaskFone = (v) => { const d = pvDig(v).slice(0, 11); if (d.length > 10) return `(${d.slice(0, 2)}) ${d.slice(2, 7)}-${d.slice(7)}`; if (d.length > 6) return `(${d.slice(0, 2)}) ${d.slice(2, 6)}-${d.slice(6)}`; if (d.length > 2) return `(${d.slice(0, 2)}) ${d.slice(2)}`; if (d.length) return `(${d}`; return ''; };
+  // dígitos verificadores do CNPJ
+  const pvCnpjOk = (v) => {
+    const d = pvDig(v); if (d.length !== 14 || /^(\d)\1+$/.test(d)) return false;
+    const calc = (n) => { const w = n === 12 ? [5, 4, 3, 2, 9, 8, 7, 6, 5, 4, 3, 2] : [6, 5, 4, 3, 2, 9, 8, 7, 6, 5, 4, 3, 2]; const s = w.reduce((a, x, i) => a + x * +d[i], 0) % 11; return s < 2 ? 0 : 11 - s; };
+    return calc(12) === +d[12] && calc(13) === +d[13];
+  };
+  const pvTitle = (s) => String(s || '').toLowerCase().replace(/(^|\s|\/|-)(\p{L})/gu, (m, a, b) => a + b.toUpperCase()).replace(/\b(Ltda|Epp|Eireli)\b/g, (m) => m.toUpperCase()).replace(/\b(De|Da|Do|Das|Dos|E)\b/g, (m) => m.toLowerCase());
+  async function pvBuscaCnpj(v) {
+    const d = pvDig(v); if (d.length !== 14) return null;
+    try {
+      const r = await fetch(`https://brasilapi.com.br/api/cnpj/v1/${d}`); if (!r.ok) return { erro: r.status === 404 ? 'nao' : 'falha' };
+      const j = await r.json();
+      return {
+        nome: j.razao_social || j.nome_fantasia || '', fantasia: j.nome_fantasia || '', situacao: j.descricao_situacao_cadastral || '',
+        contatoEmail: String(j.email || '').toLowerCase(), contatoFone: j.ddd_telefone_1 ? pvMaskFone(String(j.ddd_telefone_1)) : '',
+        endereco: [[j.descricao_tipo_de_logradouro, j.logradouro].filter(Boolean).join(' '), j.numero, j.complemento, j.bairro].filter(Boolean).map(pvTitle).join(', '),
+        cidade: pvTitle(j.municipio || ''), uf: String(j.uf || '').toUpperCase(), cep: j.cep ? pvMaskCep(String(j.cep)) : '',
+      };
+    } catch (e) { return { erro: 'falha' }; }
+  }
+  async function pvBuscaCep(v) {
+    const d = pvDig(v); if (d.length !== 8) return null;
+    try { const r = await fetch(`https://brasilapi.com.br/api/cep/v2/${d}`); if (r.ok) { const j = await r.json(); return { endereco: [j.street, j.neighborhood].filter(Boolean).join(', '), cidade: j.city || '', uf: j.state || '' }; } } catch (e) {}
+    try { const r = await fetch(`https://viacep.com.br/ws/${d}/json/`); if (r.ok) { const j = await r.json(); if (!j.erro) return { endereco: [j.logradouro, j.bairro].filter(Boolean).join(', '), cidade: j.localidade || '', uf: j.uf || '' }; } } catch (e) {}
+    return { erro: 'nao' };
+  }
+
   function pvFormCliente(k, onDone) {
     const editing = !!(k && k.id); k = k || {};
-    const STEPS = [
-      { t: 'Empresa', s: 'Quem é', h: 'Qual é o cliente?', p: 'Nome, CNPJ e o perfil do cliente.' },
-      { t: 'Local e contato', s: 'Onde e com quem', h: 'Onde fica e com quem falar?', p: 'Cidade e a pessoa de referência para os chamados.' },
-      { t: 'Requisitos', s: 'CSR do cliente', h: 'O que este cliente exige?', p: 'Requisitos específicos (CSR — IATF 4.3.2) aplicados aos chamados dele.' },
-      { t: 'Revisão', s: 'Conferir', h: 'Tudo certo?', p: 'Confira os dados antes de salvar.' },
-    ];
     const prazos = [5, 10, 15, 30];
     const pz = k.prazoRespostaDias ? Number(k.prazoRespostaDias) : '';
-    const panes = [
-      `${k.origem === 'lifegas' ? `<div class="form-inline-note lgx-note">${ic('refresh')}<span><b>Cliente vindo do LifeGas.</b> Nome, CNPJ, cidade e contato são atualizados automaticamente quando mudam lá. Segmento e requisitos do Pós-Vendas ficam só aqui.</span></div>` : ''}<div class="field full wz-big"><label>Nome / razão social <span class="wz-req">obrigatório</span></label><input name="nome" value="${esc(k.nome || '')}" placeholder="Ex.: Transportes Andorinha Ltda" autocomplete="off"></div>
-       <div class="form-grid">${field('CNPJ', 'cnpj', k.cnpj, 'text', { ph: '00.000.000/0000-00' })}<div></div></div>
-       <div class="wz-sub">${ic('grid')}Segmento</div>
-       <div class="wz-segs">${PV_SEGMENTOS.map((s) => `<button type="button" class="wz-seg${k.segmento === s ? ' on' : ''}" data-seg="${esc(s)}"><span class="wz-seg-ic">${ic(PV_SEG_IC[s] || 'grid')}</span><b>${esc(s)}</b><small>${esc(PV_SEG_DESC[s] || '')}</small></button>`).join('')}</div>
-       <input type="hidden" name="segmento" value="${esc(k.segmento || '')}">`,
-      `<div class="form-grid">${field('Cidade', 'cidade', k.cidade, 'text', { ph: 'Ex.: Campinas' })}<div class="field"><label>UF</label><select name="uf">${pvOpt(k.uf || '', [{ v: '', t: 'Selecione' }].concat(PV_UF))}</select></div></div>
-       <div class="wz-sub">${ic('phone')}Contato principal</div>
-       <div class="form-grid">
-         ${field('Nome', 'contatoNome', k.contatoNome, 'text', { ph: 'Pessoa de referência' })}
-         ${field('Cargo / área', 'contatoCargo', k.contatoCargo, 'text', { ph: 'Ex.: Qualidade, Compras' })}
-         ${field('E-mail', 'contatoEmail', k.contatoEmail, 'email', { ph: 'nome@empresa.com.br' })}
-         ${field('Telefone', 'contatoFone', k.contatoFone, 'text', { ph: '(00) 00000-0000' })}
-       </div>`,
-      `<div class="field full"><label>Prazo para responder uma RNC deste cliente</label>
-         <div class="wz-chips">${prazos.map((d) => `<button type="button" class="wz-chip${pz === d ? ' on' : ''}" data-pz="${d}">${d} dias</button>`).join('')}<button type="button" class="wz-chip${pz && !prazos.includes(pz) ? ' on' : ''}" data-pz="outro">Outro</button><button type="button" class="wz-chip${!pz ? ' on' : ''}" data-pz="">Sem prazo definido</button></div>
-         <div class="wz-pz-other${pz && !prazos.includes(pz) ? ' open' : ''}"><input type="number" min="1" name="prazoRespostaDias" value="${esc(pz)}" placeholder="Dias"><span>dias</span></div>
-         <span class="hint">Vira o prazo padrão do chamado quando o cliente envia RNC.</span></div>
-       <div class="field full"><label>Formato da resposta</label>
-         <div class="wz-opts">
-           <button type="button" class="wz-opt${k.exige8D ? '' : ' on'}" data-8d="nao"><span class="wz-opt-ic">${ic('file')}</span><b>Livre / relatório próprio</b><small>A Qualidade responde no formato da Convergas.</small></button>
-           <button type="button" class="wz-opt${k.exige8D ? ' on' : ''}" data-8d="sim"><span class="wz-opt-ic">${ic('award')}</span><b>Exige 8D</b><small>Resposta obrigatória no método 8D (D1 a D8).</small></button>
-         </div><input type="hidden" name="exige8D" value="${k.exige8D ? 'sim' : 'nao'}"></div>
-       ${field('Requisitos específicos', 'csr', k.csr, 'textarea', { full: true, ph: 'Ex.: contenção em 24h, resposta pelo portal do cliente, formulário próprio, PPAP…' })}
-       ${field('Observações', 'obs', k.obs, 'textarea', { full: true })}`,
-      `<div class="wz-sum" data-sum></div>${editing ? `<button type="button" class="wz-del" data-del>${ic('trash')}Excluir este cliente</button>` : ''}`,
-    ];
-    const card = modal({ title: editing ? 'Editar cliente' : 'Novo cliente', sub: 'Pós-Vendas · cadastro guiado', body: `<div class="wz wz-modal pvx-form">${wzShell(STEPS, panes)}</div>` });
-    const w = $('.wz', card);
-    Icons.apply(w);
-    const val = (n) => { const el = $(`[name="${n}"]`, w); return el ? el.value.trim() : ''; };
-    const set = (n, v) => { const el = $(`[name="${n}"]`, w); if (el) el.value = v; };
-    // máscaras
-    const cnpj = $('[name="cnpj"]', w); cnpj.oninput = () => { cnpj.value = pvMaskCnpj(cnpj.value); };
-    const fone = $('[name="contatoFone"]', w); fone.oninput = () => { fone.value = pvMaskFone(fone.value); };
-    // segmento
-    $$('[data-seg]', w).forEach((b) => (b.onclick = () => { const on = !b.classList.contains('on'); $$('[data-seg]', w).forEach((x) => x.classList.toggle('on', x === b && on)); set('segmento', on ? b.dataset.seg : ''); }));
-    // prazo
-    $$('[data-pz]', w).forEach((b) => (b.onclick = () => {
-      $$('[data-pz]', w).forEach((x) => x.classList.toggle('on', x === b));
-      const other = $('.wz-pz-other', w);
-      if (b.dataset.pz === 'outro') { other.classList.add('open'); setTimeout(() => $('[name="prazoRespostaDias"]', w).focus(), 50); }
-      else { other.classList.remove('open'); set('prazoRespostaDias', b.dataset.pz); }
-    }));
-    $$('[data-8d]', w).forEach((b) => (b.onclick = () => { $$('[data-8d]', w).forEach((x) => x.classList.toggle('on', x === b)); set('exige8D', b.dataset['8d']); }));
-    ccSelect($('[name="uf"]', w), { search: true, icon: 'pin' });
-    const summary = () => {
-      const d = readForm(w);
-      const row = (l, v) => v ? `<div class="wz-sr"><span>${esc(l)}</span><b>${esc(v)}</b></div>` : '';
-      const blk = (i, body) => `<div class="wz-sb" style="--d:${i * 60}ms"><div class="wz-sb-h"><span class="wz-sb-n">${i + 1}</span><b>${esc(STEPS[i].t)}</b><button type="button" class="wz-edit" data-go="${i}">${ic('edit')}Editar</button></div>${body || '<p class="pvx-muted">Nada informado.</p>'}</div>`;
-      $('[data-sum]', w).innerHTML = `
-        <div class="wz-hero"><span class="wz-av wz-av-lg" style="--h:${pvHue(d.nome)}">${esc(pvInitials(d.nome))}</span>
-          <div><small>${editing ? 'Editar cliente' : 'Novo cliente'}${d.segmento ? ' · ' + esc(d.segmento) : ''}</small><b>${esc(d.nome || '—')}</b></div>
-          <div class="wz-hero-m"><span>Resposta à RNC</span><b>${d.prazoRespostaDias ? esc(d.prazoRespostaDias) + ' dias' : '—'}</b>${d.exige8D === 'sim' ? '<span class="badge info plain">Exige 8D</span>' : ''}</div></div>
-        <div class="wz-sgrid">
-          ${blk(0, row('CNPJ', d.cnpj) + row('Segmento', d.segmento))}
-          ${blk(1, row('Local', [d.cidade, d.uf].filter(Boolean).join(' / ')) + row('Contato', [d.contatoNome, d.contatoCargo].filter(Boolean).join(' · ')) + row('E-mail', d.contatoEmail) + row('Telefone', d.contatoFone))}
-          ${blk(2, row('Prazo RNC', d.prazoRespostaDias ? d.prazoRespostaDias + ' dias' : '') + row('Formato', d.exige8D === 'sim' ? 'Exige 8D' : 'Livre') + (d.csr ? `<p class="wz-quote">${esc(d.csr)}</p>` : ''))}
-        </div>`;
-      Icons.apply($('[data-sum]', w));
-      $$('[data-sum] [data-go]', w).forEach((b) => (b.onclick = () => run.goStep(+b.dataset.go)));
-    };
-    const run = wzRun(w, {
-      steps: STEPS, editing, finalLabel: editing ? 'Salvar alterações' : 'Cadastrar cliente',
-      check: (i, shake) => {
-        if (i === 0 && !val('nome')) { toast('Informe o nome do cliente', 'warn'); shake($('.wz-big', w)); return false; }
-        if (i === 0 && val('cnpj') && val('cnpj').replace(/\D/g, '').length !== 14) { toast('CNPJ incompleto — confira os 14 dígitos', 'warn'); shake(cnpj.closest('.field')); return false; }
-        if (i === 1 && val('contatoEmail') && !/^\S+@\S+\.\S+$/.test(val('contatoEmail'))) { toast('E-mail do contato parece inválido', 'warn'); shake($('[name="contatoEmail"]', w).closest('.field')); return false; }
-        return true;
-      },
-      onEnter: (i) => { if (i === STEPS.length - 1) summary(); },
-      onFinish: () => {
-        const d = readForm(w);
-        d.exige8D = d.exige8D === 'sim'; d.prazoRespostaDias = d.prazoRespostaDias ? Number(d.prazoRespostaDias) : '';
-        const saved = editing ? Store.update('pvClientes', k.id, d) : Store.add('pvClientes', d);
-        w.insertAdjacentHTML('beforeend', `<div class="wz-success"><span class="wz-success-ic">${ic('check')}</span><b>${editing ? 'Cliente atualizado' : 'Cliente cadastrado'}</b><small>${esc(saved.nome)}</small></div>`);
-        Icons.apply(w);
-        setTimeout(() => { closeModal(); if (onDone) onDone(saved); else go(currentRoute); }, 1000);
-      },
+    const UFS = PV_UF.map((u) => (typeof u === 'string' ? u : u.v)).filter(Boolean);
+    const inp = (name, label, o = {}) => `<label class="cf-f c${o.c || 6}${o.req ? ' req' : ''}" data-f="${name}">
+        <span class="cf-l">${esc(label)}${o.req ? '<i>*</i>' : ''}${o.stat ? `<em class="cf-stat" data-stat="${name}"></em>` : ''}</span>
+        <span class="cf-in">${o.icon ? `<span class="cf-ic">${ic(o.icon)}</span>` : ''}<input name="${name}" value="${esc(k[name] == null ? '' : k[name])}" placeholder="${esc(o.ph || '')}" autocomplete="off"${o.mode ? ` inputmode="${o.mode}"` : ''}${o.max ? ` maxlength="${o.max}"` : ''}${o.type ? ` type="${o.type}"` : ''}${o.mono ? ' class="mono"' : ''}>${o.spin ? `<span class="cf-spin" data-spin="${name}"></span>` : ''}</span>
+        ${o.hint ? `<small class="cf-h">${o.hint}</small>` : ''}</label>`;
+    const body = `<div class="cf">
+      <div class="cf-main">
+        ${k.origem === 'lifegas' ? `<div class="cf-note cf-wide">${ic('refresh')}<span><b>Cliente vindo do LifeGas.</b> Nome, CNPJ, endereço e contato são atualizados automaticamente quando mudam lá. Segmento e requisitos ficam só aqui.</span></div>` : ''}
+        <div class="cf-col">
+        <section class="cf-sec cf-o1" style="--d:0ms">
+          <header><span class="cf-n">1</span><b>Empresa</b><small>O CNPJ preenche os dados sozinho</small></header>
+          <div class="cf-grid">
+            ${inp('cnpj', 'CNPJ', { c: 3, icon: 'search', ph: '00.000.000/0000-00', mode: 'numeric', max: 18, mono: true, spin: true, stat: true })}
+            ${inp('fantasia', 'Nome fantasia', { c: 3, ph: 'Como é conhecida' })}
+            ${inp('nome', 'Razão social', { c: 6, req: true, ph: 'Nome da empresa' })}
+          </div>
+          <div class="cf-seg-row"><span class="cf-l">Segmento do cliente</span>
+            <div class="cf-seg" role="radiogroup">${PV_SEG3.map((s) => `<button type="button" role="radio" class="${k.segmento === s.v ? 'on' : ''}" data-seg="${esc(s.v)}">${ic(s.i)}<span>${esc(s.v)}</span></button>`).join('')}</div>
+            <input type="hidden" name="segmento" value="${esc(k.segmento || '')}">
+          </div>
+        </section>
+        <section class="cf-sec cf-o3" style="--d:140ms">
+          <header><span class="cf-n">3</span><b>Contato principal</b><small>Referência para os chamados</small></header>
+          <div class="cf-grid">
+            ${inp('contatoNome', 'Nome', { c: 3, ph: 'Nome da pessoa' })}
+            ${inp('contatoCargo', 'Cargo / área', { c: 3, ph: 'Ex.: Qualidade' })}
+            ${inp('contatoEmail', 'E-mail', { c: 3, ph: 'nome@empresa.com.br', type: 'email', mode: 'email' })}
+            ${inp('contatoFone', 'Telefone', { c: 3, ph: '(00) 00000-0000', mode: 'tel', max: 15, mono: true })}
+          </div>
+        </section>
+        </div>
+        <div class="cf-col">
+        <section class="cf-sec cf-o2" style="--d:70ms">
+          <header><span class="cf-n">2</span><b>Endereço</b><small>O CEP preenche o endereço</small></header>
+          <div class="cf-grid">
+            ${inp('cep', 'CEP', { c: 3, icon: 'pin', ph: '00000-000', mode: 'numeric', max: 9, mono: true, spin: true, stat: true })}
+            ${inp('cidade', 'Cidade', { c: 3, ph: 'Município' })}
+            ${inp('endereco', 'Endereço', { c: 5, ph: 'Rua, número, bairro' })}
+            ${inp('uf', 'UF', { c: 1, ph: 'SP', max: 2, mono: true })}
+          </div>
+        </section>
+        <section class="cf-sec cf-o4" style="--d:210ms">
+          <header><span class="cf-n">4</span><b>Requisitos do cliente</b><small>CSR — IATF 16949 4.3.2</small></header>
+          <div class="cf-req">
+            <div class="cf-req-c"><span class="cf-l">Prazo para responder uma RNC</span>
+              <div class="cf-pills">${prazos.map((d) => `<button type="button" class="${pz === d ? 'on' : ''}" data-pz="${d}">${d} dias</button>`).join('')}<button type="button" class="${!pz ? 'on' : ''}" data-pz="">Sem prazo</button></div>
+              <input type="hidden" name="prazoRespostaDias" value="${esc(pz)}"></div>
+            <div class="cf-req-c"><span class="cf-l">Formato da resposta</span>
+              <div class="cf-seg sm">${[['nao', 'Livre', 'file'], ['sim', 'Exige 8D', 'award']].map(([v, l, i]) => `<button type="button" class="${(k.exige8D ? 'sim' : 'nao') === v ? 'on' : ''}" data-8d="${v}">${ic(i)}<span>${l}</span></button>`).join('')}</div>
+              <input type="hidden" name="exige8D" value="${k.exige8D ? 'sim' : 'nao'}"></div>
+          </div>
+          <div class="cf-grid cf-txt">
+            <label class="cf-f c3"><span class="cf-l">Requisitos específicos</span><textarea name="csr" rows="1" placeholder="Ex.: contenção em 24h">${esc(k.csr || '')}</textarea></label>
+            <label class="cf-f c3"><span class="cf-l">Observações</span><textarea name="obs" rows="1" placeholder="Anotações internas">${esc(k.obs || '')}</textarea></label>
+          </div>
+        </section>
+        </div>
+      </div>
+      <aside class="cf-side"><div class="cf-card" id="cfCard"></div></aside>
+    </div>`;
+    const card = modal({
+      title: editing ? 'Editar cliente' : 'Novo cliente', sub: 'Pós-Vendas · cadastro de cliente', body,
+      footer: `${editing ? `<button type="button" class="btn ghost danger cf-del" id="cfDel">${ic('trash')}<span>Excluir</span></button>` : ''}<span class="cf-foot-sp"></span><button type="button" class="btn ghost" data-close>Cancelar</button><button type="button" class="btn primary" id="cfSave">${ic('check')}${editing ? 'Salvar' : 'Cadastrar cliente'}</button>`,
     });
-    const del = $('[data-del]', w);
+    card.classList.add('cf-sheet');
+    const head = $('.modal-head', card); if (head) card.style.setProperty('--cfh', head.offsetHeight + 'px');
+    const w = $('.cf', card);
+    const F = (n) => $(`[name="${n}"]`, w);
+    const val = (n) => (F(n) ? F(n).value.trim() : '');
+    const setStat = (n, html, cls) => { const s = $(`[data-stat="${n}"]`, w); if (s) { s.className = 'cf-stat' + (cls ? ' ' + cls : ''); s.innerHTML = html || ''; Icons.apply(s); } };
+    const spin = (n, on) => { const s = $(`[data-spin="${n}"]`, w); if (s) s.classList.toggle('on', on); };
+    const flash = (n) => { const f = F(n); if (!f) return; const box = f.closest('.cf-f'); box.classList.remove('filled'); void box.offsetWidth; box.classList.add('filled'); };
+    // preenche só o que estiver vazio (não apaga o que a pessoa digitou)
+    const fill = (patch) => { Object.keys(patch).forEach((n) => { const f = F(n); if (f && patch[n] && !f.value.trim()) { f.value = patch[n]; flash(n); } }); paint(); };
+    const err = (n, on) => { const f = F(n); if (f) f.closest('.cf-f').classList.toggle('err', on); };
+
+    // ficha ao vivo
+    const paint = () => {
+      const nome = val('nome'), seg = val('segmento');
+      const end = [val('endereco'), [val('cidade'), val('uf')].filter(Boolean).join(' / '), val('cep')].filter(Boolean);
+      const pzv = val('prazoRespostaDias'); const e8 = val('exige8D') === 'sim';
+      const row = (i, l, v) => `<div class="cf-row${v ? '' : ' empty'}">${ic(i)}<span><small>${l}</small><b>${v ? esc(v) : '—'}</b></span></div>`;
+      $('#cfCard', w).innerHTML = `
+        <div class="cf-card-top"><span class="cf-av" style="--h:${pvHue(nome || '?')}">${esc(nome ? pvInitials(nome) : '?')}</span>
+          <div><b>${esc(nome || 'Novo cliente')}</b><span>${esc(val('fantasia') || (seg ? seg : 'Preencha os dados ao lado'))}</span></div></div>
+        ${seg ? `<span class="cf-chip">${esc(seg)}</span>` : ''}
+        <div class="cf-rows">
+          ${row('award', 'CNPJ', val('cnpj'))}
+          ${row('pin', 'Endereço', end.join(' · '))}
+          ${row('users', 'Contato', [val('contatoNome'), val('contatoCargo')].filter(Boolean).join(' · '))}
+          ${row('mail', 'E-mail', val('contatoEmail'))}
+          ${row('phone', 'Telefone', val('contatoFone'))}
+        </div>
+        <div class="cf-card-ft"><span><small>Resposta à RNC</small><b>${pzv ? esc(pzv) + ' dias' : 'Sem prazo'}</b></span><span class="cf-chip ${e8 ? 'on' : ''}">${e8 ? 'Exige 8D' : 'Formato livre'}</span></div>`;
+      Icons.apply($('#cfCard', w));
+    };
+    w.addEventListener('input', (e) => { const f = e.target.closest('.cf-f'); if (f) f.classList.remove('err'); paint(); });
+
+    // máscaras + buscas automáticas
+    let lastCnpj = pvDig(k.cnpj), lastCep = pvDig(k.cep);
+    F('cnpj').addEventListener('input', async () => {
+      const f = F('cnpj'); f.value = pvMaskCnpj(f.value); const d = pvDig(f.value);
+      if (d.length < 14) { setStat('cnpj', ''); return; }
+      if (!pvCnpjOk(d)) { setStat('cnpj', `${ic('alert')}CNPJ inválido`, 'bad'); err('cnpj', true); return; }
+      if (d === lastCnpj) return; lastCnpj = d;
+      const dup = Store.get('pvClientes').find((x) => x.id !== k.id && pvDig(x.cnpj) === d);
+      if (dup) { setStat('cnpj', `${ic('alert')}Já cadastrado: ${esc(dup.nome)}`, 'bad'); return; }
+      spin('cnpj', true); setStat('cnpj', 'Buscando na Receita…', 'wait');
+      const r = await pvBuscaCnpj(d); spin('cnpj', false);
+      if (pvDig(F('cnpj').value) !== d) return;
+      if (!r || r.erro) { setStat('cnpj', r && r.erro === 'nao' ? `${ic('alert')}Não encontrado na Receita` : `${ic('alert')}Sem conexão — preencha à mão`, 'warn'); return; }
+      setStat('cnpj', `${ic('check')}${esc(r.situacao ? 'Receita · ' + pvTitle(r.situacao) : 'Dados encontrados')}`, r.situacao && !/ativa/i.test(r.situacao) ? 'warn' : 'ok');
+      const { situacao, ...rest } = r; fill(rest);
+      if (rest.cep) lastCep = pvDig(rest.cep);
+    });
+    F('cep').addEventListener('input', async () => {
+      const f = F('cep'); f.value = pvMaskCep(f.value); const d = pvDig(f.value);
+      if (d.length < 8) { setStat('cep', ''); return; }
+      if (d === lastCep) return; lastCep = d;
+      spin('cep', true); setStat('cep', 'Buscando…', 'wait');
+      const r = await pvBuscaCep(d); spin('cep', false);
+      if (pvDig(F('cep').value) !== d) return;
+      if (!r || r.erro) { setStat('cep', `${ic('alert')}CEP não encontrado`, 'warn'); return; }
+      setStat('cep', `${ic('check')}Endereço encontrado`, 'ok'); fill(r);
+      if (r.endereco && !/\d/.test(F('endereco').value)) setTimeout(() => { const e = F('endereco'); e.focus(); e.setSelectionRange(e.value.length, e.value.length); }, 60);
+    });
+    F('contatoFone').addEventListener('input', () => { const f = F('contatoFone'); f.value = pvMaskFone(f.value); });
+    F('uf').addEventListener('input', () => { const f = F('uf'); f.value = f.value.toUpperCase().replace(/[^A-Z]/g, '').slice(0, 2); });
+    F('contatoEmail').addEventListener('blur', () => { const f = F('contatoEmail'); f.value = f.value.trim().toLowerCase(); });
+    // segmento / prazo / 8D
+    $$('[data-seg]', w).forEach((b) => (b.onclick = () => { const on = !b.classList.contains('on'); $$('[data-seg]', w).forEach((x) => x.classList.toggle('on', x === b && on)); F('segmento').value = on ? b.dataset.seg : ''; paint(); }));
+    $$('[data-pz]', w).forEach((b) => (b.onclick = () => { $$('[data-pz]', w).forEach((x) => x.classList.toggle('on', x === b)); F('prazoRespostaDias').value = b.dataset.pz; paint(); }));
+    $$('[data-8d]', w).forEach((b) => (b.onclick = () => { $$('[data-8d]', w).forEach((x) => x.classList.toggle('on', x === b)); F('exige8D').value = b.dataset['8d']; paint(); }));
+    paint();
+    setTimeout(() => { if (!('ontouchstart' in window)) (editing ? F('nome') : F('cnpj')).focus({ preventScroll: true }); }, 350);
+
+    const save = () => {
+      const probs = [];
+      const bad = (n, msg) => { err(n, true); probs.push([n, msg]); };
+      if (!val('nome')) bad('nome', 'Informe a razão social');
+      if (val('cnpj') && !pvCnpjOk(val('cnpj'))) bad('cnpj', 'CNPJ inválido — confira os 14 dígitos');
+      if (val('cep') && pvDig(val('cep')).length !== 8) bad('cep', 'CEP incompleto');
+      if (val('uf') && !UFS.includes(val('uf'))) bad('uf', 'UF inválida');
+      if (val('contatoEmail') && !/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(val('contatoEmail'))) bad('contatoEmail', 'E-mail inválido');
+      if (val('contatoFone') && pvDig(val('contatoFone')).length < 10) bad('contatoFone', 'Telefone incompleto');
+      if (probs.length) {
+        toast(probs[0][1], 'warn');
+        const f = F(probs[0][0]); const box = f.closest('.cf-f'); box.classList.remove('shake'); void box.offsetWidth; box.classList.add('shake');
+        f.focus({ preventScroll: true }); box.scrollIntoView({ behavior: 'smooth', block: 'center' }); return;
+      }
+      const d = {};
+      ['nome', 'fantasia', 'cnpj', 'segmento', 'cep', 'endereco', 'cidade', 'uf', 'contatoNome', 'contatoCargo', 'contatoEmail', 'contatoFone', 'csr', 'obs'].forEach((n) => { d[n] = val(n); });
+      d.exige8D = val('exige8D') === 'sim'; d.prazoRespostaDias = val('prazoRespostaDias') ? Number(val('prazoRespostaDias')) : '';
+      const saved = editing ? Store.update('pvClientes', k.id, d) : Store.add('pvClientes', d);
+      w.insertAdjacentHTML('beforeend', `<div class="wz-success cf-ok"><span class="wz-success-ic">${ic('check')}</span><b>${editing ? 'Cliente atualizado' : 'Cliente cadastrado'}</b><small>${esc(saved.nome)}</small></div>`);
+      Icons.apply(w);
+      setTimeout(() => { closeModal(); if (onDone) onDone(saved); else go(currentRoute); }, 1000);
+    };
+    $('#cfSave', card).onclick = save;
+    w.addEventListener('keydown', (e) => { if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) { e.preventDefault(); save(); } });
+    const del = $('#cfDel', card);
     if (del) del.onclick = () => {
       const n = Store.get('pvChamados').filter((c) => c.clienteId === k.id).length;
       if (n) return toast(`Cliente tem ${n} chamado(s) — não pode ser excluído`, 'warn');
