@@ -2040,23 +2040,40 @@
     return calc(12) === +d[12] && calc(13) === +d[13];
   };
   const pvTitle = (s) => String(s || '').toLowerCase().replace(/(^|\s|\/|-)(\p{L})/gu, (m, a, b) => a + b.toUpperCase()).replace(/\b(Ltda|Epp|Eireli)\b/g, (m) => m.toUpperCase()).replace(/\b(De|Da|Do|Das|Dos|E)\b/g, (m) => m.toLowerCase());
+  // busca com tempo limite (não deixa o campo "buscando…" para sempre)
+  async function pvGetJson(url, ms) {
+    const ctl = new AbortController(); const t = setTimeout(() => ctl.abort(), ms || 9000);
+    try { const r = await fetch(url, { signal: ctl.signal, headers: { accept: 'application/json' } }); let j = null; try { j = await r.json(); } catch (e) {} return { status: r.status, j }; }
+    catch (e) { return { status: 0, j: null }; } finally { clearTimeout(t); }
+  }
+  // CNPJ → 1º pelo servidor do sistema (/api/cnpj, várias fontes); se não houver, direto na BrasilAPI
   async function pvBuscaCnpj(v) {
     const d = pvDig(v); if (d.length !== 14) return null;
-    try {
-      const r = await fetch(`https://brasilapi.com.br/api/cnpj/v1/${d}`); if (!r.ok) return { erro: r.status === 404 ? 'nao' : 'falha' };
-      const j = await r.json();
-      return {
-        nome: j.razao_social || j.nome_fantasia || '', fantasia: j.nome_fantasia || '', situacao: j.descricao_situacao_cadastral || '',
-        contatoEmail: String(j.email || '').toLowerCase(), contatoFone: j.ddd_telefone_1 ? pvMaskFone(String(j.ddd_telefone_1)) : '',
-        endereco: [[j.descricao_tipo_de_logradouro, j.logradouro].filter(Boolean).join(' '), j.numero, j.complemento, j.bairro].filter(Boolean).map(pvTitle).join(', '),
-        cidade: pvTitle(j.municipio || ''), uf: String(j.uf || '').toUpperCase(), cep: j.cep ? pvMaskCep(String(j.cep)) : '',
-      };
-    } catch (e) { return { erro: 'falha' }; }
+    const fromSrv = (j) => ({
+      nome: j.nome || '', fantasia: j.fantasia || '', situacao: j.situacao || '',
+      contatoEmail: String(j.email || '').toLowerCase(), contatoFone: j.telefone ? pvMaskFone(String(j.telefone)) : '',
+      endereco: [j.logradouro, j.numero, j.complemento, j.bairro].filter(Boolean).map(pvTitle).join(', '),
+      cidade: pvTitle(j.cidade || ''), uf: String(j.uf || '').toUpperCase(), cep: j.cep ? pvMaskCep(String(j.cep)) : '',
+    });
+    const a = await pvGetJson(`/api/cnpj?d=${d}`, 25000);
+    if (a.j && a.j.ok) return fromSrv(a.j);
+    if (a.j && a.j.motivo === 'nao') return { erro: 'nao' };
+    const b = await pvGetJson(`https://brasilapi.com.br/api/cnpj/v1/${d}`);
+    if (b.status === 404) return { erro: 'nao' };
+    const j = b.j;
+    if (!j || !j.razao_social) return { erro: 'falha' };
+    return fromSrv({ nome: j.razao_social, fantasia: j.nome_fantasia, situacao: j.descricao_situacao_cadastral, email: j.email, telefone: j.ddd_telefone_1,
+      logradouro: [j.descricao_tipo_de_logradouro, j.logradouro].filter(Boolean).join(' '), numero: j.numero, complemento: j.complemento, bairro: j.bairro, cidade: j.municipio, uf: j.uf, cep: j.cep });
   }
   async function pvBuscaCep(v) {
     const d = pvDig(v); if (d.length !== 8) return null;
-    try { const r = await fetch(`https://brasilapi.com.br/api/cep/v2/${d}`); if (r.ok) { const j = await r.json(); return { endereco: [j.street, j.neighborhood].filter(Boolean).join(', '), cidade: j.city || '', uf: j.state || '' }; } } catch (e) {}
-    try { const r = await fetch(`https://viacep.com.br/ws/${d}/json/`); if (r.ok) { const j = await r.json(); if (!j.erro) return { endereco: [j.logradouro, j.bairro].filter(Boolean).join(', '), cidade: j.localidade || '', uf: j.uf || '' }; } } catch (e) {}
+    const out = (o) => ({ endereco: [o.logradouro, o.bairro].filter(Boolean).join(', '), cidade: o.cidade || '', uf: String(o.uf || '').toUpperCase() });
+    const a = await pvGetJson(`/api/cep?d=${d}`, 15000);
+    if (a.j && a.j.ok) return out(a.j);
+    const b = await pvGetJson(`https://brasilapi.com.br/api/cep/v2/${d}`);
+    if (b.j && b.j.city) return out({ logradouro: b.j.street, bairro: b.j.neighborhood, cidade: b.j.city, uf: b.j.state });
+    const c = await pvGetJson(`https://viacep.com.br/ws/${d}/json/`);
+    if (c.j && !c.j.erro && c.j.localidade) return out({ logradouro: c.j.logradouro, bairro: c.j.bairro, cidade: c.j.localidade, uf: c.j.uf });
     return { erro: 'nao' };
   }
 
@@ -2170,7 +2187,7 @@
       if (!pvCnpjOk(d)) { setStat('cnpj', `${ic('alert')}CNPJ inválido`, 'bad'); err('cnpj', true); return; }
       if (d === lastCnpj) return; lastCnpj = d;
       const dup = Store.get('pvClientes').find((x) => x.id !== k.id && pvDig(x.cnpj) === d);
-      if (dup) { setStat('cnpj', `${ic('alert')}Já cadastrado: ${esc(dup.nome)}`, 'bad'); return; }
+      if (dup) { setStat('cnpj', `${ic('alert')}Já cadastrado: ${esc(dup.nome)}`, 'bad'); toast(`Este CNPJ já está cadastrado: ${dup.nome}`, 'warn'); return; }
       spin('cnpj', true); setStat('cnpj', 'Buscando na Receita…', 'wait');
       const r = await pvBuscaCnpj(d); spin('cnpj', false);
       if (pvDig(F('cnpj').value) !== d) return;
