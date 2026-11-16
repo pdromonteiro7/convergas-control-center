@@ -1551,14 +1551,17 @@
       ['abertos', 'Em aberto', cnt(pvAberto)], ['aberto', 'Triagem', cnt((c) => c.status === 'aberto')], ['tratativa', 'Tratativa', cnt((c) => c.status === 'tratativa')],
       ['verificacao', 'Verificação', cnt((c) => c.status === 'verificacao')], ['atrasados', 'Atrasados', cnt(pvAtrasado)], ['encerrado', 'Encerrados', cnt((c) => c.status === 'encerrado')], ['todos', 'Todos', all.length],
     ];
-    const tb = document.createElement('div'); tb.className = 'toolbar pvx-toolbar';
+    const tb = document.createElement('div'); tb.className = 'pvf';
     const clis = Store.get('pvClientes').slice().sort((a, b) => a.nome.localeCompare(b.nome));
     tb.innerHTML = `
-      <div class="filter-input">${ic('search')}<input id="pvQ" placeholder="Buscar nº, cliente, produto, lote…" value="${esc(pvFilt.q)}"></div>
-      <select class="pvx-sel" id="pvTipo"><option value="">Todos os tipos</option>${Object.keys(PV_TIPOS).map((k) => `<option value="${k}" ${pvFilt.tipo === k ? 'selected' : ''}>${esc(PV_TIPOS[k].short)}</option>`).join('')}</select>
-      <select class="pvx-sel" id="pvCli"><option value="">Todos os clientes</option>${clis.map((k) => `<option value="${k.id}" ${pvFilt.cli === k.id ? 'selected' : ''}>${esc(k.nome)}</option>`).join('')}</select>
-      <label class="pvx-chk"><input type="checkbox" id="pvRncOnly" ${pvFilt.rnc ? 'checked' : ''}>Só com RNC</label>
-      <div class="seg pvx-seg" id="pvSeg">${segs.map(([k, l, n]) => `<button data-s="${k}" class="${pvFilt.st === k ? 'on' : ''}">${l}<span class="pvx-n">${n}</span></button>`).join('')}</div>`;
+      <div class="pvf-tabs" id="pvSeg" role="tablist"><span class="pvf-thumb" id="pvThumb"></span>${segs.map(([k, l, n]) => `<button role="tab" data-s="${k}" class="${pvFilt.st === k ? 'on' : ''}${k === 'atrasados' && n ? ' hot' : ''}">${l}<span class="pvf-n">${n}</span></button>`).join('')}</div>
+      <div class="pvf-row">
+        <label class="pvf-search">${ic('search')}<input id="pvQ" placeholder="Buscar nº, cliente, produto, lote…" value="${esc(pvFilt.q)}" autocomplete="off"><kbd>/</kbd><button type="button" class="pvf-x" id="pvQx" aria-label="Limpar busca">${ic('x')}</button></label>
+        <label class="pvf-dd${pvFilt.tipo ? ' set' : ''}">${ic('list')}<select id="pvTipo" aria-label="Tipo"><option value="">Todos os tipos</option>${Object.keys(PV_TIPOS).map((k) => `<option value="${k}" ${pvFilt.tipo === k ? 'selected' : ''}>${esc(PV_TIPOS[k].short)}</option>`).join('')}</select><span class="pvf-chev"></span></label>
+        <label class="pvf-dd${pvFilt.cli ? ' set' : ''}">${ic('users')}<select id="pvCli" aria-label="Cliente"><option value="">Todos os clientes</option>${clis.map((k) => `<option value="${k.id}" ${pvFilt.cli === k.id ? 'selected' : ''}>${esc(k.nome)}</option>`).join('')}</select><span class="pvf-chev"></span></label>
+        <label class="pvf-tg${pvFilt.rnc ? ' set' : ''}" title="Mostrar só chamados que precisam de RNC"><input type="checkbox" id="pvRncOnly" ${pvFilt.rnc ? 'checked' : ''}><span class="pvf-sw"></span><span class="pvf-tg-l">Só com RNC</span><span class="pvf-tg-s">RNC</span></label>
+      </div>
+      <div class="pvf-meta"><span id="pvMeta"></span><button type="button" class="pvf-clear" id="pvClear">${ic('x')}Limpar filtros</button></div>`;
     view.appendChild(tb); Icons.apply(tb);
     const holder = document.createElement('div'); view.appendChild(holder);
     const render = () => {
@@ -1570,6 +1573,10 @@
       if (pvFilt.rnc) l = l.filter(pvPrecisaRnc);
       if (pvFilt.q) { const q = pvFilt.q.toLowerCase(); l = l.filter((c) => (c.numero + ' ' + pvClienteNome(c) + ' ' + JSON.stringify(c.produto || {}) + ' ' + (c.descricao || '') + ' ' + ((c.rncCliente || {}).numero || '') + ' ' + ((c.rnc || {}).numero || '')).toLowerCase().includes(q)); }
       l.sort((a, b) => (pvAtrasado(b) - pvAtrasado(a)) || String(b.criadoEm).localeCompare(String(a.criadoEm)));
+      const extra = !!(pvFilt.q || pvFilt.tipo || pvFilt.cli || pvFilt.rnc);
+      $('#pvMeta', tb).innerHTML = `<b>${l.length}</b> ${l.length === 1 ? 'chamado' : 'chamados'}${extra ? ' com os filtros aplicados' : ''}`;
+      $('#pvClear', tb).classList.toggle('show', extra);
+      $('#pvQx', tb).classList.toggle('show', !!pvFilt.q);
       holder.innerHTML = l.length ? `<div class="tbl-wrap"><table class="data pvx-table"><thead><tr><th>Chamado</th><th>Cliente</th><th>Ocorrência</th><th>Prioridade</th><th>Prazo</th><th>RNC</th><th>Status</th></tr></thead><tbody>${l.map((c) => {
         const t = PV_TIPOS[c.tipo] || PV_TIPOS.reclamacao; const pr = c.produto || {};
         return `<tr data-pvid="${c.id}" class="pvx-tr">
@@ -1585,12 +1592,34 @@
       Icons.apply(holder);
       $$('tr[data-pvid]', holder).forEach((tr) => (tr.onclick = () => pvOpen(tr.dataset.pvid)));
     };
+    // destaque que desliza até a aba de status ativa
+    const thumb = () => { const on = $('#pvSeg button.on', tb), th = $('#pvThumb', tb); if (!on || !th) return; th.style.width = on.offsetWidth + 'px'; th.style.transform = `translateX(${on.offsetLeft}px)`; };
+    const mark = (el, on) => el.closest('.pvf-dd, .pvf-tg').classList.toggle('set', on);
     $('#pvQ', tb).oninput = (e) => { pvFilt.q = e.target.value; render(); };
-    $('#pvTipo', tb).onchange = (e) => { pvFilt.tipo = e.target.value; render(); };
-    $('#pvCli', tb).onchange = (e) => { pvFilt.cli = e.target.value; render(); };
-    $('#pvRncOnly', tb).onchange = (e) => { pvFilt.rnc = e.target.checked; render(); };
-    $$('#pvSeg button', tb).forEach((b) => (b.onclick = () => { pvFilt.st = b.dataset.s; $$('#pvSeg button', tb).forEach((x) => x.classList.toggle('on', x === b)); render(); }));
+    $('#pvQx', tb).onclick = (e) => { e.preventDefault(); pvFilt.q = ''; $('#pvQ', tb).value = ''; render(); $('#pvQ', tb).focus(); };
+    $('#pvTipo', tb).onchange = (e) => { pvFilt.tipo = e.target.value; mark(e.target, !!e.target.value); render(); };
+    $('#pvCli', tb).onchange = (e) => { pvFilt.cli = e.target.value; mark(e.target, !!e.target.value); render(); };
+    $('#pvRncOnly', tb).onchange = (e) => { pvFilt.rnc = e.target.checked; mark(e.target, e.target.checked); render(); };
+    $('#pvClear', tb).onclick = () => {
+      Object.assign(pvFilt, { q: '', tipo: '', cli: '', rnc: false });
+      $('#pvQ', tb).value = ''; $('#pvTipo', tb).value = ''; $('#pvCli', tb).value = ''; $('#pvRncOnly', tb).checked = false;
+      $$('.pvf-dd, .pvf-tg', tb).forEach((x) => x.classList.remove('set')); render();
+    };
+    $$('#pvSeg button', tb).forEach((b) => (b.onclick = () => {
+      pvFilt.st = b.dataset.s; $$('#pvSeg button', tb).forEach((x) => x.classList.toggle('on', x === b)); thumb();
+      b.scrollIntoView({ block: 'nearest', inline: 'nearest', behavior: 'smooth' }); render();
+    }));
+    // atalho "/" para buscar
+    const slash = (e) => {
+      if (!document.body.contains(tb)) { document.removeEventListener('keydown', slash); return; }
+      const t = e.target || {};
+      const typing = t.isContentEditable || /textarea|select/i.test(t.tagName || '') || (/input/i.test(t.tagName || '') && !/checkbox|radio|button|submit|file/.test(t.type || ''));
+      if (e.key === '/' && !typing && !modalCloser) { e.preventDefault(); $('#pvQ', tb).focus(); }
+    };
+    document.addEventListener('keydown', slash);
     render();
+    requestAnimationFrame(() => { $('#pvThumb', tb).classList.add('instant'); thumb(); requestAnimationFrame(() => $('#pvThumb', tb).classList.remove('instant')); });
+    if (window.__pvThumb) removeEventListener('resize', window.__pvThumb); window.__pvThumb = thumb; addEventListener('resize', thumb);
   };
 
   /* =========================== FILA DA QUALIDADE =========================== */
@@ -1685,94 +1714,284 @@
     };
   }
 
-  /* =========================== NOVO CHAMADO (Comercial) =========================== */
+  /* =========================== NOVO CHAMADO (Comercial) — fluxo guiado ===========================
+     5 etapas: Cliente → Ocorrência → Produto → RNC e evidências → Revisão.
+     Todos os campos ficam num único formulário (as etapas só mostram/ocultam), então a gravação
+     é a mesma de antes. Cada etapa valida o que é obrigatório antes de seguir. */
   function pvGoNovo(ch) { pvNovoDraft = ch || null; go('pv-novo'); }
+  const PV_WZ = [
+    { t: 'Cliente', s: 'Quem relatou e onde', i: 'users', h: 'Quem é o cliente?', p: 'Escolha o cliente e confirme o contato e o local da ocorrência.' },
+    { t: 'Ocorrência', s: 'O que aconteceu', i: 'alert', h: 'O que aconteceu?', p: 'Registre o relato do cliente com as palavras dele. Isso orienta toda a tratativa.' },
+    { t: 'Produto', s: 'Rastreabilidade', i: 'box', h: 'Qual produto está envolvido?', p: 'Quanto mais completo, mais fácil rastrear o lote e conter o problema.' },
+    { t: 'RNC e evidências', s: 'Documentos', i: 'file', h: 'O cliente enviou uma RNC?', p: 'Se veio RNC ou reclamação formal, registre aqui. Fotos e e-mails ajudam a análise.' },
+    { t: 'Revisão', s: 'Conferir e abrir', i: 'check', h: 'Tudo certo?', p: 'Confira o resumo. Você pode voltar a qualquer etapa antes de abrir o chamado.' },
+  ];
+  const pvInitials = (n) => (n || '?').split(/\s+/).filter((w) => w.length > 2 || /^[A-Z]/.test(w)).slice(0, 2).map((w) => w[0]).join('').toUpperCase() || '?';
+  const pvHue = (s) => { let h = 0; for (const ch of String(s || '')) h = (h * 31 + ch.charCodeAt(0)) % 360; return h; };
+
   PAGES['pv-novo'] = () => {
     const editing = !!(pvNovoDraft && pvNovoDraft.id);
     const c = editing ? Store.find('pvChamados', pvNovoDraft.id) || {} : {};
     pvNovoDraft = null;
-    pageShell('Pós-Vendas', editing ? `Editar abertura · ${c.numero}` : 'Novo chamado', editing ? 'Dados registrados pelo Comercial na abertura.' : 'Etapa 1 · Comercial — registre o que o cliente relatou. A triagem vem em seguida.',
-      `<button class="btn" id="pvBack">${ic('chevron')}Voltar</button>`);
-    $('#pvBack').onclick = () => editing ? pvOpen(c.id) : go('pv-chamados');
-    const clis = Store.get('pvClientes').slice().sort((a, b) => a.nome.localeCompare(b.nome));
+    pageShell('Pós-Vendas', editing ? `Editar abertura · ${c.numero}` : 'Novo chamado', editing ? 'Dados registrados pelo Comercial na abertura.' : 'Abertura guiada em 5 etapas — leva cerca de 2 minutos.',
+      `<button class="btn" id="pvBack">${ic('chevron')}${editing ? 'Voltar ao chamado' : 'Chamados'}</button>`);
+    const leave = () => (editing ? pvOpen(c.id) : go('pv-chamados'));
+    $('#pvBack').onclick = leave;
+
+    let clis = Store.get('pvClientes').slice().sort((a, b) => a.nome.localeCompare(b.nome));
     const pr = c.produto || {}, lc = c.local || {}, ct = c.contato || {}, rc = c.rncCliente || {};
-    const tipo = c.tipo || 'reclamacao';
+    const tipo = c.tipo || 'reclamacao', canal = c.canal || 'E-mail', prio = c.prioridade || 'media';
     const pending = []; // arquivos escolhidos antes de salvar
-    const w = document.createElement('div'); w.className = 'pvx-form';
+    const N = PV_WZ.length;
+    let step = 0, reached = editing ? N - 1 : 0;
+
+    const cliCard = (k) => `<button type="button" class="wz-cli${c.clienteId === k.id ? ' on' : ''}" data-cli="${k.id}" style="--h:${pvHue(k.nome)}">
+        <span class="wz-av">${esc(pvInitials(k.nome))}</span>
+        <span class="wz-cli-tx"><b>${esc(k.nome)}</b><small>${esc([[k.cidade, k.uf].filter(Boolean).join(' / '), k.segmento].filter(Boolean).join(' · ') || 'Sem cidade cadastrada')}</small></span>
+        <span class="wz-cli-ck">${ic('check')}</span></button>`;
+    const chip = (name, v, label, on, extra) => `<button type="button" class="wz-chip${on ? ' on' : ''}" data-chip="${name}" data-v="${esc(v)}" ${extra || ''}>${label}</button>`;
+
+    const w = document.createElement('div'); w.className = 'wz pvx-form';
     w.innerHTML = `
-      <div class="panel panel-pad"><div class="form-grid">
-        <div class="form-sec">${ic('users')}Cliente</div>
-        <div class="field full"><label>Cliente</label><div class="pvx-inline"><select name="clienteId" id="pvCliSel"><option value="">— selecione —</option>${clis.map((k) => `<option value="${k.id}" ${c.clienteId === k.id ? 'selected' : ''}>${esc(k.nome)}${k.cidade ? ' · ' + esc(k.cidade) : ''}</option>`).join('')}</select><button type="button" class="btn" id="pvCliAdd">${ic('plus')}Novo cliente</button></div><span class="hint" id="pvCsr"></span></div>
-        ${field('Contato no cliente', 'contatoNome', ct.nome)}
-        ${field('E-mail / telefone do contato', 'contatoInfo', ct.info)}
-        ${field('Local da ocorrência (cidade)', 'cidade', lc.cidade)}
-        <div class="field"><label>UF</label><select name="uf">${pvOpt(lc.uf || '', [''].concat(PV_UF))}</select></div>
-        ${field('Endereço / unidade / oficina', 'endereco', lc.endereco, 'text', { full: true, ph: 'Onde o produto está ou onde aconteceu' })}
+      <ol class="wz-steps" aria-label="Etapas">
+        <span class="wz-line"><span id="wzLine"></span></span>
+        ${PV_WZ.map((s, i) => `<li><button type="button" class="wz-st" data-go="${i}"><span class="wz-dot"><span class="wz-n">${i + 1}</span><span class="wz-ok">${ic('check')}</span></span><span class="wz-st-tx"><b>${esc(s.t)}</b><small>${esc(s.s)}</small></span></button></li>`).join('')}
+      </ol>
 
-        <div class="form-sec">${ic('alert')}Ocorrência</div>
-        <div class="field full"><label>Tipo de chamado</label><div class="pvx-tipos" id="pvTipos">${Object.keys(PV_TIPOS).map((k) => `<button type="button" class="pvx-tp${tipo === k ? ' on' : ''}" data-tp="${k}"><span class="pvx-tp-i">${ic(PV_TIPOS[k].icon)}</span><b>${esc(PV_TIPOS[k].label)}</b><small>${esc(PV_TIPOS[k].desc)}</small></button>`).join('')}</div><input type="hidden" name="tipo" value="${tipo}"></div>
-        ${field('Descrição do problema', 'descricao', c.descricao, 'textarea', { full: true, ph: 'O que o cliente relatou, com as palavras dele: sintoma, quando começou, condições de uso…' })}
-        ${field('Data da ocorrência', 'dataOcorrencia', c.dataOcorrencia || todayISO(), 'date')}
-        <div class="field"><label>Canal de entrada</label><select name="canal">${pvOpt(c.canal || 'E-mail', PV_CANAIS)}</select></div>
-        <div class="field"><label>Prioridade</label><select name="prioridade" id="pvPrio">${pvOpt(c.prioridade || 'media', Object.keys(PV_PRIO).map((k) => ({ v: k, t: `${PV_PRIO[k].label} — prazo ${PV_PRIO[k].dias} dias` })))}</select></div>
-        <div class="field"><label>Afeta segurança ou requisito legal?</label><select name="seguranca" id="pvSeg">${pvOpt(c.seguranca ? 'sim' : 'nao', [{ v: 'nao', t: 'Não' }, { v: 'sim', t: 'Sim — tratar como crítico' }])}</select></div>
+      <div class="wz-card">
+        <div class="wz-panes">
+          <!-- 1. CLIENTE -->
+          <section class="wz-pane" data-p="0">
+            <div class="wz-search">${ic('search')}<input id="wzCliQ" placeholder="Buscar cliente por nome, cidade ou CNPJ…" autocomplete="off"></div>
+            <div class="wz-clis" id="wzClis">
+              <button type="button" class="wz-cli wz-cli-new" id="wzCliNew"><span class="wz-av">${ic('plus')}</span><span class="wz-cli-tx"><b>Novo cliente</b><small>Cadastrar agora</small></span></button>
+              ${clis.map(cliCard).join('')}
+            </div>
+            <input type="hidden" name="clienteId" value="${esc(c.clienteId || '')}">
+            <div class="wz-csr" id="wzCsr" hidden></div>
+            <div class="wz-reveal${c.clienteId ? ' open' : ''}" id="wzCliMore"><div class="wz-reveal-in">
+              <div class="wz-sub">${ic('phone')}Contato e local da ocorrência</div>
+              <div class="form-grid">
+                ${field('Contato no cliente', 'contatoNome', ct.nome, 'text', { ph: 'Nome de quem relatou' })}
+                ${field('E-mail / telefone', 'contatoInfo', ct.info)}
+                ${field('Cidade da ocorrência', 'cidade', lc.cidade)}
+                <div class="field"><label>UF</label><select name="uf">${pvOpt(lc.uf || '', [''].concat(PV_UF))}</select></div>
+                ${field('Endereço / unidade / oficina', 'endereco', lc.endereco, 'text', { full: true, ph: 'Onde o produto está ou onde aconteceu' })}
+              </div>
+            </div></div>
+          </section>
 
-        <div class="form-sec">${ic('box')}Produto envolvido <span class="lbl-hint">rastreabilidade</span></div>
-        ${field('Código / referência', 'codigo', pr.codigo)}
-        ${field('Descrição do produto', 'prodDescricao', pr.descricao, 'text', { ph: 'Ex.: Redutor de pressão, válvula de cilindro…' })}
-        ${field('Lote', 'lote', pr.lote)}
-        ${field('Nº de série', 'serie', pr.serie)}
-        ${field('Nota fiscal', 'nf', pr.nf)}
-        ${field('Data de fabricação / entrega', 'dataFabricacao', pr.dataFabricacao, 'date')}
-        ${field('Aplicação / veículo', 'aplicacao', pr.aplicacao, 'text', { ph: 'Modelo, placa, km…' })}
-        ${field('Quantidade afetada', 'quantidade', pr.quantidade, 'number')}
+          <!-- 2. OCORRÊNCIA -->
+          <section class="wz-pane" data-p="1">
+            <div class="wz-sub">${ic('list')}Tipo de chamado</div>
+            <div class="pvx-tipos">${Object.keys(PV_TIPOS).map((k) => `<button type="button" class="pvx-tp${tipo === k ? ' on' : ''}" data-tp="${k}"><span class="pvx-tp-i">${ic(PV_TIPOS[k].icon)}</span><b>${esc(PV_TIPOS[k].label)}</b><small>${esc(PV_TIPOS[k].desc)}</small></button>`).join('')}</div>
+            <input type="hidden" name="tipo" value="${tipo}">
+            <div class="field full wz-desc"><label>Descrição do problema <span class="wz-req">obrigatório</span></label><textarea name="descricao" rows="4" placeholder="O que o cliente relatou: sintoma, quando começou, condições de uso…">${esc(c.descricao || '')}</textarea><span class="hint" id="wzDescN"></span></div>
+            <div class="form-grid">
+              ${field('Data da ocorrência', 'dataOcorrencia', c.dataOcorrencia || todayISO(), 'date')}
+              <div class="field"><label>Canal de entrada</label><div class="wz-chips">${PV_CANAIS.map((x) => chip('canal', x, esc(x), x === canal)).join('')}</div><input type="hidden" name="canal" value="${esc(canal)}"></div>
+            </div>
+            <div class="field full"><label>Prioridade</label><div class="wz-prios">${Object.keys(PV_PRIO).map((k) => chip('prioridade', k, `<span class="wz-pd p-${k}"></span><b>${PV_PRIO[k].label}</b><small>prazo ${PV_PRIO[k].dias} dias</small>`, k === prio)).join('')}</div><input type="hidden" name="prioridade" value="${prio}"></div>
+            <label class="wz-toggle${c.seguranca ? ' on' : ''}" id="wzSeg">
+              <span class="wz-toggle-ic">${ic('shield')}</span>
+              <span class="wz-toggle-tx"><b>Afeta segurança ou requisito legal?</b><small>Ex.: vazamento de gás, risco ao usuário, item homologado INMETRO. O chamado vira crítico.</small></span>
+              <span class="switch"><input type="checkbox" name="seguranca" ${c.seguranca ? 'checked' : ''}><span class="sl"></span></span>
+            </label>
+          </section>
 
-        <div class="form-sec">${ic('file')}RNC do cliente</div>
-        <div class="field full"><label>O cliente já enviou uma RNC ou reclamação formal?</label><select name="rncTem" id="pvRncTem">${pvOpt(rc.tem ? 'sim' : 'nao', [{ v: 'nao', t: 'Não' }, { v: 'sim', t: 'Sim — veio com RNC do cliente' }])}</select><span class="hint">Se não veio, a triagem decide depois se é preciso abrir uma RNC interna.</span></div>
-        <div class="pvx-rncbox full" id="pvRncBox" ${rc.tem ? '' : 'hidden'}>
-          <div class="form-grid">
-            ${field('Nº da RNC do cliente', 'rncNumero', rc.numero)}
-            ${field('Prazo de resposta exigido', 'rncPrazo', rc.prazoResposta, 'date', { hint: 'Vira o prazo do chamado' })}
-          </div>
-          ${editing ? '' : `<label class="pvx-drop">${ic('upload')}<span>Anexar a RNC do cliente</span><small>Também pode anexar depois</small><input type="file" multiple id="pvRncFile" hidden></label><div class="pvx-picked" id="pvRncPicked"></div>`}
+          <!-- 3. PRODUTO -->
+          <section class="wz-pane" data-p="2">
+            <div class="form-grid">
+              ${field('Código / referência', 'codigo', pr.codigo, 'text', { ph: 'Ex.: RED-2040' })}
+              ${field('Descrição do produto', 'prodDescricao', pr.descricao, 'text', { ph: 'Ex.: Redutor de pressão' })}
+              ${field('Lote', 'lote', pr.lote)}
+              ${field('Nº de série', 'serie', pr.serie)}
+              ${field('Nota fiscal', 'nf', pr.nf)}
+              ${field('Data de fabricação / entrega', 'dataFabricacao', pr.dataFabricacao, 'date')}
+              ${field('Aplicação / veículo', 'aplicacao', pr.aplicacao, 'text', { ph: 'Modelo, placa, km…' })}
+              ${field('Quantidade afetada', 'quantidade', pr.quantidade, 'number', { ph: '1' })}
+            </div>
+            <div class="wz-tip">${ic('activity')}<span>Nenhum campo é obrigatório aqui, mas <b>lote</b> e <b>nº de série</b> são o que permite à Qualidade conter o problema em outros clientes.</span></div>
+          </section>
+
+          <!-- 4. RNC E EVIDÊNCIAS -->
+          <section class="wz-pane" data-p="3">
+            <div class="wz-opts">
+              <button type="button" class="wz-opt${rc.tem ? '' : ' on'}" data-rnc="nao"><span class="wz-opt-ic">${ic('mail')}</span><b>Não, só o relato</b><small>A triagem decide depois se é preciso abrir uma RNC interna.</small></button>
+              <button type="button" class="wz-opt${rc.tem ? ' on' : ''}" data-rnc="sim"><span class="wz-opt-ic">${ic('file')}</span><b>Sim, veio com RNC do cliente</b><small>A Qualidade será acionada para responder dentro do prazo do cliente.</small></button>
+            </div>
+            <input type="hidden" name="rncTem" value="${rc.tem ? 'sim' : 'nao'}">
+            <div class="wz-reveal${rc.tem ? ' open' : ''}" id="wzRncBox"><div class="wz-reveal-in">
+              <div class="form-grid">
+                ${field('Nº da RNC do cliente', 'rncNumero', rc.numero)}
+                ${field('Prazo de resposta exigido', 'rncPrazo', rc.prazoResposta, 'date', { hint: 'Vira o prazo do chamado' })}
+              </div>
+              ${editing ? '' : `<label class="pvx-drop">${ic('upload')}<span>Anexar a RNC do cliente</span><small>PDF ou imagem · também pode anexar depois</small><input type="file" multiple id="pvRncFile" hidden></label><div class="pvx-picked" id="pvRncPicked"></div>`}
+            </div></div>
+            ${editing ? '' : `<div class="wz-sub">${ic('upload')}Evidências <small>fotos, e-mails, laudos — opcional</small></div>
+            <label class="pvx-drop wz-drop">${ic('upload')}<span>Arraste ou clique para anexar</span><small>até ${PV_MAX_MB} MB por arquivo</small><input type="file" multiple id="pvEvFile" hidden></label><div class="pvx-picked" id="pvEvPicked"></div>`}
+          </section>
+
+          <!-- 5. REVISÃO -->
+          <section class="wz-pane" data-p="4">
+            <div class="wz-sum" id="wzSum"></div>
+            <div class="form-grid wz-by">${field('Aberto por', 'abertoPor', c.abertoPor || pvMe(), 'text', { hint: 'Fica salvo neste computador para os próximos registros' })}</div>
+          </section>
         </div>
 
-        ${editing ? '' : `<div class="form-sec">${ic('upload')}Evidências <span class="lbl-hint">fotos, e-mails, laudos</span></div>
-        <div class="full"><label class="pvx-drop">${ic('upload')}<span>Anexar fotos ou documentos</span><small>Opcional · até ${PV_MAX_MB} MB por arquivo</small><input type="file" multiple id="pvEvFile" hidden></label><div class="pvx-picked" id="pvEvPicked"></div></div>`}
-
-        <div class="form-sec">${ic('users')}Registro</div>
-        ${field('Aberto por', 'abertoPor', c.abertoPor || pvMe(), 'text', { hint: 'Fica salvo neste computador para os próximos registros' })}
-      </div></div>
-      <div class="prog-form-actions"><button class="btn primary" id="pvSave">${ic('check')}${editing ? 'Salvar alterações' : 'Abrir chamado'}</button><button class="btn ghost" id="pvCancel">Cancelar</button></div>`;
+        <footer class="wz-foot">
+          <button type="button" class="btn ghost" id="wzPrev">${ic('chevron')}Voltar</button>
+          <span class="wz-count" id="wzCount"></span>
+          <button type="button" class="btn primary wz-next" id="wzNext"></button>
+        </footer>
+      </div>`;
     view.appendChild(w); Icons.apply(w);
 
-    const csr = () => { const k = pvCliente($('#pvCliSel', w).value); const el = $('#pvCsr', w); el.textContent = k && (k.csr || k.prazoRespostaDias) ? `Requisitos do cliente: ${[k.prazoRespostaDias ? 'resposta em ' + k.prazoRespostaDias + ' dias' : '', k.exige8D ? 'exige 8D' : '', k.csr || ''].filter(Boolean).join(' · ')}` : ''; };
-    $('#pvCliSel', w).onchange = () => {
-      const k = pvCliente($('#pvCliSel', w).value); csr(); if (!k) return;
-      const set = (n, v) => { const el = $(`[name="${n}"]`, w); if (el && !el.value && v) el.value = v; };
-      set('contatoNome', k.contatoNome); set('contatoInfo', [k.contatoEmail, k.contatoFone].filter(Boolean).join(' · ')); set('cidade', k.cidade); set('uf', k.uf);
+    const form = w;
+    const val = (n) => { const el = $(`[name="${n}"]`, form); return el ? (el.type === 'checkbox' ? el.checked : el.value.trim()) : ''; };
+    const set = (n, v) => { const el = $(`[name="${n}"]`, form); if (el) el.value = v; };
+
+    /* ---- etapa 1: clientes em cartões ---- */
+    const csr = () => {
+      const k = pvCliente(val('clienteId')); const el = $('#wzCsr', w);
+      const parts = k ? [k.prazoRespostaDias ? 'Responder RNC em ' + k.prazoRespostaDias + ' dias' : '', k.exige8D ? 'exige 8D' : '', k.csr || ''].filter(Boolean) : [];
+      el.hidden = !parts.length; el.innerHTML = parts.length ? `${ic('award')}<span><b>Requisitos deste cliente:</b> ${esc(parts.join(' · '))}</span>` : ''; Icons.apply(el);
     };
-    csr();
-    $('#pvCliAdd', w).onclick = () => pvFormCliente(null, (k) => {
-      const sel = $('#pvCliSel', w); sel.insertAdjacentHTML('beforeend', `<option value="${k.id}">${esc(k.nome)}</option>`); sel.value = k.id; sel.onchange();
+    const pickCli = (id) => {
+      set('clienteId', id);
+      $$('.wz-cli[data-cli]', w).forEach((b) => b.classList.toggle('on', b.dataset.cli === id));
+      const k = pvCliente(id);
+      if (k) {
+        const fill = (n, v) => { const el = $(`[name="${n}"]`, form); if (el && !el.value && v) el.value = v; };
+        fill('contatoNome', k.contatoNome); fill('contatoInfo', [k.contatoEmail, k.contatoFone].filter(Boolean).join(' · ')); fill('cidade', k.cidade); fill('uf', k.uf);
+      }
+      $('#wzCliMore', w).classList.add('open');
+      csr(); markErr(0, false);
+    };
+    const bindCli = () => $$('.wz-cli[data-cli]', w).forEach((b) => (b.onclick = () => pickCli(b.dataset.cli)));
+    bindCli(); csr();
+    $('#wzCliQ', w).oninput = (e) => {
+      const q = e.target.value.trim().toLowerCase();
+      $$('.wz-cli[data-cli]', w).forEach((b) => { const k = pvCliente(b.dataset.cli); b.hidden = !!q && !JSON.stringify(k || {}).toLowerCase().includes(q); });
+    };
+    $('#wzCliNew', w).onclick = () => pvFormCliente(null, (k) => {
+      $('#wzCliNew', w).insertAdjacentHTML('afterend', cliCard(k)); Icons.apply($('#wzClis', w)); bindCli(); pickCli(k.id);
+      const card = $(`.wz-cli[data-cli="${k.id}"]`, w); if (card) card.classList.add('just');
     });
-    $$('.pvx-tp', w).forEach((b) => (b.onclick = () => { $$('.pvx-tp', w).forEach((x) => x.classList.toggle('on', x === b)); $('[name="tipo"]', w).value = b.dataset.tp; }));
-    $('#pvSeg', w).onchange = (e) => { if (e.target.value === 'sim') $('#pvPrio', w).value = 'critica'; };
-    $('#pvRncTem', w).onchange = (e) => { $('#pvRncBox', w).hidden = e.target.value !== 'sim'; };
+
+    /* ---- etapa 2: tipo, chips, prioridade, segurança ---- */
+    $$('.pvx-tp', w).forEach((b) => (b.onclick = () => { $$('.pvx-tp', w).forEach((x) => x.classList.toggle('on', x === b)); set('tipo', b.dataset.tp); }));
+    $$('[data-chip]', w).forEach((b) => (b.onclick = () => {
+      const n = b.dataset.chip; $$(`[data-chip="${n}"]`, w).forEach((x) => x.classList.toggle('on', x === b)); set(n, b.dataset.v);
+    }));
+    const segInp = $('#wzSeg input', w);
+    segInp.onchange = () => {
+      $('#wzSeg', w).classList.toggle('on', segInp.checked);
+      if (segInp.checked) { const crit = $('[data-chip="prioridade"][data-v="critica"]', w); if (crit) crit.click(); }
+    };
+    const descEl = $('[name="descricao"]', form);
+    const descN = () => { const n = descEl.value.trim().length; $('#wzDescN', w).textContent = n ? `${n} caracteres` : 'Descreva com detalhes — é o que orienta a triagem.'; };
+    descEl.oninput = () => { descN(); if (descEl.value.trim()) markErr(1, false); }; descN();
+
+    /* ---- etapa 4: RNC do cliente + anexos ---- */
+    $$('[data-rnc]', w).forEach((b) => (b.onclick = () => {
+      $$('[data-rnc]', w).forEach((x) => x.classList.toggle('on', x === b)); set('rncTem', b.dataset.rnc);
+      $('#wzRncBox', w).classList.toggle('open', b.dataset.rnc === 'sim');
+    }));
     const picker = (inpId, listId, grupo) => {
       const inp = $('#' + inpId, w); if (!inp) return;
-      const draw = () => { $('#' + listId, w).innerHTML = pending.filter((p) => p.grupo === grupo).map((p, i) => `<span class="file-chip">${ic('file')}${esc(p.file.name)}<button type="button" data-unpick="${pending.indexOf(p)}">${ic('x')}</button></span>`).join(''); Icons.apply($('#' + listId, w)); $$('[data-unpick]', $('#' + listId, w)).forEach((b) => (b.onclick = () => { pending.splice(+b.dataset.unpick, 1); draw(); })); };
+      const draw = () => { const host = $('#' + listId, w); host.innerHTML = pending.filter((p) => p.grupo === grupo).map((p) => `<span class="file-chip">${ic('file')}${esc(p.file.name)}<button type="button" data-unpick="${pending.indexOf(p)}">${ic('x')}</button></span>`).join(''); Icons.apply(host); $$('[data-unpick]', host).forEach((b) => (b.onclick = () => { pending.splice(+b.dataset.unpick, 1); draw(); })); };
       inp.onchange = () => { Array.from(inp.files).forEach((f) => pending.push({ grupo, file: f })); inp.value = ''; draw(); };
+      // arrastar e soltar
+      const zone = inp.closest('.pvx-drop');
+      if (zone) {
+        zone.addEventListener('dragover', (e) => { e.preventDefault(); zone.classList.add('drag'); });
+        zone.addEventListener('dragleave', () => zone.classList.remove('drag'));
+        zone.addEventListener('drop', (e) => { e.preventDefault(); zone.classList.remove('drag'); Array.from(e.dataTransfer.files || []).forEach((f) => pending.push({ grupo, file: f })); draw(); });
+      }
     };
     picker('pvRncFile', 'pvRncPicked', 'rnc_cliente');
     picker('pvEvFile', 'pvEvPicked', 'abertura');
-    $('#pvCancel', w).onclick = () => $('#pvBack').onclick();
 
-    $('#pvSave', w).onclick = async () => {
-      const d = readForm(w);
-      if (!d.clienteId) return toast('Selecione o cliente (ou cadastre um novo)', 'warn');
-      if (!d.descricao) return toast('Descreva o problema relatado pelo cliente', 'warn');
-      if (!d.abertoPor) return toast('Informe quem está abrindo o chamado', 'warn');
+    /* ---- etapa 5: resumo ---- */
+    const summary = () => {
+      const d = readForm(form); const k = pvCliente(d.clienteId); const t = PV_TIPOS[d.tipo] || PV_TIPOS.reclamacao;
+      const pk = d.seguranca ? 'critica' : d.prioridade;
+      const rncTem = d.rncTem === 'sim';
+      let prazo = addDays(todayISO(), PV_PRIO[pk].dias);
+      if (rncTem) prazo = d.rncPrazo || (k && k.prazoRespostaDias ? addDays(todayISO(), k.prazoRespostaDias) : prazo);
+      const row = (l, v) => v ? `<div class="wz-sr"><span>${esc(l)}</span><b>${esc(v)}</b></div>` : '';
+      const files = (g) => pending.filter((p) => p.grupo === g).length;
+      const blk = (i, body) => `<div class="wz-sb" style="--d:${i * 60}ms"><div class="wz-sb-h"><span class="wz-sb-n">${i + 1}</span><b>${esc(PV_WZ[i].t)}</b><button type="button" class="wz-edit" data-go="${i}">${ic('edit')}Editar</button></div>${body}</div>`;
+      $('#wzSum', w).innerHTML = `
+        <div class="wz-hero">
+          <span class="wz-hero-ic">${ic(t.icon)}</span>
+          <div><small>${editing ? esc(c.numero) : 'Novo chamado'} · ${esc(t.label)}</small><b>${esc(k ? k.nome : 'Cliente não selecionado')}</b></div>
+          <div class="wz-hero-m"><span>Prazo previsto</span><b>${fmtDate(editing ? (c.prazo || prazo) : prazo)}</b>${pvBadge(PV_PRIO, pk)}</div>
+        </div>
+        <div class="wz-sgrid">
+          ${blk(0, row('Contato', [d.contatoNome, d.contatoInfo].filter(Boolean).join(' · ')) + row('Local', [d.endereco, d.cidade, d.uf].filter(Boolean).join(' · ')))}
+          ${blk(1, `<p class="wz-quote">${esc(d.descricao || '—')}</p>` + row('Data', fmtDate(d.dataOcorrencia)) + row('Canal', d.canal) + (d.seguranca ? row('Segurança / legal', 'Sim — tratado como crítico') : ''))}
+          ${blk(2, (row('Produto', [d.codigo, d.prodDescricao].filter(Boolean).join(' — ')) + row('Lote / série', [d.lote, d.serie].filter(Boolean).join(' / ')) + row('Nota fiscal', d.nf) + row('Aplicação', d.aplicacao) + row('Quantidade', d.quantidade)) || '<p class="pvx-muted">Nenhum dado de produto informado.</p>')}
+          ${blk(3, row('RNC do cliente', rncTem ? ['Sim', d.rncNumero && 'nº ' + d.rncNumero, d.rncPrazo && 'resposta até ' + fmtDate(d.rncPrazo)].filter(Boolean).join(' · ') : 'Não') + (editing ? '' : row('Anexos', (files('rnc_cliente') + files('abertura')) ? `${files('rnc_cliente') + files('abertura')} arquivo(s)` : 'Nenhum')))}
+        </div>`;
+      Icons.apply($('#wzSum', w));
+      $$('#wzSum [data-go]', w).forEach((b) => (b.onclick = () => goStep(+b.dataset.go)));
+    };
+
+    /* ---- navegação entre etapas ---- */
+    const markErr = (i, on) => { const li = $$('.wz-st', w)[i]; if (li) li.classList.toggle('err', on); };
+    const shake = (el) => { if (!el) return; el.classList.remove('wz-shake'); void el.offsetWidth; el.classList.add('wz-shake'); };
+    const check = (i) => {
+      if (i === 0 && !val('clienteId')) { toast('Selecione o cliente (ou cadastre um novo)', 'warn'); shake($('#wzClis', w)); markErr(0, true); return false; }
+      if (i === 1 && !val('descricao')) { toast('Descreva o problema relatado pelo cliente', 'warn'); shake($('.wz-desc', w)); descEl.focus(); markErr(1, true); return false; }
+      if (i === 4 && !val('abertoPor')) { toast('Informe quem está abrindo o chamado', 'warn'); shake($('.wz-by', w)); return false; }
+      return true;
+    };
+    const paint = (dir) => {
+      $$('.wz-pane', w).forEach((p) => {
+        const on = +p.dataset.p === step;
+        p.classList.toggle('on', on);
+        p.classList.remove('in-r', 'in-l');
+        if (on) { void p.offsetWidth; p.classList.add(dir < 0 ? 'in-l' : 'in-r'); }
+      });
+      $$('.wz-st', w).forEach((b, i) => { b.classList.toggle('cur', i === step); b.classList.toggle('done', i !== step && i <= reached && (i < step || i < N - 1)); b.disabled = i > reached; });
+      $('#wzLine', w).style.width = (step / (N - 1)) * 100 + '%';
+      const S = PV_WZ[step];
+      const head = $(`.wz-pane[data-p="${step}"] .wz-head`, w);
+      if (!head) $(`.wz-pane[data-p="${step}"]`, w).insertAdjacentHTML('afterbegin', `<header class="wz-head"><span class="wz-kick">Etapa ${step + 1} de ${N}</span><h2>${esc(S.h)}</h2><p>${esc(S.p)}</p></header>`);
+      $('#wzPrev', w).style.visibility = step === 0 ? 'hidden' : 'visible';
+      $('#wzCount', w).textContent = step < N - 1 ? 'Enter para continuar' : '';
+      const nx = $('#wzNext', w);
+      nx.innerHTML = step < N - 1 ? `Continuar <span class="wz-nx-t">· ${esc(PV_WZ[step + 1].t)}</span>${ic('arrowUpRight')}` : `${ic('check')}${editing ? 'Salvar alterações' : 'Abrir chamado'}`;
+      nx.classList.toggle('final', step === N - 1);
+      Icons.apply(nx);
+      if (step === N - 1) summary();
+      // foco no primeiro campo útil da etapa
+      setTimeout(() => { const f = step === 0 ? $('#wzCliQ', w) : step === 1 ? descEl : step === 2 ? $('[name="codigo"]', form) : null; if (f && !('ontouchstart' in window)) f.focus({ preventScroll: true }); }, 380);
+      w.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    };
+    const goStep = (i) => {
+      if (i === step) return;
+      if (i > step) { for (let s = step; s < i; s++) if (!check(s)) { if (s !== step) { step = s; paint(1); } return; } }
+      const dir = i > step ? 1 : -1; step = i; reached = Math.max(reached, i); paint(dir);
+    };
+    $$('.wz-st', w).forEach((b) => (b.onclick = () => goStep(+b.dataset.go)));
+    $('#wzPrev', w).onclick = () => { if (step > 0) goStep(step - 1); };
+    $('#wzNext', w).onclick = () => { if (step < N - 1) { if (check(step)) goStep(step + 1); } else save(); };
+    w.addEventListener('keydown', (e) => {
+      if (e.key !== 'Enter' || e.shiftKey || /textarea/i.test(e.target.tagName) || e.target.closest('.modal-card')) return;
+      // Enter na busca de cliente: se sobrou um só, seleciona
+      if (e.target.id === 'wzCliQ') { const vis = $$('.wz-cli[data-cli]', w).filter((b) => !b.hidden); if (vis.length === 1) vis[0].click(); }
+      if (/input|select/i.test(e.target.tagName) || e.target === w) { e.preventDefault(); $('#wzNext', w).click(); }
+    });
+
+    /* ---- gravação (mesma regra de antes) ---- */
+    const save = async () => {
+      if (!check(0)) return goStep(0);
+      if (!check(1)) return goStep(1);
+      if (!check(4)) return;
+      const d = readForm(form);
       setPvMe(d.abertoPor);
       const k = pvCliente(d.clienteId);
       const rncTem = d.rncTem === 'sim';
@@ -1781,7 +2000,7 @@
         contato: { nome: d.contatoNome, info: d.contatoInfo },
         local: { cidade: d.cidade, uf: d.uf, endereco: d.endereco },
         tipo: d.tipo, descricao: d.descricao, dataOcorrencia: d.dataOcorrencia, canal: d.canal,
-        prioridade: d.seguranca === 'sim' ? 'critica' : d.prioridade, seguranca: d.seguranca === 'sim',
+        prioridade: d.seguranca ? 'critica' : d.prioridade, seguranca: !!d.seguranca,
         produto: { codigo: d.codigo, descricao: d.prodDescricao, lote: d.lote, serie: d.serie, nf: d.nf, dataFabricacao: d.dataFabricacao, aplicacao: d.aplicacao, quantidade: d.quantidade },
         rncCliente: { tem: rncTem, numero: rncTem ? d.rncNumero : '', prazoResposta: rncTem ? d.rncPrazo : '' },
         abertoPor: d.abertoPor,
@@ -1791,15 +2010,21 @@
         pvSave(c, obj, 'Abertura editada');
         toast('Chamado atualizado'); pvOpen(c.id); return;
       }
+      const nx = $('#wzNext', w); nx.disabled = true; nx.classList.add('busy');
       let prazo = addDays(todayISO(), PV_PRIO[obj.prioridade].dias);
       if (rncTem) prazo = d.rncPrazo || (k && k.prazoRespostaDias ? addDays(todayISO(), k.prazoRespostaDias) : prazo);
       Object.assign(obj, { numero: pvNextNumero(), criadoEm: pvNow(), status: 'aberto', prazo, anexos: [], triagem: rncTem ? { rnc: '' } : {}, historico: [] });
       obj.historico = [{ at: obj.criadoEm, by: d.abertoPor, acao: 'Chamado aberto', det: `${PV_TIPOS[obj.tipo].label} · canal ${obj.canal}${rncTem ? ' · com RNC do cliente' : ''}` }];
       const novo = Store.add('pvChamados', obj);
       for (const g of ['rnc_cliente', 'abertura']) { const fs = pending.filter((p) => p.grupo === g).map((p) => p.file); if (fs.length) await pvAttach(novo, g, fs); }
-      toast(`Chamado ${novo.numero} aberto`);
-      pvOpen(novo.id);
+      // confirmação animada antes de ir para o chamado
+      w.classList.add('wz-done');
+      w.insertAdjacentHTML('beforeend', `<div class="wz-success"><span class="wz-success-ic">${ic('check')}</span><b>Chamado ${esc(novo.numero)} aberto</b><small>Próxima etapa: triagem</small></div>`);
+      Icons.apply(w);
+      setTimeout(() => pvOpen(novo.id), 1300);
     };
+
+    paint(1);
   };
 
   /* =========================== DETALHE DO CHAMADO =========================== */
