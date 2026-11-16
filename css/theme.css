@@ -1696,3 +1696,8 @@ body:has(.modal-root.open .modal-card.cf-sheet) .app-shell, body:has(.modal-root
 @media (max-width: 760px) {
   .wz-cli-tx b { white-space: normal; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; line-height: 1.3; }
 }
+/* lista suspensa aberta sempre por cima do que vem depois (campos, chips, cartões) */
+.ccs.open { z-index: 60; }
+.field:has(.ccs.open), .form-grid:has(.ccs.open), .cf-f:has(.ccs.open), .wz-pane .form-grid:has(.ccs.open) { position: relative; z-index: 60; }
+.ccs-pop { background: var(--bg-2) !important; backdrop-filter: none !important; -webkit-backdrop-filter: none !important; }
+[data-theme="light"] .ccs-pop { background: #fff !important; }

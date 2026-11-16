@@ -2496,7 +2496,7 @@
             <div class="field full wz-desc"><label>Descrição do problema <span class="wz-req">obrigatório</span></label><textarea name="descricao" rows="4" placeholder="O que o cliente relatou: sintoma, quando começou, condições de uso…">${esc(c.descricao || '')}</textarea><span class="hint" id="wzDescN"></span></div>
             <div class="form-grid">
               ${field('Data da ocorrência', 'dataOcorrencia', c.dataOcorrencia || todayISO(), 'date')}
-              <div class="field"><label>Canal de entrada</label><div class="wz-chips">${PV_CANAIS.map((x) => chip('canal', x, esc(x), x === canal)).join('')}</div><input type="hidden" name="canal" value="${esc(canal)}"></div>
+              <div class="field"><label>Canal de entrada</label><select name="canal" aria-label="Canal de entrada">${PV_CANAIS.map((x) => `<option value="${esc(x)}" ${x === canal ? 'selected' : ''}>${esc(x)}</option>`).join('')}</select></div>
             </div>
             <div class="field full"><label>Prioridade</label><div class="wz-prios">${Object.keys(PV_PRIO).map((k) => chip('prioridade', k, `<span class="wz-pd p-${k}"></span><b>${PV_PRIO[k].label}</b><small>prazo ${PV_PRIO[k].dias} dias</small>`, k === prio)).join('')}</div><input type="hidden" name="prioridade" value="${prio}"></div>
             <label class="wz-toggle${c.seguranca ? ' on' : ''}" id="wzSeg">
@@ -2556,6 +2556,7 @@
 
     const form = w;
     ccSelect($('[name="uf"]', w), { search: true, icon: 'pin' });
+    ccSelect($('[name="canal"]', w), { search: false, icons: { 'E-mail': 'mail', Telefone: 'phone', WhatsApp: 'share', Visita: 'pin', 'Portal do cliente': 'globe', Representante: 'users' } });
     const val = (n) => { const el = $(`[name="${n}"]`, form); return el ? (el.type === 'checkbox' ? el.checked : el.value.trim()) : ''; };
     const set = (n, v) => { const el = $(`[name="${n}"]`, form); if (el) el.value = v; };
     // contato: telefone formatado e e-mail em minúsculas
