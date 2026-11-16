@@ -347,6 +347,7 @@
     // PÓS-VENDAS — chamados de clientes (IATF 16949 / ISO 9001) e cadastro de clientes
     if (!Array.isArray(d.pvChamados)) d.pvChamados = [];
     if (!Array.isArray(d.pvClientes)) d.pvClientes = [];
+    if (!Array.isArray(d.lgClientes)) d.lgClientes = []; // cópia dos clientes do LifeGas (enviada pelo banco do LifeGas)
     if (!Array.isArray(d.progPedidos)) d.progPedidos = [];
     if (!Array.isArray(d.progConfig)) d.progConfig = [];
     if (!d._progSeed) {

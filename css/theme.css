@@ -1332,3 +1332,31 @@ html.fx-off .qf-link i { animation: none; opacity: 0; }
 }
 .pvp .pvd-core b { font-size: 2.7rem; }
 @media (max-width: 760px) { .pvp .pvd-core b { font-size: 2.4rem; } }
+
+/* =====================================================================
+   INTEGRAÇÃO LIFEGAS — faixa na aba Clientes
+   ===================================================================== */
+.lgx { position: relative; overflow: hidden; display: flex; align-items: center; gap: 16px; padding: 16px 18px; margin-bottom: 16px; border-radius: 18px;
+  background: radial-gradient(80% 140% at 0% 50%, rgba(167,139,250,.12), transparent 60%), var(--card); border: 1px solid var(--line); box-shadow: var(--shadow-card); animation: riseIn .6s var(--ease) both; }
+.lgx.on { background: radial-gradient(80% 140% at 0% 50%, rgba(70,211,154,.13), transparent 60%), var(--card); }
+.lgx-mark { position: relative; flex: none; width: 46px; height: 46px; border-radius: 14px; display: grid; place-items: center; color: #A78BFA; background: rgba(167,139,250,.12); border: 1px solid rgba(167,139,250,.3); }
+.lgx.on .lgx-mark { color: #46D39A; background: rgba(70,211,154,.12); border-color: rgba(70,211,154,.32); }
+.lgx-mark svg { width: 20px; height: 20px; }
+.lgx.on .lgx-mark svg { animation: hxSpin 14s linear infinite; }
+html.fx-off .lgx.on .lgx-mark svg { animation: none; }
+.lgx-pulse { position: absolute; top: -3px; right: -3px; width: 10px; height: 10px; border-radius: 50%; background: var(--text-3); border: 2px solid var(--bg); }
+.lgx.on .lgx-pulse { background: #46D39A; box-shadow: 0 0 0 0 rgba(70,211,154,.6); animation: pvdHot 2.4s ease-in-out infinite; }
+.lgx-tx { flex: 1; display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+.lgx-tx b { font-size: .96rem; font-weight: 600; color: var(--text); }
+.lgx-tx span { font-size: .8rem; color: var(--text-3); line-height: 1.45; }
+.lgx-act { display: flex; gap: 8px; flex-wrap: wrap; }
+#lgSync.spin svg { animation: hxSpin 1s linear infinite; }
+.lgx-badge { margin-left: 4px; }
+.lgx-note { margin-bottom: 16px; }
+.lgx-steps { display: flex; flex-direction: column; gap: 14px; margin: 0 0 18px; padding: 0; list-style: none; counter-reset: lg; }
+.lgx-steps li { position: relative; display: flex; flex-direction: column; gap: 3px; padding-left: 42px; counter-increment: lg; }
+.lgx-steps li::before { content: counter(lg); position: absolute; left: 0; top: 0; width: 28px; height: 28px; border-radius: 50%; display: grid; place-items: center; font-size: .8rem; font-weight: 700; color: var(--accent); border: 1.5px solid color-mix(in srgb, var(--accent) 55%, transparent); background: color-mix(in srgb, var(--accent) 10%, transparent); }
+.lgx-steps b { font-size: .92rem; color: var(--text); }
+.lgx-steps span { font-size: .84rem; color: var(--text-2); line-height: 1.5; }
+.lgx-steps code { font-size: .8rem; padding: 1px 6px; border-radius: 6px; background: color-mix(in srgb, var(--text) 8%, transparent); }
+@media (max-width: 760px) { .lgx { flex-wrap: wrap; } .lgx-act { width: 100%; } .lgx-act .btn { flex: 1; justify-content: center; } }
