@@ -1804,7 +1804,7 @@
   const lgNorm = (v) => String(v || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/\b(ltda|me|epp|eireli|s\/?a)\b/g, '').replace(/[^a-z0-9]+/g, ' ').trim();
   const lgBase = (r) => ({
     nome: String(r.nome || '').trim(), cnpj: lgDig(r.cnpj).length === 14 ? pvMaskCnpj(r.cnpj) : String(r.cnpj || '').trim(),
-    cidade: String(r.municipio || '').trim(), uf: String(r.uf || '').toUpperCase().slice(0, 2),
+    cidade: pvTitle(String(r.municipio || '').trim()), uf: String(r.uf || '').toUpperCase().slice(0, 2),
     contatoNome: String(r.contato || '').trim(), contatoEmail: String(r.email || '').trim(), contatoFone: String(r.telefone || '').trim(),
     endereco: String(r.endereco || '').trim(), cep: String(r.cep || '').trim(),
   });

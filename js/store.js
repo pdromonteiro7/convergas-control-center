@@ -476,7 +476,7 @@
       (d.certificates || []).forEach((c) => {
         const nm = (c.lab || '').trim(); if (!nm) return;
         let lab = findLab(nm);
-        if (!lab) { lab = { id: 'lab_' + Math.random().toString(36).slice(2, 8), name: nm, email: c.labEmail || '', phone: c.labPhone || '', site: '', notes: '' }; d.labs.push(lab); }
+        if (!lab) { lab = { id: 'lab_' + nm.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]+/g, '_').slice(0, 40), name: nm, email: c.labEmail || '', phone: c.labPhone || '', site: '', notes: '' }; d.labs.push(lab); }
         else { if (!lab.email && c.labEmail) lab.email = c.labEmail; if (!lab.phone && c.labPhone) lab.phone = c.labPhone; }
       });
       d._labsSeed = true;
@@ -567,7 +567,7 @@
       comps.forEach((c) => { const k = avKey(c.antivirus); if (!k) return; (groups[k] = groups[k] || []).push(c); });
       Object.keys(groups).forEach((prod) => {
         const machines = groups[prod];
-        const lic = { id: uid('li'), name: prod + ' — Antivírus', vendor: prod, type: 'Antivírus', seats: machines.length + ' PCs', seatsTotal: machines.length, owner: '', purchaseDate: '', renewalDate: '', adminUrl: '', code: '', notes: 'Criada automaticamente a partir do antivírus das máquinas.', assignments: machines.map((c) => ({ userId: c.userId || '', machineId: c.id })) };
+        const lic = { id: 'li_av_' + norm(prod).replace(/[^a-z0-9]+/g, '_'), name: prod + ' — Antivírus', vendor: prod, type: 'Antivírus', seats: machines.length + ' PCs', seatsTotal: machines.length, owner: '', purchaseDate: '', renewalDate: '', adminUrl: '', code: '', notes: 'Criada automaticamente a partir do antivírus das máquinas.', assignments: machines.map((c) => ({ userId: c.userId || '', machineId: c.id })) };
         d.licenses.push(lic);
         machines.forEach((c) => { c.antivirusLicenseId = lic.id; });
       });
