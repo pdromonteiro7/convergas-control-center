@@ -1474,7 +1474,7 @@
       <div class="ind-grid">
         ${kpi('list', s.abertos.length, 'Chamados em aberto', s.semTriagem.length ? `${s.semTriagem.length} sem triagem` : 'Todos triados', s.semTriagem.length ? 'warn' : 'ok', 'abertos')}
         ${kpi('clock', s.atrasados.length, 'Atrasados', s.atrasados.length ? 'Fora do prazo' : 'Nenhum', s.atrasados.length ? 'danger' : 'ok', 'atrasados')}
-        ${kpi('award', s.rncPend.length, 'Aguardando RNC', 'Fila da Qualidade', s.rncPend.length ? 'warn' : 'ok', 'qualidade')}
+        ${kpi('award', s.rncPend.length, 'Aguardando RNC', 'Fila de RNC', s.rncPend.length ? 'warn' : 'ok', 'qualidade')}
         ${kpi('check', encMes.length, 'Encerrados no mês', new Date().toLocaleDateString('pt-BR', { month: 'long' }), '')}
       </div>
       <div class="section-head"><h2><span class="sh-ico">${ic('flash')}</span>Desempenho em ${y}</h2></div>
@@ -1522,7 +1522,7 @@
     pvBindRows(w);
     $$('[data-pvgo]', w).forEach((el) => (el.onclick = () => {
       const g = el.dataset.pvgo;
-      if (g === 'qualidade') return go('pv-qualidade');
+      if (g === 'qualidade') return navTo('pv-qualidade');
       pvFilt.st = g === 'atrasados' ? 'atrasados' : 'abertos'; go('pv-chamados');
     }));
   };
@@ -1538,7 +1538,12 @@
     </button>`;
   }
   function pvBindRows(root) { $$('[data-pvid]', root).forEach((b) => (b.onclick = () => pvOpen(b.dataset.pvid))); }
-  function pvOpen(id) { pvCurrentId = id; try { sessionStorage.setItem('pv_current', id); } catch (e) {} go('pv-detalhe'); }
+  let pvBackRoute = 'pv-chamados';
+  function pvOpen(id) {
+    pvCurrentId = id; try { sessionStorage.setItem('pv_current', id); } catch (e) {}
+    if (currentRoute !== 'pv-detalhe') pvBackRoute = /^(pv-|qa-)/.test(currentRoute) && currentRoute !== 'pv-novo' ? currentRoute : 'pv-chamados';
+    go('pv-detalhe');
+  }
 
   /* =========================== LISTA DE CHAMADOS =========================== */
   PAGES['pv-chamados'] = () => {
@@ -1546,7 +1551,7 @@
       `<button class="btn primary" id="pvNew">${ic('plus')}Novo chamado</button>`);
     $('#pvNew').onclick = () => pvGoNovo();
     view.appendChild(pvDash((f) => {
-      if (f === 'qualidade') return go('pv-qualidade');
+      if (f === 'qualidade') return navTo('pv-qualidade');
       const b = $(`#pvSeg button[data-s="${f}"]`);
       if (b) { b.click(); const bar = b.closest('.pvf'); if (bar) bar.scrollIntoView({ behavior: 'smooth', block: 'start' }); }
     }));
@@ -1630,27 +1635,110 @@
     if (window.__pvThumb) removeEventListener('resize', window.__pvThumb); window.__pvThumb = thumb; addEventListener('resize', thumb);
   };
 
-  /* =========================== FILA DA QUALIDADE =========================== */
+  /* =========================== FILA DE RNC (fica na área Qualidade) ===========================
+     Mostra só os chamados do Pós-Vendas que dependem da Qualidade, como um fluxo de 3 etapas:
+     1 Anexar RNC → 2 Responder ao cliente (só RNC do cliente) → 3 Verificar eficácia. */
+  let qfLane = 'todas', qfQ = '';
+  const pvAge = (c) => { const d = pvDay(c.criadoEm); if (!d) return 0; return Math.max(0, Math.round((new Date(todayISO() + 'T00:00:00') - new Date(d + 'T00:00:00')) / 864e5)); };
+  // destaque que desliza até a aba ativa (abas .pvf-tabs)
+  function tabsThumb(tabs) {
+    const on = $('button.on', tabs), th = $('.pvf-thumb', tabs); if (!on || !th) return;
+    th.style.width = on.offsetWidth + 'px'; th.style.transform = `translateX(${on.offsetLeft}px)`;
+  }
+  function tabsThumbInit(tabs, key) {
+    const th = $('.pvf-thumb', tabs);
+    requestAnimationFrame(() => { th.classList.add('instant'); tabsThumb(tabs); requestAnimationFrame(() => th.classList.remove('instant')); });
+    const k = '__thumb_' + key; if (window[k]) removeEventListener('resize', window[k]);
+    window[k] = () => { if (document.body.contains(tabs)) tabsThumb(tabs); }; addEventListener('resize', window[k]);
+  }
+
   PAGES['pv-qualidade'] = () => {
-    pageShell('Pós-Vendas', 'Fila da Qualidade', 'A Qualidade só atua quando o chamado precisa de RNC: aqui estão os que aguardam a RNC, a resposta ao cliente ou a verificação de eficácia.', '');
+    pageShell('Qualidade', 'Fila de RNC', 'Chamados do Pós-Vendas que dependem da Qualidade: anexar a RNC, responder ao cliente e verificar a eficácia da ação.',
+      `<button class="btn" id="qfToPv">${ic('list')}Todos os chamados</button>`);
+    $('#qfToPv').onclick = () => navTo('pv-chamados');
     const all = Store.get('pvChamados').filter((c) => c.status !== 'cancelado' && pvPrecisaRnc(c));
     const pend = all.filter((c) => pvRncStatus(c) === 'pendente');
     const resp = all.filter((c) => pvRncStatus(c) !== 'pendente' && pvRncDecisao(c) === 'cliente' && !(c.rnc || {}).respostaEm);
     const efic = all.filter((c) => pvRncStatus(c) !== 'pendente' && pvAberto(c) && (c.verificacao || {}).eficaz !== 'Sim' && !resp.includes(c));
-    const w = document.createElement('div');
-    const block = (icon, title, sub, list, tag) => `<div class="section-head"><h2><span class="sh-ico">${ic(icon)}</span>${esc(title)}<span class="pvx-count">${list.length}</span></h2><span class="pvx-muted">${esc(sub)}</span></div>
-      ${list.length ? `<div class="pvx-list">${list.map((c) => pvRow(c, tag(c))).join('')}</div>` : `<div class="pvx-none">${ic('check')}Nada aqui.</div>`}`;
+    const done = all.filter((c) => !pend.includes(c) && !resp.includes(c) && !efic.includes(c));
+    const lanes = [
+      { k: 'anexar', n: 1, i: 'upload', t: 'Anexar RNC', s: 'Precisa de RNC e o arquivo ainda não foi anexado.', l: pend, c: '#FF7A7A',
+        tag: (c) => `<span class="badge ${pvRncDecisao(c) === 'cliente' ? 'warn' : 'info'} plain">${esc(PV_RNC[pvRncDecisao(c)].short)}</span>` },
+      { k: 'responder', n: 2, i: 'mail', t: 'Responder ao cliente', s: 'RNC do cliente tratada — falta registrar o envio da resposta.', l: resp, c: '#F5B840',
+        tag: (c) => (c.rncCliente || {}).prazoResposta ? `<span class="badge neutral plain">Cliente pede até ${fmtDate(c.rncCliente.prazoResposta)}</span>` : '' },
+      { k: 'eficacia', n: 3, i: 'activity', t: 'Verificar eficácia', s: 'Ação implantada — confirmar se resolveu de verdade.', l: efic, c: '#A78BFA', tag: () => '' },
+    ];
+    const tot = pend.length + resp.length + efic.length;
+    const pctDone = all.length ? Math.round((100 * done.length) / all.length) : 100;
+    if (!lanes.some((x) => x.k === qfLane)) qfLane = 'todas';
+
+    const w = document.createElement('section'); w.className = 'qf';
     w.innerHTML = `
-      <div class="mstat-grid" style="margin-bottom:6px">
-        <div class="mstat t-danger"><div class="mstat-ring plain"><span class="mstat-v">${pend.length}</span></div><span class="mstat-k">${ic('upload')}RNC a anexar</span></div>
-        <div class="mstat t-warn"><div class="mstat-ring plain"><span class="mstat-v">${resp.length}</span></div><span class="mstat-k">${ic('mail')}Resposta ao cliente</span></div>
-        <div class="mstat t-info"><div class="mstat-ring plain"><span class="mstat-v">${efic.length}</span></div><span class="mstat-k">${ic('check')}Verificar eficácia</span></div>
-        <div class="mstat"><div class="mstat-ring plain"><span class="mstat-v">${all.length}</span></div><span class="mstat-k">${ic('award')}Chamados com RNC</span></div>
+      <div class="qf-flow">
+        ${lanes.map((x, i) => `${i ? '<span class="qf-link" aria-hidden="true"><i></i></span>' : ''}
+          <button type="button" class="qf-step${x.l.length ? '' : ' zero'}" data-lane="${x.k}" style="--c:${x.c};--d:${120 + i * 110}ms">
+            <span class="qf-step-h"><span class="qf-num">${x.n}</span><span class="qf-ico">${ic(x.i)}</span></span>
+            <b data-count="${x.l.length}">0</b>
+            <span class="qf-t">${esc(x.t)}</span>
+            <small>${esc(x.s)}</small>
+            <span class="qf-bar"><i style="--p:${tot ? Math.round((100 * x.l.length) / tot) : 0}%"></i></span>
+          </button>`).join('')}
+        <span class="qf-link end" aria-hidden="true"><i></i></span>
+        <div class="qf-done" style="--d:450ms">
+          <div class="qf-ring">
+            <svg viewBox="0 0 120 120" aria-hidden="true"><circle class="qf-ring-t" cx="60" cy="60" r="50"/><circle class="qf-ring-v" cx="60" cy="60" r="50" pathLength="100" style="--len:${pctDone}"/></svg>
+            <span><b data-count="${pctDone}" data-suf="%">0%</b><small>concluídas</small></span>
+          </div>
+          <div class="qf-done-tx"><b>${done.length} de ${all.length}</b><span>RNCs com o ciclo fechado</span></div>
+        </div>
       </div>
-      ${block('upload', 'Anexar RNC', 'Chamados que precisam de RNC e ainda não têm o arquivo', pend, (c) => `<span class="badge ${pvRncDecisao(c) === 'cliente' ? 'warn' : 'info'} plain">${esc(PV_RNC[pvRncDecisao(c)].short)}</span>`)}
-      ${block('mail', 'Responder ao cliente', 'RNC do cliente já tratada, falta registrar o envio da resposta', resp, (c) => (c.rncCliente || {}).prazoResposta ? `<span class="badge neutral plain">Cliente pede até ${fmtDate(c.rncCliente.prazoResposta)}</span>` : '')}
-      ${block('check', 'Verificar eficácia', 'Ação corretiva implantada — confirmar se funcionou', efic, () => '')}`;
-    view.appendChild(w); Icons.apply(w); pvBindRows(w);
+      <div class="pvf qf-bar-f">
+        <div class="pvf-row">
+          <div class="pvf-tabs" id="qfTabs" role="tablist"><span class="pvf-thumb"></span>
+            <button role="tab" data-lane="todas" class="${qfLane === 'todas' ? 'on' : ''}">Todas as etapas<span class="pvf-n">${tot}</span></button>
+            ${lanes.map((x) => `<button role="tab" data-lane="${x.k}" class="${qfLane === x.k ? 'on' : ''}"><i class="qf-dot" style="--c:${x.c}"></i>${esc(x.t)}<span class="pvf-n">${x.l.length}</span></button>`).join('')}
+          </div>
+          <label class="pvf-search qf-search">${ic('search')}<input id="qfQ" placeholder="Buscar nº, cliente, produto…" value="${esc(qfQ)}" autocomplete="off"><button type="button" class="pvf-x" id="qfQx" aria-label="Limpar busca">${ic('x')}</button></label>
+        </div>
+      </div>
+      <div class="qf-board" id="qfBoard"></div>`;
+    view.appendChild(w); Icons.apply(w);
+    const board = $('#qfBoard', w), tabs = $('#qfTabs', w);
+    const card = (c, x) => {
+      const t = PV_TIPOS[c.tipo] || PV_TIPOS.reclamacao; const nm = pvClienteNome(c); const age = pvAge(c);
+      return `<button type="button" class="qf-card" data-pvid="${c.id}" style="--c:${x.c}">
+        <span class="qf-card-top"><b class="mono">${esc(c.numero)}</b><span class="qf-age">${age ? `há ${age} ${age === 1 ? 'dia' : 'dias'}` : 'hoje'}</span></span>
+        <span class="qf-card-cli"><span class="qf-av" style="--h:${pvHue(nm)}">${esc(pvInitials(nm))}</span><span>${esc(nm)}</span></span>
+        <span class="qf-card-sub">${ic(t.icon)}<span>${esc(t.short)}${(c.produto || {}).descricao ? ' · ' + esc(c.produto.descricao) : ''}</span></span>
+        <span class="qf-card-tags">${x.tag(c)}${pvPrazoBadge(c)}</span>
+      </button>`;
+    };
+    const render = () => {
+      const q = qfQ.trim().toLowerCase();
+      const match = (c) => !q || (c.numero + ' ' + pvClienteNome(c) + ' ' + JSON.stringify(c.produto || {}) + ' ' + (c.descricao || '')).toLowerCase().includes(q);
+      const show = lanes.filter((x) => qfLane === 'todas' || x.k === qfLane);
+      board.classList.toggle('one', qfLane !== 'todas');
+      board.innerHTML = show.map((x) => {
+        const l = x.l.filter(match).sort((a, b) => pvAge(b) - pvAge(a));
+        return `<div class="qf-lane" style="--c:${x.c}">
+          <div class="qf-lane-h"><span class="qf-num sm">${x.n}</span><b>${esc(x.t)}</b><span class="pvf-n">${l.length}</span></div>
+          <div class="qf-lane-b">${l.length ? l.map((c) => card(c, x)).join('') : `<div class="qf-empty">${ic('check')}<span>${q ? 'Nada encontrado nesta etapa.' : 'Nada pendente nesta etapa.'}</span></div>`}</div>
+        </div>`;
+      }).join('');
+      Icons.apply(board); pvBindRows(board);
+      $$('.qf-step', w).forEach((b) => b.classList.toggle('on', b.dataset.lane === qfLane));
+      $('#qfQx', w).classList.toggle('show', !!qfQ);
+    };
+    const pick = (k) => {
+      qfLane = qfLane === k && k !== 'todas' ? 'todas' : k;
+      $$('button', tabs).forEach((b) => b.classList.toggle('on', b.dataset.lane === qfLane)); tabsThumb(tabs); render();
+    };
+    $$('button', tabs).forEach((b) => (b.onclick = () => pick(b.dataset.lane)));
+    $$('.qf-step', w).forEach((b) => (b.onclick = () => { pick(b.dataset.lane); board.scrollIntoView({ behavior: 'smooth', block: 'nearest' }); }));
+    $('#qfQ', w).oninput = (e) => { qfQ = e.target.value; render(); };
+    $('#qfQx', w).onclick = (e) => { e.preventDefault(); qfQ = ''; $('#qfQ', w).value = ''; render(); };
+    render(); tabsThumbInit(tabs, 'qf');
+    requestAnimationFrame(() => requestAnimationFrame(() => { w.classList.add('in'); pvCountUp($('.qf-flow', w)); }));
   };
 
   /* =========================== CLIENTES =========================== */
@@ -1968,7 +2056,7 @@
       <div class="pvd-side">
         <div class="pvd-tiles">
           <button type="button" class="pvd-tile t-danger${s.atrasados.length ? ' hot' : ''}" data-f="atrasados"><span class="pvd-ti">${ic('clock')}</span><b data-count="${s.atrasados.length}">0</b><span>Atrasados</span><small>${s.atrasados.length ? 'fora do prazo' : 'nenhum'}</small></button>
-          <button type="button" class="pvd-tile t-warn" data-f="qualidade"><span class="pvd-ti">${ic('award')}</span><b data-count="${s.rncPend.length}">0</b><span>RNC pendente</span><small>fila da Qualidade</small></button>
+          <button type="button" class="pvd-tile t-warn" data-f="qualidade"><span class="pvd-ti">${ic('award')}</span><b data-count="${s.rncPend.length}">0</b><span>RNC pendente</span><small>na fila da Qualidade</small></button>
           <button type="button" class="pvd-tile t-info" data-f="aberto"><span class="pvd-ti">${ic('clipboard')}</span><b data-count="${s.semTriagem.length}">0</b><span>Sem triagem</span><small>aguardando decisão</small></button>
           <button type="button" class="pvd-tile t-ok" data-f="encerrado"><span class="pvd-ti">${ic('check')}</span><b data-count="${encMes}">0</b><span>Encerrados</span><small>neste mês</small></button>
         </div>
@@ -2312,9 +2400,9 @@
     if (!c) { go('pv-chamados'); return; }
     const t = PV_TIPOS[c.tipo] || PV_TIPOS.reclamacao;
     const rerender = () => { if (currentRoute === 'pv-detalhe') { view.innerHTML = ''; PAGES['pv-detalhe'](); } };
-    pageShell('Pós-Vendas', `${c.numero} · ${pvClienteNome(c)}`, `${t.label} · aberto em ${pvFmtDT(c.criadoEm)} por ${c.abertoPor || '—'}`,
-      `<button class="btn" id="pvBack">${ic('chevron')}Chamados</button><button class="btn" id="pvPrint">${ic('download')}Imprimir / PDF</button>`);
-    $('#pvBack').onclick = () => go('pv-chamados');
+    pageShell(currentArea === 'qualidade' ? 'Qualidade' : 'Pós-Vendas', `${c.numero} · ${pvClienteNome(c)}`, `${t.label} · aberto em ${pvFmtDT(c.criadoEm)} por ${c.abertoPor || '—'}`,
+      `<button class="btn" id="pvBack">${ic('chevron')}${esc(TITLES[pvBackRoute] || 'Chamados')}</button><button class="btn" id="pvPrint">${ic('download')}Imprimir / PDF</button>`);
+    $('#pvBack').onclick = () => go(pvBackRoute);
     $('#pvPrint').onclick = () => pvPrint(Store.find('pvChamados', c.id));
 
     const steps = pvSteps(c);
@@ -3838,59 +3926,220 @@
     $('#renewEdit', $('#modalCard')).onclick = () => { closeModal(); formCert(c); };
   }
 
-  // página genérica de lista de certificados por tipo (modo lista)
-  function certListPage(type, crumbName, title, sub, emptyMsg) {
-    pageShell(crumbName, title, sub, `<button class="btn primary" id="addBtn">${ic('plus')}Novo certificado</button>`);
-    const all = Store.get('certificates').filter((c) => c.type === type);
-    const venc = all.filter((c) => certStatus(c.expiryDate).key === 'vencido').length;
-    const soon = all.filter((c) => certStatus(c.expiryDate).key === 'vencendo').length;
-    if (all.length) {
-      const head = document.createElement('div'); head.className = 'qstat-grid'; head.style.marginBottom = '20px';
-      head.innerHTML = `${qaStat(type === 'equipamento' ? 'activity' : 'award', all.length, 'Certificados')}${qaStat('calendar', soon, 'Vencendo (90d)', soon ? 'warn' : '')}${qaStat('alert', venc, 'Vencidos', venc ? 'danger' : '')}`;
-      view.appendChild(head); Icons.apply(head); animateStats(head);
-    }
-    const items = all.slice().sort((a, b) => (certStatus(a.expiryDate).days ?? 1e9) - (certStatus(b.expiryDate).days ?? 1e9));
-    const tw = document.createElement('div'); tw.className = 'tbl-wrap';
-    tw.innerHTML = items.length
-      ? `<table class="data cert-table"><thead><tr><th>Certificado</th><th class="hide-sm">Emissão</th><th>Validade</th><th>Status</th><th></th></tr></thead><tbody>${items.map(certRow).join('')}</tbody></table>`
-      : emptyState(type === 'equipamento' ? 'activity' : 'award', 'Nenhum certificado', emptyMsg);
-    view.appendChild(tw); Icons.apply(view); bindCertActions(tw);
-    $('#addBtn').onclick = () => formCert({ type });
+  /* ---------- Qualidade: painel circular (mesma linguagem da Home e dos Chamados) ---------- */
+  const QA_SEG = [
+    { k: 'ok', l: 'Válidos', s: 'mais de 180 dias', c: '#46D39A' },
+    { k: 'atencao', l: 'Até 180 dias', s: '91 a 180 dias', c: '#3FA9F5' },
+    { k: 'vencendo', l: 'Até 90 dias', s: 'renovar já', c: '#F5B840' },
+    { k: 'vencido', l: 'Vencidos', s: 'fora da validade', c: '#FF7A7A' },
+  ];
+  const QA_TYPES = {
+    cata: { l: 'InMetro', i: 'award', r: 'qa-cata', c: '#5CE1E6' },
+    equipamento: { l: 'Calibração', i: 'activity', r: 'qa-equipamentos', c: '#A78BFA' },
+    manutencao: { l: 'Manutenção', i: 'refresh', r: 'qa-manutencao', c: '#F5B840' },
+  };
+  const QA_MES = ['jan', 'fev', 'mar', 'abr', 'mai', 'jun', 'jul', 'ago', 'set', 'out', 'nov', 'dez'];
+  const qaBuckets = (list, dateOf) => { const b = { ok: [], atencao: [], vencendo: [], vencido: [], na: [] }; list.forEach((x) => b[certStatus(dateOf ? dateOf(x) : x.expiryDate).key].push(x)); return b; };
+  // mostrador: anel com marcações + arcos por grupo + anel interno de percentual
+  function qaDialSvg(segs, innerPct) {
+    const tot = segs.reduce((a, x) => a + x.n, 0);
+    let acc = 0; const gap = segs.filter((x) => x.n).length > 1 ? 1.2 : 0;
+    const arcs = segs.filter((x) => x.n).map((x) => { const len = (x.n / tot) * 100; const a = { ...x, start: acc, len: Math.max(0.5, len - gap) }; acc += len; return a; });
+    let ticks = ''; for (let i = 0; i < 90; i++) { const big = i % 15 === 0; ticks += `<line x1="160" y1="${big ? 6 : 10}" x2="160" y2="16" transform="rotate(${i * 4} 160 160)" class="${big ? 'b' : ''}"/>`; }
+    return `<svg viewBox="0 0 320 320" aria-hidden="true">
+      <g class="pvd-ticks">${ticks}</g>
+      <circle class="pvd-r" cx="160" cy="160" r="138"/>
+      <circle class="pvd-track" cx="160" cy="160" r="118"/>
+      ${arcs.map((a, i) => `<circle class="pvd-arc" data-k="${a.k}" cx="160" cy="160" r="118" pathLength="100" style="--c:${a.c};--len:${a.len};--off:${-a.start};--d:${200 + i * 140}ms"/>`).join('')}
+      ${!tot ? `<circle class="pvd-arc" cx="160" cy="160" r="118" pathLength="100" style="--c:color-mix(in srgb, var(--text) 18%, transparent);--len:100;--off:0;--d:200ms"/>` : ''}
+      <circle class="pvd-track pvd-track-in" cx="160" cy="160" r="96"/>
+      <circle class="pvd-sla" cx="160" cy="160" r="96" pathLength="100" style="--len:${innerPct}"/>
+    </svg>`;
   }
+  let qaAgFilt = 'proximos';
 
   PAGES['qa-dashboard'] = () => {
+    pageShell('Qualidade', 'Painel da Qualidade', 'Certificados, calibrações, EPIs e a fila de RNC do Pós-Vendas em um só lugar.',
+      `<button class="btn primary" id="qaNew">${ic('plus')}Novo certificado</button>`);
+    $('#qaNew').onclick = () => formCert({ type: 'cata' });
     const certs = Store.get('certificates');
-    const cata = certs.filter((c) => c.type === 'cata').length;
-    const instr = certs.filter((c) => c.type === 'equipamento').length;
-    const alerts = qaAlerts();
-    const venc = certs.filter((c) => certStatus(c.expiryDate).key === 'vencido').length;
-    const soon = certs.filter((c) => certStatus(c.expiryDate).key === 'vencendo').length;
-    const qbtn = (icon, title, sub, route, action) => `<button class="qa" data-qa="${action || ''}" data-route-go="${route}"><span class="qa-ico">${ic(icon)}</span><span class="qa-tx"><b>${title}</b><span>${sub}</span></span></button>`;
-    view.innerHTML = `
-      <div class="page-head">
-        <div class="page-title"><span class="eyebrow">Qualidade</span><h1>Dashboard</h1><p>Certificados, vencimentos e laboratórios.</p></div>
-        <div class="page-actions"><span class="badge ${alerts.length ? 'warn' : 'ok'}" style="height:38px;padding:0 14px;font-size:.8rem">${alerts.length ? alerts.length + ' aviso(s)' : 'Tudo em dia'}</span></div>
+    const b = qaBuckets(certs);
+    const segs = QA_SEG.map((x) => ({ ...x, n: b[x.k].length }));
+    const comVal = certs.length - b.na.length;
+    const emDia = comVal ? Math.round((100 * (comVal - b.vencido.length)) / comVal) : 100;
+    // fila de RNC
+    const rncAll = Store.get('pvChamados').filter((c) => c.status !== 'cancelado' && pvPrecisaRnc(c));
+    const rncPend = rncAll.filter((c) => pvRncStatus(c) === 'pendente');
+    const rncResp = rncAll.filter((c) => pvRncStatus(c) !== 'pendente' && pvRncDecisao(c) === 'cliente' && !(c.rnc || {}).respostaEm);
+    const rncEfic = rncAll.filter((c) => pvRncStatus(c) !== 'pendente' && pvAberto(c) && (c.verificacao || {}).eficaz !== 'Sim' && !rncResp.includes(c));
+    const rncTot = rncPend.length + rncResp.length + rncEfic.length;
+    // EPI
+    const ent = Store.get('epiEntregas').filter((e) => e.expiryDate);
+    const eb = qaBuckets(ent);
+    const epiAl = eb.vencido.length + eb.vencendo.length;
+    // vencimentos nos próximos 12 meses (barras empilhadas por tipo)
+    const now = new Date(); const months = [];
+    for (let i = 0; i < 12; i++) { const d = new Date(now.getFullYear(), now.getMonth() + i, 1); months.push({ key: d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0'), l: QA_MES[d.getMonth()], y: d.getFullYear() }); }
+    months.forEach((m) => { m.by = {}; Object.keys(QA_TYPES).forEach((t) => { m.by[t] = certs.filter((c) => c.type === t && (c.expiryDate || '').slice(0, 7) === m.key).length; }); m.n = Object.values(m.by).reduce((a, v) => a + v, 0); });
+    const mx = Math.max(1, ...months.map((m) => m.n));
+    const next12 = months.reduce((a, m) => a + m.n, 0);
+    const W = 520, H = 170, bw = W / 12;
+    const bars = months.map((m, i) => {
+      let y = H; const x = i * bw + bw * 0.22, w = bw * 0.56;
+      const parts = Object.keys(QA_TYPES).filter((t) => m.by[t]).map((t) => { const h = (m.by[t] / mx) * (H - 18); y -= h; return `<rect x="${x.toFixed(1)}" y="${y.toFixed(1)}" width="${w.toFixed(1)}" height="${Math.max(1, h - 1.5).toFixed(1)}" rx="3" fill="${QA_TYPES[t].c}"/>`; }).join('');
+      return `<g class="qad-bar" style="--d:${300 + i * 45}ms">${m.n ? parts : `<rect x="${x.toFixed(1)}" y="${H - 2}" width="${w.toFixed(1)}" height="2" rx="1" class="qad-zero"/>`}${m.n ? `<text x="${(x + w / 2).toFixed(1)}" y="${(y - 5).toFixed(1)}">${m.n}</text>` : ''}</g>`;
+    }).join('');
+
+    const el = document.createElement('section'); el.className = 'pvd qad';
+    el.innerHTML = `
+      <div class="pvd-orbit">
+        <div class="pvd-dial">${qaDialSvg(segs, emDia)}
+          <div class="pvd-core">
+            <b data-count="${certs.length}">0</b>
+            <span>${certs.length === 1 ? 'certificado' : 'certificados'}</span>
+            <small><i class="pvd-dot ok"></i><em data-count="${emDia}" data-suf="%">0%</em> em dia</small>
+          </div>
+        </div>
+        <div class="pvd-legend">${segs.map((x) => `<button type="button" data-ag="${x.k}" style="--c:${x.c}"><i></i><span>${x.l}</span><b>${x.n}</b></button>`).join('')}</div>
       </div>
-      <div class="qstat-grid g4">
-        ${qaStat('award', certs.length, 'Certificados')}
-        ${qaStat('check', cata, 'InMetro')}
-        ${qaStat('calendar', soon, 'Vencendo (90d)', soon ? 'warn' : '')}
-        ${qaStat('alert', venc, 'Vencidos', venc ? 'danger' : '')}
-      </div>
-      <div class="section-head"><h2><span class="sh-ico">${ic('flash')}</span>Atalhos rápidos</h2></div>
-      <div class="qa-grid">
-        ${qbtn('plus', 'Novo certificado', 'Cadastrar certificado', 'qa-cata', 'add-cert')}
-        ${qbtn('award', 'Certificados InMetro', 'Produtos · INMETRO', 'qa-cata', '')}
-        ${qbtn('activity', 'Calibração de Equipamentos', 'Equipamentos de medição', 'qa-equipamentos', '')}
-        ${qbtn('refresh', 'Manutenção Certificados', 'Manutenção · validade', 'qa-manutencao', '')}
-        ${qbtn('shield', 'Controle de EPI', 'CA, validade e entregas', 'epi', '')}
-        ${qbtn('flask', 'Laboratórios parceiros', 'Cadastro e contatos', 'qa-labs', '')}
-      </div>
-      <div class="section-head"><h2><span class="sh-ico">${ic('alert')}</span>Vencimentos</h2><span class="badge ${alerts.length ? 'warn' : 'ok'}">${alerts.length} aviso(s)</span></div>
-      <div class="panel">${alerts.length ? alerts.map((al) => `<div class="alert-row al-${al.kind}"><span class="al-ico">${ic('alert')}</span><span class="al-tx"><b>${esc(al.t)}</b><span>${esc(al.s)}</span></span></div>`).join('') : `<div class="empty-ok"><span class="eo-ico">${ic('check')}</span><div><b style="color:var(--text)">Sem vencimentos próximos.</b><div style="font-size:.82rem;color:var(--text-3)">Nenhum certificado vencido ou a vencer em 90 dias.</div></div></div>`}</div>`;
-    Icons.apply(view);
-    $$('[data-qa]', view).forEach((b) => (b.onclick = () => { const act = b.dataset.qa; go(b.dataset.routeGo); if (act === 'add-cert') setTimeout(() => formCert({ type: 'cata' }), 60); }));
+      <div class="pvd-side">
+        <div class="pvd-tiles">
+          <button type="button" class="pvd-tile t-danger${b.vencido.length ? ' hot' : ''}" data-ag="vencido"><span class="pvd-ti">${ic('alert')}</span><b data-count="${b.vencido.length}">0</b><span>Vencidos</span><small>${b.vencido.length ? 'renovar com o laboratório' : 'nenhum'}</small></button>
+          <button type="button" class="pvd-tile t-warn" data-ag="vencendo"><span class="pvd-ti">${ic('calendar')}</span><b data-count="${b.vencendo.length}">0</b><span>Vencem em 90 dias</span><small>programar renovação</small></button>
+          <button type="button" class="pvd-tile t-info${rncPend.length ? ' hot' : ''}" data-go="pv-qualidade"><span class="pvd-ti">${ic('upload')}</span><b data-count="${rncTot}">0</b><span>Fila de RNC</span><small>${rncPend.length} a anexar · ${rncResp.length + rncEfic.length} em andamento</small></button>
+          <button type="button" class="pvd-tile ${epiAl ? 't-warn' : 't-ok'}" data-go="epi"><span class="pvd-ti">${ic('shield')}</span><b data-count="${epiAl}">0</b><span>EPIs a trocar</span><small>${epiAl ? 'vencidos ou em 90 dias' : 'tudo em dia'}</small></button>
+        </div>
+        <div class="pvd-trend">
+          <div class="pvd-trend-h"><b>Vencimentos nos próximos 12 meses <small>${next12} no total</small></b>${Object.keys(QA_TYPES).map((t) => `<span><i class="pvd-dot" style="background:${QA_TYPES[t].c}"></i>${QA_TYPES[t].l}</span>`).join('')}</div>
+          <svg class="pvd-spark qad-bars" viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" aria-hidden="true">
+            ${[0.25, 0.5, 0.75].map((f) => `<line class="pvd-grid" x1="0" x2="${W}" y1="${(H * f).toFixed(1)}" y2="${(H * f).toFixed(1)}"/>`).join('')}
+            ${bars}
+          </svg>
+          <div class="qad-axis">${months.map((m, i) => `<span>${m.l}${i === 0 || m.l === 'jan' ? `<small>${String(m.y).slice(2)}</small>` : ''}</span>`).join('')}</div>
+        </div>
+      </div>`;
+    view.appendChild(el); Icons.apply(el);
+
+    // módulos da área
+    const labs = Store.get('labs');
+    const bar = (bk) => { const t = QA_SEG.reduce((a, x) => a + bk[x.k].length, 0); return t ? QA_SEG.slice().reverse().filter((x) => bk[x.k].length).map((x) => `<i style="--w:${(100 * bk[x.k].length) / t}%;--c:${x.c}"></i>`).join('') : '<i class="none"></i>'; };
+    const mods = [
+      { r: 'pv-qualidade', i: 'upload', c: '#5CE1E6', t: 'Fila de RNC', s: 'Chamados do Pós-Vendas que dependem da Qualidade', n: rncTot, u: rncTot === 1 ? 'pendente' : 'pendentes',
+        bar: rncTot ? [[rncPend.length, '#FF7A7A'], [rncResp.length, '#F5B840'], [rncEfic.length, '#A78BFA']].filter((x) => x[0]).map((x) => `<i style="--w:${(100 * x[0]) / rncTot}%;--c:${x[1]}"></i>`).join('') : '<i class="none"></i>' },
+      ...Object.keys(QA_TYPES).map((t) => { const l = certs.filter((c) => c.type === t); const T = QA_TYPES[t];
+        return { r: T.r, i: T.i, c: T.c, t: { cata: 'Certificados InMetro', equipamento: 'Calibração de equipamentos', manutencao: 'Manutenção de certificados' }[t], s: { cata: 'Produtos certificados — emissão e validade', equipamento: 'Instrumentos de medição calibrados', manutencao: 'Certificados de manutenção' }[t], n: l.length, u: 'certificados', bar: bar(qaBuckets(l)) }; }),
+      { r: 'epi', i: 'shield', c: '#46D39A', t: 'Controle de EPI', s: 'CA, validade e entregas por funcionário', n: Store.get('epiEntregas').length, u: 'entregas', bar: bar(eb) },
+      { r: 'qa-labs', i: 'flask', c: '#3FA9F5', t: 'Laboratórios parceiros', s: 'Contatos para calibração e renovação', n: labs.length, u: labs.length === 1 ? 'laboratório' : 'laboratórios', bar: '' },
+    ];
+    const mg = document.createElement('section'); mg.className = 'qmod';
+    mg.innerHTML = `<div class="section-head"><h2><span class="sh-ico">${ic('grid')}</span>Módulos</h2><span class="pvx-muted">Barra colorida = situação dos vencimentos</span></div>
+      <div class="qmod-grid">${mods.map((m, i) => `<button type="button" class="qmod-card" data-go="${m.r}" style="--c:${m.c};--d:${i * 60}ms">
+        <span class="qmod-top"><span class="qmod-ico">${ic(m.i)}</span><span class="qmod-go">${ic('arrowUpRight')}</span></span>
+        <b class="qmod-t">${esc(m.t)}</b><span class="qmod-s">${esc(m.s)}</span>
+        <span class="qmod-n"><em data-count="${m.n}">0</em>${esc(m.u)}</span>
+        ${m.bar ? `<span class="qmod-bar">${m.bar}</span>` : ''}
+      </button>`).join('')}</div>`;
+    view.appendChild(mg); Icons.apply(mg);
+
+    // agenda de vencimentos (certificados + EPIs)
+    const rows = certs.map((c) => ({ kind: 'cert', id: c.id, date: c.expiryDate, t: c.name, sub: [QA_TYPES[c.type] ? QA_TYPES[c.type].l : 'Certificado', c.number, c.lab].filter(Boolean).join(' · '), ico: (QA_TYPES[c.type] || QA_TYPES.cata).i }))
+      .concat(ent.map((e) => ({ kind: 'epi', id: e.id, date: e.expiryDate, t: `${e.epiName || (Store.find('epis', e.epiId) || {}).name || 'EPI'} — ${e.funcName || funcNameOf(e.funcionarioId) || '—'}`, sub: `EPI · CA ${e.ca || '—'}`, ico: 'shield' })))
+      .filter((r) => r.date).map((r) => ({ ...r, st: certStatus(r.date) })).sort((a, b) => (a.st.days ?? 1e9) - (b.st.days ?? 1e9));
+    const AG = [
+      ['proximos', 'Próximos 180 dias', (r) => r.st.days <= 180],
+      ['vencido', 'Vencidos', (r) => r.st.key === 'vencido'],
+      ['vencendo', 'Até 90 dias', (r) => r.st.key === 'vencendo'],
+      ['atencao', 'Até 180 dias', (r) => r.st.key === 'atencao'],
+      ['ok', 'Válidos', (r) => r.st.key === 'ok'],
+      ['todos', 'Todos', () => true],
+    ];
+    const ag = document.createElement('section'); ag.className = 'qag'; ag.id = 'qaAgenda';
+    ag.innerHTML = `<div class="section-head"><h2><span class="sh-ico">${ic('calendar')}</span>Agenda de vencimentos</h2></div>
+      <div class="pvf"><div class="pvf-tabs" id="qaAgTabs"><span class="pvf-thumb"></span>${AG.map(([k, l, f]) => { const n = rows.filter(f).length; return `<button data-ag="${k}" class="${qaAgFilt === k ? 'on' : ''}${k === 'vencido' && n ? ' hot' : ''}">${l}<span class="pvf-n">${n}</span></button>`; }).join('')}</div></div>
+      <div class="qag-list" id="qaAgList"></div>`;
+    view.appendChild(ag); Icons.apply(ag);
+    const tabs = $('#qaAgTabs', ag), list = $('#qaAgList', ag);
+    let all = false;
+    const render = () => {
+      const f = (AG.find((x) => x[0] === qaAgFilt) || AG[0])[2];
+      const l = rows.filter(f); const shown = all ? l : l.slice(0, 8);
+      list.innerHTML = l.length ? shown.map((r, i) => { const d = new Date(r.date + 'T00:00:00');
+        return `<button type="button" class="qag-row s-${r.st.key}" data-kind="${r.kind}" data-id="${r.id}" style="--d:${i * 40}ms">
+          <span class="qag-date"><b>${String(d.getDate()).padStart(2, '0')}</b><span>${QA_MES[d.getMonth()]}</span><small>${d.getFullYear()}</small></span>
+          <span class="qag-ico">${ic(r.ico)}</span>
+          <span class="qag-main"><b>${esc(r.t)}</b><span>${esc(r.sub)}</span></span>
+          <span class="badge ${r.st.cls}">${esc(r.st.label)}</span>
+        </button>`; }).join('') + (l.length > 8 ? `<button type="button" class="qag-more" id="qaAgMore">${all ? 'Mostrar menos' : `Mostrar todos (${l.length})`}</button>` : '')
+        : `<div class="qf-empty">${ic('check')}<span>Nenhum vencimento neste filtro.</span></div>`;
+      Icons.apply(list);
+      $$('.qag-row', list).forEach((x) => (x.onclick = () => (x.dataset.kind === 'cert' ? viewCert(Store.find('certificates', x.dataset.id)) : navTo('epi'))));
+      const more = $('#qaAgMore', list); if (more) more.onclick = () => { all = !all; render(); };
+    };
+    const setAg = (k, scroll) => {
+      qaAgFilt = k; all = false; $$('button', tabs).forEach((x) => x.classList.toggle('on', x.dataset.ag === k)); tabsThumb(tabs); render();
+      if (scroll) ag.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    };
+    $$('button', tabs).forEach((x) => (x.onclick = () => setAg(x.dataset.ag)));
+    $$('[data-ag]', el).forEach((x) => (x.onclick = () => setAg(x.dataset.ag, true)));
+    $$('[data-go]', view).forEach((x) => (x.onclick = () => navTo(x.dataset.go)));
+    $$('.pvd-arc[data-k]', el).forEach((a) => { a.onclick = () => setAg(a.dataset.k, true); a.onmouseenter = () => el.classList.add('hl', 'hl-' + a.dataset.k); a.onmouseleave = () => el.classList.remove('hl', 'hl-' + a.dataset.k); });
+    $$('.pvd-legend [data-ag]', el).forEach((x) => { x.onmouseenter = () => el.classList.add('hl', 'hl-' + x.dataset.ag); x.onmouseleave = () => el.classList.remove('hl', 'hl-' + x.dataset.ag); });
+    render(); tabsThumbInit(tabs, 'qag');
+    requestAnimationFrame(() => requestAnimationFrame(() => { el.classList.add('in'); mg.classList.add('in'); pvCountUp(el); pvCountUp(mg); }));
   };
+
+  // página de lista de certificados por tipo: faixa de situação + filtros + tabela
+  const qaListFilt = {};
+  function certListPage(type, crumbName, title, sub, emptyMsg) {
+    pageShell('Qualidade', title, sub, `<button class="btn primary" id="addBtn">${ic('plus')}Novo certificado</button>`);
+    $('#addBtn').onclick = () => formCert({ type });
+    const F = qaListFilt[type] = qaListFilt[type] || { st: 'todos', q: '' };
+    const all = Store.get('certificates').filter((c) => c.type === type);
+    const bk = qaBuckets(all);
+    const T = QA_TYPES[type] || QA_TYPES.cata;
+    const comVal = all.length - bk.na.length;
+    const emDia = comVal ? Math.round((100 * (comVal - bk.vencido.length)) / comVal) : 100;
+    const top = document.createElement('section'); top.className = 'qband'; top.style.setProperty('--c', T.c);
+    top.innerHTML = `
+      <div class="qband-n"><span class="qband-ico">${ic(T.i)}</span><div><b data-count="${all.length}">0</b><span>${all.length === 1 ? 'certificado' : 'certificados'}</span></div></div>
+      <div class="qband-mid">
+        <div class="qband-bar">${all.length ? QA_SEG.slice().reverse().concat(bk.na.length ? [{ k: 'na', l: 'Sem validade', c: 'color-mix(in srgb, var(--text) 25%, transparent)' }] : []).filter((x) => bk[x.k].length).map((x, i) => `<i data-st="${x.k}" style="--w:${(100 * bk[x.k].length) / all.length}%;--c:${x.c};--d:${200 + i * 120}ms" title="${esc(x.l)}: ${bk[x.k].length}"></i>`).join('') : '<i class="none"></i>'}</div>
+        <div class="qband-leg">${QA_SEG.slice().reverse().map((x) => `<button type="button" data-st="${x.k}" style="--c:${x.c}"><i></i>${esc(x.l)}<b>${bk[x.k].length}</b></button>`).join('')}</div>
+      </div>
+      <div class="qband-pct"><b data-count="${emDia}" data-suf="%">0%</b><span>em dia</span></div>`;
+    view.appendChild(top); Icons.apply(top);
+    const segs = [['todos', 'Todos', all.length], ['vencido', 'Vencidos', bk.vencido.length], ['vencendo', 'Até 90 dias', bk.vencendo.length], ['atencao', 'Até 180 dias', bk.atencao.length], ['ok', 'Válidos', bk.ok.length]];
+    if (bk.na.length) segs.push(['na', 'Sem validade', bk.na.length]);
+    if (!segs.some((x) => x[0] === F.st)) F.st = 'todos';
+    const tb = document.createElement('div'); tb.className = 'pvf';
+    tb.innerHTML = `<div class="pvf-row">
+        <div class="pvf-tabs" id="qlTabs"><span class="pvf-thumb"></span>${segs.map(([k, l, n]) => `<button data-st="${k}" class="${F.st === k ? 'on' : ''}${k === 'vencido' && n ? ' hot' : ''}">${l}<span class="pvf-n">${n}</span></button>`).join('')}</div>
+        <label class="pvf-search">${ic('search')}<input id="qlQ" placeholder="Buscar nome, número, processo, laboratório…" value="${esc(F.q)}" autocomplete="off"><button type="button" class="pvf-x" id="qlQx" aria-label="Limpar busca">${ic('x')}</button></label>
+      </div>
+      <div class="pvf-meta"><span id="qlMeta"></span></div>`;
+    view.appendChild(tb); Icons.apply(tb);
+    const tabs = $('#qlTabs', tb);
+    const tw = document.createElement('div'); tw.className = 'tbl-wrap'; view.appendChild(tw);
+    const render = () => {
+      let items = all.slice();
+      if (F.st !== 'todos') items = items.filter((c) => certStatus(c.expiryDate).key === F.st);
+      if (F.q) { const q = F.q.toLowerCase(); items = items.filter((c) => [c.name, c.number, c.process, c.lab].join(' ').toLowerCase().includes(q)); }
+      items.sort((a, b) => (certStatus(a.expiryDate).days ?? 1e9) - (certStatus(b.expiryDate).days ?? 1e9));
+      $('#qlMeta', tb).innerHTML = `<b>${items.length}</b> ${items.length === 1 ? 'certificado' : 'certificados'}${F.st !== 'todos' || F.q ? ' com os filtros aplicados' : ''} · clique na linha para ver o PDF`;
+      $('#qlQx', tb).classList.toggle('show', !!F.q);
+      tw.innerHTML = items.length
+        ? `<table class="data cert-table"><thead><tr><th>Certificado</th><th class="hide-sm">Emissão</th><th>Validade</th><th>Status</th><th></th></tr></thead><tbody>${items.map(certRow).join('')}</tbody></table>`
+        : emptyState(T.i, all.length ? 'Nenhum certificado neste filtro' : 'Nenhum certificado', all.length ? 'Ajuste os filtros acima.' : emptyMsg);
+      Icons.apply(tw); bindCertActions(tw);
+    };
+    const setSt = (k) => { F.st = F.st === k && k !== 'todos' ? 'todos' : k; $$('button', tabs).forEach((x) => x.classList.toggle('on', x.dataset.st === F.st)); tabsThumb(tabs); render(); };
+    $$('button', tabs).forEach((x) => (x.onclick = () => setSt(x.dataset.st)));
+    $$('[data-st]', top).forEach((x) => (x.onclick = () => setSt(x.dataset.st)));
+    $('#qlQ', tb).oninput = (e) => { F.q = e.target.value; render(); };
+    $('#qlQx', tb).onclick = (e) => { e.preventDefault(); F.q = ''; $('#qlQ', tb).value = ''; render(); };
+    render(); tabsThumbInit(tabs, 'ql');
+    requestAnimationFrame(() => requestAnimationFrame(() => { top.classList.add('in'); pvCountUp(top); }));
+  }
 
   PAGES['qa-cata'] = () => certListPage('cata', 'Certificados InMetro', 'Certificados InMetro', 'Certificados de produtos (INMETRO) — emissão, validade e renovação.', 'Cadastre o primeiro certificado InMetro.');
   PAGES['qa-equipamentos'] = () => certListPage('equipamento', 'Calibração de Equipamentos', 'Calibração de Equipamentos', 'Equipamentos de medição — calibração, validade e renovação.', 'Cadastre o primeiro equipamento.');
@@ -4807,13 +5056,15 @@
       { label: 'Sistema', items: [ { r: 'settings', t: 'Settings', s: 'Config', i: 'settings' } ] },
     ] },
     qualidade: { label: 'Qualidade', groups: [
-      { label: 'Qualidade', items: [ { r: 'qa-dashboard', t: 'Dashboard', s: 'Painel', i: 'grid' }, { r: 'qa-cata', t: 'Certificados InMetro', s: 'Certif.', i: 'award' }, { r: 'qa-equipamentos', t: 'Calibração de Equipamentos', s: 'Calibr.', i: 'activity' }, { r: 'qa-manutencao', t: 'Manutenção Certificados', s: 'Renov.', i: 'refresh' }, { r: 'epi', t: 'Controle de EPI', s: 'EPI', i: 'shield' }, { r: 'qa-labs', t: 'Laboratórios parceiros', s: 'Labs', i: 'flask' } ] },
+      { label: 'Visão geral', items: [ { r: 'qa-dashboard', t: 'Painel', s: 'Painel', i: 'grid' }, { r: 'pv-qualidade', t: 'Fila de RNC', s: 'RNC', i: 'upload' } ] },
+      { label: 'Certificados', items: [ { r: 'qa-cata', t: 'Certificados InMetro', s: 'Certif.', i: 'award' }, { r: 'qa-equipamentos', t: 'Calibração de Equipamentos', s: 'Calibr.', i: 'activity' }, { r: 'qa-manutencao', t: 'Manutenção Certificados', s: 'Renov.', i: 'refresh' } ] },
+      { label: 'Segurança & parceiros', items: [ { r: 'epi', t: 'Controle de EPI', s: 'EPI', i: 'shield' }, { r: 'qa-labs', t: 'Laboratórios parceiros', s: 'Labs', i: 'flask' } ] },
     ] },
     sistemas: { label: 'Sistemas', groups: [
       { label: 'Sistemas', items: [ { r: 'sistemas-home', t: 'Visão geral', s: 'Geral', i: 'grid' } ] },
     ] },
     'pos-vendas': { label: 'Pós-Vendas', groups: [
-      { label: 'Atendimento', items: [ { r: 'pv-painel', t: 'Painel', s: 'Painel', i: 'grid' }, { r: 'pv-chamados', t: 'Chamados', s: 'Chamados', i: 'list' }, { r: 'pv-qualidade', t: 'Fila da Qualidade', s: 'Qualidade', i: 'award' } ] },
+      { label: 'Atendimento', items: [ { r: 'pv-painel', t: 'Painel', s: 'Painel', i: 'grid' }, { r: 'pv-chamados', t: 'Chamados', s: 'Chamados', i: 'list' } ] },
       { label: 'Cadastros & normas', items: [ { r: 'pv-clientes', t: 'Clientes', s: 'Clientes', i: 'users' }, { r: 'pv-guia', t: 'Fluxo & Normas', s: 'Normas', i: 'book' } ] },
     ] },
     manutencao: { label: 'Manutenção', groups: [
@@ -4881,7 +5132,8 @@
 
   function go(route) {
     if (!PAGES[route]) route = AREA_HOME[currentArea] || 'dashboard';
-    const area = ROUTE_AREA[route];
+    // um chamado aberto a partir da área Qualidade continua dentro dela
+    const area = route === 'pv-detalhe' && currentArea === 'qualidade' ? 'qualidade' : ROUTE_AREA[route];
     if (area && area !== currentArea) { currentArea = area; renderSidebar(area); }
     currentRoute = route;
     showApp();
