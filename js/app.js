@@ -2126,7 +2126,7 @@
     </div>`;
     const card = modal({
       title: editing ? 'Editar cliente' : 'Novo cliente', sub: 'Pós-Vendas · cadastro de cliente', body,
-      footer: `${editing ? `<button type="button" class="btn ghost danger cf-del" id="cfDel">${ic('trash')}<span>Excluir</span></button>` : ''}<span class="cf-foot-sp"></span><button type="button" class="btn ghost" data-close>Cancelar</button><button type="button" class="btn primary" id="cfSave">${ic('check')}${editing ? 'Salvar' : 'Cadastrar cliente'}</button>`,
+      footer: `${editing ? `<button type="button" class="btn ghost danger cf-del" id="cfDel">${ic('trash')}<span>Excluir</span></button>` : ''}<span class="cf-foot-sp"></span><button type="button" class="btn ghost cf-prev" id="cfPrev">${ic('chevron')}<span>Anterior</span></button><button type="button" class="btn primary" id="cfSave"></button>`,
     });
     card.classList.add('cf-sheet');
     const head = $('.modal-head', card); if (head) card.style.setProperty('--cfh', head.offsetHeight + 'px');
@@ -2137,7 +2137,7 @@
     const spin = (n, on) => { const s = $(`[data-spin="${n}"]`, w); if (s) s.classList.toggle('on', on); };
     const flash = (n) => { const f = F(n); if (!f) return; const box = f.closest('.cf-f'); box.classList.remove('filled'); void box.offsetWidth; box.classList.add('filled'); };
     // preenche só o que estiver vazio (não apaga o que a pessoa digitou)
-    const fill = (patch) => { Object.keys(patch).forEach((n) => { const f = F(n); if (f && patch[n] && !f.value.trim()) { f.value = patch[n]; flash(n); } }); paint(); };
+    const fill = (patch) => { Object.keys(patch).forEach((n) => { const f = F(n); if (f && patch[n] && !f.value.trim()) { f.value = patch[n]; f.closest('.cf-f').classList.remove('err'); flash(n); } }); paint(); };
     const err = (n, on) => { const f = F(n); if (f) f.closest('.cf-f').classList.toggle('err', on); };
 
     // ficha ao vivo
@@ -2200,20 +2200,84 @@
     paint();
     setTimeout(() => { if (!('ontouchstart' in window)) (editing ? F('nome') : F('cnpj')).focus({ preventScroll: true }); }, 350);
 
-    const save = () => {
-      const probs = [];
-      const bad = (n, msg) => { err(n, true); probs.push([n, msg]); };
-      if (!val('nome')) bad('nome', 'Informe a razão social');
-      if (val('cnpj') && !pvCnpjOk(val('cnpj'))) bad('cnpj', 'CNPJ inválido — confira os 14 dígitos');
-      if (val('cep') && pvDig(val('cep')).length !== 8) bad('cep', 'CEP incompleto');
-      if (val('uf') && !UFS.includes(val('uf'))) bad('uf', 'UF inválida');
-      if (val('contatoEmail') && !/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(val('contatoEmail'))) bad('contatoEmail', 'E-mail inválido');
-      if (val('contatoFone') && pvDig(val('contatoFone')).length < 10) bad('contatoFone', 'Telefone incompleto');
-      if (probs.length) {
-        toast(probs[0][1], 'warn');
-        const f = F(probs[0][0]); const box = f.closest('.cf-f'); box.classList.remove('shake'); void box.offsetWidth; box.classList.add('shake');
-        f.focus({ preventScroll: true }); box.scrollIntoView({ behavior: 'smooth', block: 'center' }); return;
+    // ---------- fluxo guiado: 4 etapas = 4 cartões ----------
+    const SECS = [
+      { t: 'Empresa', s: 'CNPJ e segmento' },
+      { t: 'Endereço', s: 'CEP e local' },
+      { t: 'Contato', s: 'Pessoa de referência' },
+      { t: 'Requisitos', s: 'Prazo e formato' },
+    ];
+    const secEl = (i) => $('.cf-o' + (i + 1), w);
+    const probsOf = (i) => {
+      const p = [];
+      if (i === 0) {
+        if (!val('nome')) p.push(['nome', 'Informe a razão social']);
+        if (val('cnpj') && !pvCnpjOk(val('cnpj'))) p.push(['cnpj', 'CNPJ inválido — confira os 14 dígitos']);
       }
+      if (i === 1) {
+        if (val('cep') && pvDig(val('cep')).length !== 8) p.push(['cep', 'CEP incompleto']);
+        if (val('uf') && !UFS.includes(val('uf'))) p.push(['uf', 'UF inválida']);
+      }
+      if (i === 2) {
+        if (val('contatoEmail') && !/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(val('contatoEmail'))) p.push(['contatoEmail', 'E-mail inválido']);
+        if (val('contatoFone') && pvDig(val('contatoFone')).length < 10) p.push(['contatoFone', 'Telefone incompleto']);
+      }
+      return p;
+    };
+    const filledOf = (i) => ({ 0: !!val('nome'), 1: !!(val('cidade') || val('endereco')), 2: !!(val('contatoNome') || val('contatoEmail') || val('contatoFone')), 3: true })[i];
+    const steps = document.createElement('ol'); steps.className = 'cf-steps';
+    steps.innerHTML = `<span class="cf-steps-line"><i></i></span>` + SECS.map((x, i) => `<li><button type="button" data-st="${i}"><span class="cf-st-dot"><b>${i + 1}</b>${ic('check')}</span><span class="cf-st-tx"><b>${esc(x.t)}</b><small>${esc(x.s)}</small></span></button></li>`).join('');
+    head.querySelector('.mh-tt').after(steps); Icons.apply(steps);
+    w.classList.add('guided');
+    let cur = 0, reached = editing ? 3 : 0;
+    const showErr = (p) => {
+      p.forEach(([n]) => err(n, true));
+      toast(p[0][1], 'warn');
+      const f = F(p[0][0]); const box = f.closest('.cf-f'); box.classList.remove('shake'); void box.offsetWidth; box.classList.add('shake');
+      f.focus({ preventScroll: true }); box.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    };
+    const firstInput = (i) => { const l = $$('input:not([type=hidden]), textarea', secEl(i)); return l.find((x) => !x.value.trim()) || l[0]; };
+    const mobile = () => matchMedia('(max-width: 760px)').matches;
+    const paintSteps = () => {
+      SECS.forEach((x, i) => {
+        const el = secEl(i); el.classList.toggle('cur', i === cur); el.classList.toggle('later', !editing && i > reached);
+        const done = i !== cur && i <= reached && !probsOf(i).length && filledOf(i) && (i < cur || i < reached);
+        el.classList.toggle('done', done);
+        const b = $(`[data-st="${i}"]`, steps); b.classList.toggle('cur', i === cur); b.classList.toggle('done', done); b.disabled = !editing && i > reached + 1;
+      });
+      $('.cf-steps-line i', steps).style.width = (cur / (SECS.length - 1)) * 100 + '%';
+      const last = cur === SECS.length - 1;
+      const prev = $('#cfPrev', card); prev.style.visibility = cur === 0 ? 'hidden' : 'visible';
+      const nx = $('#cfSave', card);
+      if (editing) nx.innerHTML = `${ic('check')}<span>Salvar</span>`;
+      else nx.innerHTML = last ? `${ic('check')}<span>Cadastrar cliente</span>` : `<span>Continuar</span><span class="cf-nx-t">· ${esc(SECS[cur + 1].t)}</span>${ic('arrowUpRight')}`;
+      nx.classList.toggle('go', !editing && !last);
+      Icons.apply(nx); Icons.apply(prev);
+    };
+    const setCur = (i, focus) => {
+      if (i === cur) { paintSteps(); return; }
+      const dir = i > cur ? 1 : -1; cur = i; reached = Math.max(reached, i);
+      const el = secEl(i); el.classList.remove('in-l', 'in-r'); void el.offsetWidth; el.classList.add(dir > 0 ? 'in-r' : 'in-l');
+      paintSteps();
+      if (mobile()) $('.modal-body', card).scrollTo({ top: 0, behavior: 'smooth' });
+      if (focus && !('ontouchstart' in window)) setTimeout(() => { const f = firstInput(i); if (f) f.focus({ preventScroll: true }); }, 60);
+    };
+    const goTo = (i) => {
+      if (i > cur) { for (let s2 = cur; s2 < i; s2++) { const p = probsOf(s2); if (p.length) { if (s2 !== cur) setCur(s2); showErr(p); return false; } } }
+      setCur(i, true); return true;
+    };
+    $$('[data-st]', steps).forEach((b) => (b.onclick = () => goTo(+b.dataset.st)));
+    $('#cfPrev', card).onclick = () => { if (cur > 0) setCur(cur - 1, true); };
+    // no computador, clicar/digitar num cartão já liberado torna ele a etapa atual
+    SECS.forEach((x, i) => secEl(i).addEventListener('focusin', () => {
+      if (i === cur || mobile()) return;
+      if (!editing && i > reached + 1) return;
+      if (i > cur && probsOf(cur).length) return;
+      setCur(i);
+    }));
+    w.addEventListener('input', () => paintSteps());
+    const save = () => {
+      for (let i = 0; i < SECS.length; i++) { const p = probsOf(i); if (p.length) { if (i !== cur) setCur(i); showErr(p); return; } }
       const d = {};
       ['nome', 'fantasia', 'cnpj', 'segmento', 'cep', 'endereco', 'cidade', 'uf', 'contatoNome', 'contatoCargo', 'contatoEmail', 'contatoFone', 'csr', 'obs'].forEach((n) => { d[n] = val(n); });
       d.exige8D = val('exige8D') === 'sim'; d.prazoRespostaDias = val('prazoRespostaDias') ? Number(val('prazoRespostaDias')) : '';
@@ -2222,8 +2286,17 @@
       Icons.apply(w);
       setTimeout(() => { closeModal(); if (onDone) onDone(saved); else go(currentRoute); }, 1000);
     };
-    $('#cfSave', card).onclick = save;
-    w.addEventListener('keydown', (e) => { if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) { e.preventDefault(); save(); } });
+    const next = () => { if (editing || cur === SECS.length - 1) return save(); goTo(cur + 1); };
+    $('#cfSave', card).onclick = next;
+    // Enter: vai para o próximo campo da etapa; no último, avança de etapa (Ctrl+Enter salva)
+    w.addEventListener('keydown', (e) => {
+      if (e.key !== 'Enter' || e.shiftKey || /textarea/i.test(e.target.tagName) || !/input/i.test(e.target.tagName)) return;
+      e.preventDefault();
+      if (e.ctrlKey || e.metaKey) { save(); return; }
+      const sec = e.target.closest('.cf-sec'); const l = $$('input:not([type=hidden])', sec); const ix = l.indexOf(e.target);
+      if (ix > -1 && ix < l.length - 1) l[ix + 1].focus(); else next();
+    });
+    paintSteps();
     const del = $('#cfDel', card);
     if (del) del.onclick = () => {
       const n = Store.get('pvChamados').filter((c) => c.clienteId === k.id).length;

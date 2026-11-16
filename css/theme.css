@@ -1512,3 +1512,74 @@ html.fx-off .lgx.on .lgx-mark svg { animation: none; }
   .cf-seg.sm { align-self: stretch; display: flex; }
   .cf-seg.sm button { flex: 1; }
 }
+
+/* ---------- cadastro de cliente: fundo animado do sistema + fluxo guiado ---------- */
+/* a tela deixa aparecer o fundo animado (como as demais); o app por trás some enquanto ela está aberta */
+.modal-root.open:has(.cf-sheet) { background: transparent; backdrop-filter: none; -webkit-backdrop-filter: none; }
+body:has(.modal-root.open .modal-card.cf-sheet) .app-shell, body:has(.modal-root.open .modal-card.cf-sheet) .mnav { visibility: hidden; }
+.modal-card.cf-sheet { background: transparent; box-shadow: none; }
+.modal-card.cf-sheet .modal-head { background: color-mix(in srgb, var(--bg) 55%, transparent); backdrop-filter: blur(16px) saturate(140%); -webkit-backdrop-filter: blur(16px) saturate(140%); border-bottom: 1px solid var(--line); }
+@media (max-width: 760px) { .modal-card.cf-sheet .modal-foot { background: color-mix(in srgb, var(--bg) 60%, transparent); backdrop-filter: blur(16px) saturate(140%); -webkit-backdrop-filter: blur(16px) saturate(140%); } }
+
+/* barra de etapas (no cabeçalho) */
+.cf-steps { position: relative; flex: 1; max-width: 620px; margin: 0 auto; padding: 0; list-style: none; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); align-self: center; }
+.cf-steps-line { position: absolute; left: 12.5%; right: 12.5%; top: 15px; height: 2px; border-radius: 2px; background: var(--line-2); pointer-events: none; }
+.cf-steps-line i { position: absolute; left: 0; top: 0; bottom: 0; width: 0; border-radius: 2px; background: linear-gradient(90deg, #3FA9F5, #5CE1E6); box-shadow: 0 0 10px rgba(92,225,230,.6); transition: width .7s cubic-bezier(.22,.8,.24,1); }
+.cf-steps li { display: flex; justify-content: center; min-width: 0; }
+.cf-steps button { position: relative; display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 0 4px; border: 0; background: none; font: inherit; color: inherit; min-width: 0; }
+.cf-steps button:disabled { cursor: default; }
+.cf-st-dot { position: relative; z-index: 1; width: 32px; height: 32px; border-radius: 50%; display: grid; place-items: center; font-size: .8rem; font-weight: 700; color: var(--text-3); background: var(--bg-2); border: 1.5px solid var(--line-2); transition: color .45s var(--ease), background .45s var(--ease), border-color .45s var(--ease), box-shadow .45s var(--ease), transform .45s var(--ease-spring); }
+.cf-st-dot b { font-weight: 700; transition: opacity .3s, transform .4s var(--ease-spring); }
+.cf-st-dot > span[data-icon], .cf-st-dot > svg { position: absolute; inset: 0; display: grid; place-items: center; opacity: 0; transform: scale(.4); transition: opacity .3s, transform .45s var(--ease-spring); }
+.cf-st-dot svg { width: 15px; height: 15px; stroke-width: 2.4; }
+.cf-steps button:not(:disabled):hover .cf-st-dot { border-color: rgba(127,140,160,.6); color: var(--text); }
+.cf-steps button.cur .cf-st-dot { color: #031219; background: var(--grad-accent); border-color: transparent; box-shadow: 0 0 0 5px rgba(92,225,230,.14), 0 8px 22px -8px rgba(63,169,245,.9); transform: scale(1.06); }
+.cf-steps button.done .cf-st-dot { color: #031219; background: #46D39A; border-color: transparent; }
+.cf-steps button.done .cf-st-dot b { opacity: 0; transform: scale(.4); }
+.cf-steps button.done .cf-st-dot > span[data-icon], .cf-steps button.done .cf-st-dot > svg { opacity: 1; transform: none; }
+.cf-st-tx { display: flex; flex-direction: column; align-items: center; min-width: 0; line-height: 1.2; }
+.cf-st-tx b { font-size: .8rem; font-weight: 600; color: var(--text-3); white-space: nowrap; transition: color .4s var(--ease); }
+.cf-st-tx small { font-size: .68rem; color: var(--text-3); opacity: .8; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
+.cf-steps button.cur .cf-st-tx b, .cf-steps button.done .cf-st-tx b { color: var(--text); }
+
+/* cartões: etapa atual em destaque, as outras recolhem um pouco */
+.cf.guided .cf-sec { transition: opacity .55s var(--ease), border-color .55s var(--ease), box-shadow .55s var(--ease), transform .55s var(--ease), filter .55s var(--ease); }
+.cf.guided .cf-sec:not(.cur) { opacity: .5; filter: saturate(.7); }
+.cf.guided .cf-sec:not(.cur):hover { opacity: .8; }
+.cf.guided .cf-sec.later { opacity: .32; }
+.cf.guided .cf-sec.done { opacity: .72; }
+.cf.guided .cf-sec.cur { border-color: color-mix(in srgb, var(--accent) 42%, transparent); box-shadow: 0 0 0 4px rgba(92,225,230,.07), 0 30px 60px -36px rgba(63,169,245,.75), var(--shadow-card); }
+.cf.guided .cf-sec.cur .cf-n { color: #031219; background: var(--grad-accent); }
+.cf.guided .cf-sec.done .cf-n { color: #031219; background: #46D39A; }
+/* botões do fluxo */
+.cf-prev svg { transform: scaleX(-1); }
+#cfSave svg { width: 16px; height: 16px; }
+#cfSave.go svg { transition: transform .35s var(--ease-spring); }
+#cfSave.go:hover svg { transform: translate(2px, -2px); }
+.cf-nx-t { opacity: .7; font-weight: 500; margin-left: -2px; }
+@media (min-width: 761px) {
+  .modal-card.cf-sheet .modal-head { padding-right: 360px; }
+}
+@media (max-width: 1180px) and (min-width: 761px) { .cf-st-tx small { display: none; } .cf-nx-t { display: none; } }
+
+/* celular: uma etapa por vez (sem rolagem longa) */
+@media (max-width: 760px) {
+  .modal-card.cf-sheet .modal-head { flex-wrap: wrap; row-gap: 12px; padding-bottom: 12px; }
+  .cf-steps { order: 3; flex-basis: 100%; max-width: none; margin: 0; }
+  .cf-st-tx small { display: none; }
+  .cf-st-tx b { font-size: .72rem; }
+  .cf-st-dot { width: 28px; height: 28px; font-size: .74rem; }
+  .cf-steps-line { top: 13px; }
+  .cf.guided .cf-sec:not(.cur) { display: none; }
+  .cf.guided .cf-sec.cur { opacity: 1; filter: none; }
+  .cf.guided .cf-sec.in-r { animation: cfInR .45s var(--ease) both; }
+  .cf.guided .cf-sec.in-l { animation: cfInL .45s var(--ease) both; }
+  .cf-nx-t { display: none; }
+  .cf-prev span:not([data-icon]) { display: none; }
+  .modal-card.cf-sheet .modal-foot .cf-prev { width: 46px; padding: 0; justify-content: center; }
+}
+@keyframes cfInR { from { opacity: 0; transform: translateX(26px); } to { opacity: 1; transform: none; } }
+@keyframes cfInL { from { opacity: 0; transform: translateX(-26px); } to { opacity: 1; transform: none; } }
+
+.cf-prev span[data-icon] { display: grid; place-items: center; width: 18px; height: 18px; }
+.cf-prev span[data-icon] svg { width: 18px; height: 18px; }
