@@ -2011,3 +2011,7 @@ body:has(.modal-root.open .modal-card.sheet) .app-shell * { visibility: hidden !
 .brand .tg-row { flex-direction: column; align-items: flex-start; gap: 3px; }
 .brand-area::before { display: none; }
 .brand-area::after { width: 6px; height: 6px; }
+/* abas de filtro: centralizadas quando estão sozinhas na linha */
+.pvf > .pvf-tabs { margin-left: auto; margin-right: auto; }
+.pvf-row:has(> .pvf-tabs:only-child) { justify-content: center; }
+@media (max-width: 760px) { .pvf-row > .pvf-tabs { grid-column: 1 / -1; width: 100%; max-width: 100%; margin: 0; flex: 1 1 100%; } }
