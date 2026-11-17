@@ -160,3 +160,21 @@ grant execute on function public.cc_senha_trocada() to authenticated;
 -- select id, email, 'Seu nome', true, true, false from auth.users where email = 'seu@email.com'
 -- on conflict (id) do update set admin = true, ativo = true;
 -- =============================================================================
+
+-- =============================================================================
+-- BONECO (planta da Home): cada pessoa salva a aparência do PRÓPRIO boneco,
+-- mesmo sem permissão de edição no RH. Só altera o campo "avatar" do cadastro
+-- ligado à conta (cc_perfis.team_id).
+-- =============================================================================
+create or replace function public.cc_salvar_avatar(av jsonb)
+returns boolean language plpgsql security definer set search_path = public as $$
+declare tid text; n int;
+begin
+  if av is null or length(av::text) > 1000 then return false; end if;
+  select team_id into tid from public.cc_perfis where id = auth.uid() and ativo;
+  if tid is null then return false; end if;
+  update public.entities set data = jsonb_set(data, '{avatar}', av), updated_at = now() where entity = 'team' and id = tid;
+  get diagnostics n = row_count; return n = 1;
+end $$;
+revoke all on function public.cc_salvar_avatar(jsonb) from public;
+grant execute on function public.cc_salvar_avatar(jsonb) to authenticated;

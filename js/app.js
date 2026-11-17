@@ -2100,6 +2100,7 @@
           ${field('Celular corporativo', 'celular', u.celular, 'tel', { ph: '(00) 00000-0000' })}
           ${field('Ramal', 'ramal', u.ramal, 'text', { ph: 'Ex.: 215' })}
           ${field('Aniversário (dia/mês)', 'aniversario', u.aniversario, 'text', { ph: 'dd/mm', hint: 'Só o dia e o mês — para o mural de aniversariantes.' })}
+          <div class="field"><label>Sexo</label><select name="sexo"><option value="">Selecione</option><option value="M" ${(u.sexo || '') === 'M' ? 'selected' : ''}>Masculino</option><option value="F" ${(u.sexo || '') === 'F' ? 'selected' : ''}>Feminino</option></select><span class="hint">Usado no controle do RH e no boneco da planta.</span></div>
         </div>
         <div class="form-sec">${ic('briefcase')}Trabalho</div>
         <div class="form-grid">
@@ -2113,7 +2114,7 @@
         <p class="sv-note">${ic('shield')}CPF, documentos e exames médicos entram quando o login com permissão do RH estiver ativo (LGPD).</p>`,
       footer: submitFooter(editing),
     });
-    ['sector', 'cargoId', 'gestorId', 'contrato'].forEach((n) => ccSelect($(`[name="${n}"]`, card), { search: n !== 'contrato', icon: { sector: 'grid', cargoId: 'briefcase', gestorId: 'users', contrato: 'file' }[n] }));
+    ['sector', 'cargoId', 'gestorId', 'contrato', 'sexo'].forEach((n) => ccSelect($(`[name="${n}"]`, card), { search: !['contrato', 'sexo'].includes(n), icon: { sector: 'grid', cargoId: 'briefcase', gestorId: 'users', contrato: 'file', sexo: 'users' }[n] }));
     const cel = $('[name="celular"]', card); cel.addEventListener('input', () => { cel.value = pvMaskFone(cel.value); });
     const ani = $('[name="aniversario"]', card); ani.addEventListener('input', () => { const d = pvDig(ani.value).slice(0, 4); ani.value = d.length > 2 ? d.slice(0, 2) + '/' + d.slice(2) : d; });
     rhMaskDig($('[name="ramal"]', card), 6);
@@ -2121,12 +2122,13 @@
     $('#saveBtn', card).onclick = () => {
       const d = readForm(card);
       if (d.name.length < 3) return toast('Informe o nome completo', 'warn');
+      if (!editing && !d.sexo) return toast('Selecione o sexo', 'warn');
       if (!rhEmailOk(d.email)) return toast('E-mail inválido', 'warn');
       if (d.celular && pvDig(d.celular).length < 10) return toast('Celular incompleto', 'warn');
       const de = rhDateErr(d.admissao, 'Admissão', rhAnos(-60), rhAnos(1)) || rhDateErr(d.cnhValidade, 'Validade da CNH', rhAnos(-10), rhAnos(15)); if (de) return toast(de, 'warn');
       if (d.aniversario && !/^(0[1-9]|[12]\d|3[01])\/(0[1-9]|1[0-2])$/.test(d.aniversario)) return toast('Aniversário no formato dd/mm', 'warn');
       const c = rhCargo(d.cargoId);
-      const obj = { name: d.name, email: (d.email || '').toLowerCase(), celular: d.celular, ramal: d.ramal, aniversario: d.aniversario, sector: d.sector || (c && c.setor) || '', cargoId: d.cargoId, role: c ? c.nome : (u.role || ''), gestorId: d.gestorId, contrato: d.contrato || 'CLT', admissao: d.admissao, cnhValidade: d.cnhValidade };
+      const obj = { name: d.name, email: (d.email || '').toLowerCase(), celular: d.celular, ramal: d.ramal, aniversario: d.aniversario, sexo: d.sexo || u.sexo || '', sector: d.sector || (c && c.setor) || '', cargoId: d.cargoId, role: c ? c.nome : (u.role || ''), gestorId: d.gestorId, contrato: d.contrato || 'CLT', admissao: d.admissao, cnhValidade: d.cnhValidade };
       const saved = editing ? Store.update('team', u.id, obj) : Store.add('team', { ...obj, situacao: 'ativo', vpn: false, engServer: false, machineId: '' });
       toast(editing ? 'Colaborador atualizado' : 'Colaborador cadastrado'); closeModal();
       if (onDone) onDone(saved); else go(currentRoute);
@@ -2275,17 +2277,18 @@
     const movs = rhList('rhMovs').filter((m) => m.colaboradorId === u.id);
     const subs = rhAtivos().filter((p) => p.gestorId === u.id);
     pageShell('RH', u.name, `${(c && c.nome) || u.role || 'Sem cargo'}${u.sector ? ' · ' + u.sector : ''}`,
-      `<button class="btn" id="rpBack">${ic('chevron')}Pessoas & setores</button><button class="btn" id="rpEdit">${ic('edit')}Editar</button>${u.situacao !== 'desligado' ? `<button class="btn" id="rpDesl">${ic('x')}Desligar</button>` : ''}<button class="btn primary" id="rpTr">${ic('award')}Registrar treinamento</button>`);
+      `<button class="btn" id="rpBack">${ic('chevron')}Pessoas & setores</button><button class="btn" id="rpEdit">${ic('edit')}Editar</button><button class="btn" id="rpBoneco">${ic('users')}Boneco</button>${u.situacao !== 'desligado' ? `<button class="btn" id="rpDesl">${ic('x')}Desligar</button>` : ''}<button class="btn primary" id="rpTr">${ic('award')}Registrar treinamento</button>`);
     $('#rpBack').onclick = () => go('rh-colab');
     $('#rpEdit').onclick = () => rhFormPessoa(u, () => go('rh-pessoa'));
     $('#rpTr').onclick = () => rhFormTreinoReg({ colabs: [u.id] }, () => go('rh-pessoa'));
+    $('#rpBoneco').onclick = () => avatarEditor(u, () => go('rh-pessoa'));
     const db = $('#rpDesl'); if (db) db.onclick = () => rhNovaMov('desligamento', u.id);
     const line = (icn, v, href) => v ? `<div class="pc-ln">${ic(icn)}${href ? `<a href="${href}">${esc(v)}</a>` : `<span>${esc(v)}</span>`}</div>` : '';
     const hero = document.createElement('section'); hero.className = 'pc-hero'; hero.style.setProperty('--h', pvHue(u.name));
     hero.innerHTML = `
       <div class="pc-id"><span class="pc-av">${esc(pvInitials(u.name))}</span>
         <div class="pc-name"><b>${esc(u.name)}</b><span>${esc((c && c.nome) || u.role || 'Sem cargo')}${u.sector ? ' · ' + esc(u.sector) : ''}</span>
-          <div class="pc-chips">${rhSitBadge(u)}<span class="badge neutral plain">${esc(u.contrato || 'CLT')}</span>${e ? `<span class="badge info plain">Experiência até ${fmtDate(e.vence)}</span>` : ''}${u.gestorId ? `<span class="badge neutral plain">Gestor: ${esc(rhNome(u.gestorId))}</span>` : ''}</div></div></div>
+          <div class="pc-chips">${rhSitBadge(u)}<span class="badge neutral plain">${esc(u.contrato || 'CLT')}</span>${u.sexo ? `<span class="badge neutral plain">${u.sexo === 'F' ? 'Feminino' : 'Masculino'}</span>` : ''}${e ? `<span class="badge info plain">Experiência até ${fmtDate(e.vence)}</span>` : ''}${u.gestorId ? `<span class="badge neutral plain">Gestor: ${esc(rhNome(u.gestorId))}</span>` : ''}</div></div></div>
       <div class="pc-info">
         ${line('mail', u.email, u.email ? 'mailto:' + u.email : '')}${line('phone', u.celular, u.celular ? 'tel:' + pvDig(u.celular) : '')}
         ${line('phone', u.ramal ? 'Ramal ' + u.ramal : '')}${line('calendar', u.admissao ? 'Admissão em ' + fmtDate(u.admissao) : '')}
@@ -2771,7 +2774,7 @@
     if (adm) {
       steps = [{ t: 'Pessoa', s: 'Identificação', h: 'Quem está chegando?', p: 'Dados de contato da nova pessoa.' }, { t: 'Cargo', s: 'Setor e contrato', h: 'Onde a pessoa vai trabalhar', p: 'Cargo, setor, gestor e tipo de contrato.' }, { t: 'Checklist', s: 'Entrada', h: 'Checklist de admissão', p: 'O que precisa estar pronto para o primeiro dia.' }, { t: 'Revisão', s: 'Confirmar', h: 'Tudo certo?', p: 'Confira antes de concluir.' }];
       panes = [
-        `<div class="form-grid">${field('Nome completo', 'name', '', 'text', { full: true, ph: 'Nome e sobrenome' })}${field('E-mail corporativo', 'email', '', 'email', { ph: 'nome@convergas.com.br' })}${field('Celular corporativo', 'celular', '', 'tel', { ph: '(00) 00000-0000' })}${field('Ramal', 'ramal', '', 'text', { ph: 'Opcional' })}${field('Aniversário (dia/mês)', 'aniversario', '', 'text', { ph: 'dd/mm' })}</div>
+        `<div class="form-grid">${field('Nome completo', 'name', '', 'text', { full: true, ph: 'Nome e sobrenome' })}${field('E-mail corporativo', 'email', '', 'email', { ph: 'nome@convergas.com.br' })}${field('Celular corporativo', 'celular', '', 'tel', { ph: '(00) 00000-0000' })}${field('Ramal', 'ramal', '', 'text', { ph: 'Opcional' })}${field('Aniversário (dia/mês)', 'aniversario', '', 'text', { ph: 'dd/mm' })}<div class="field"><label>Sexo</label><select name="sexo"><option value="">Selecione</option><option value="M" ${'' === 'M' ? 'selected' : ''}>Masculino</option><option value="F" ${'' === 'F' ? 'selected' : ''}>Feminino</option></select><span class="hint">Usado no controle do RH e no boneco da planta.</span></div></div>
          <p class="sv-note">${ic('shield')}CPF, RG e exames médicos ficam fora do sistema até o login com permissão do RH (LGPD).</p>`,
         `<div class="form-grid"><div class="field"><label>Setor</label><select name="sector"><option value="">Selecione</option>${setores.map((s) => opt(s.nome, s.nome)).join('')}</select></div>
           <div class="field"><label>Cargo</label><select name="cargoId"><option value="">Selecione</option>${cargos.map((c) => opt(c.id, c.nome + (c.setor ? ' · ' + c.setor : ''))).join('')}</select></div>
@@ -2821,6 +2824,7 @@
       steps, finalLabel: adm ? 'Concluir admissão' : 'Concluir desligamento',
       check: (i, shake) => {
         if (adm && i === 0 && $('[name="name"]', w).value.trim().length < 3) { shake($('[name="name"]', w)); toast('Informe o nome completo', 'warn'); return false; }
+        if (adm && i === 0 && !$('[name="sexo"]', w).value) { toast('Selecione o sexo', 'warn'); return false; }
         if (adm && i === 0 && !rhEmailOk($('[name="email"]', w).value.trim())) { shake($('[name="email"]', w)); toast('E-mail inválido', 'warn'); return false; }
         if (adm && i === 0) { const c = pvDig($('[name="celular"]', w).value); if (c && c.length < 10) { shake($('[name="celular"]', w)); toast('Celular incompleto', 'warn'); return false; } }
         if (adm && i === 0) { const a = $('[name="aniversario"]', w).value; if (a && !/^(0[1-9]|[12]\d|3[01])\/(0[1-9]|1[0-2])$/.test(a)) { shake($('[name="aniversario"]', w)); toast('Aniversário no formato dd/mm', 'warn'); return false; } }
@@ -2860,7 +2864,7 @@
         }
         if (i === 3) {
           const list = ckList;
-          $('#rmRev', w).innerHTML = (adm ? rev([['Nome', d.name], ['E-mail', d.email], ['Celular', d.celular], ['Setor', d.sector], ['Cargo', (rhCargo(d.cargoId) || {}).nome], ['Gestor', d.gestorId ? rhNome(d.gestorId) : ''], ['Contrato', d.contrato], ['Admissão', fmtDate(d.admissao)]])
+          $('#rmRev', w).innerHTML = (adm ? rev([['Nome', d.name], ['Sexo', { M: 'Masculino', F: 'Feminino' }[d.sexo] || ''], ['E-mail', d.email], ['Celular', d.celular], ['Setor', d.sector], ['Cargo', (rhCargo(d.cargoId) || {}).nome], ['Gestor', d.gestorId ? rhNome(d.gestorId) : ''], ['Contrato', d.contrato], ['Admissão', fmtDate(d.admissao)]])
             : rev([['Colaborador', rhNome(colab)], ['Último dia', fmtDate(d.data)], ['Motivo', d.motivo], ['Aviso prévio', d.aviso], ['Observações', d.obs]]))
             + `<div class="rh-rev-ck"><b>Checklist</b><span>${ck.size + devOk.size} de ${list.length + devItems.length} itens feitos${devItems.length ? ` · ${devOk.size}/${devItems.length} itens recolhidos` : ''}</span><div class="qband-bar"><i style="--w:${(100 * (ck.size + devOk.size)) / (list.length + devItems.length)}%;--c:#46D39A;width:${(100 * (ck.size + devOk.size)) / (list.length + devItems.length)}%"></i></div></div>`;
         }
@@ -2872,7 +2876,7 @@
         let pid = colab;
         if (adm) {
           const c = rhCargo(d.cargoId);
-          const p = Store.add('team', { name: d.name, email: (d.email || '').toLowerCase(), celular: d.celular, ramal: d.ramal, aniversario: d.aniversario, sector: d.sector || (c && c.setor) || '', cargoId: d.cargoId, role: c ? c.nome : '', gestorId: d.gestorId, contrato: d.contrato || 'CLT', admissao: d.admissao, cnhValidade: d.cnhValidade, situacao: 'ativo', vpn: false, engServer: false, machineId: '' });
+          const p = Store.add('team', { name: d.name, email: (d.email || '').toLowerCase(), celular: d.celular, ramal: d.ramal, aniversario: d.aniversario, sexo: d.sexo, sector: d.sector || (c && c.setor) || '', cargoId: d.cargoId, role: c ? c.nome : '', gestorId: d.gestorId, contrato: d.contrato || 'CLT', admissao: d.admissao, cnhValidade: d.cnhValidade, situacao: 'ativo', vpn: false, engServer: false, machineId: '' });
           pid = p.id;
           Store.add('rhMovs', { tipo: 'admissao', colaboradorId: pid, nome: d.name, data: d.admissao, checklist, status, criadoEm: new Date().toISOString() });
         } else {
@@ -3151,6 +3155,77 @@
     render(); tabsThumbInit(tabsEl, 'rhv');
   };
 
+  /* =========================== PLANTA: detalhes do setor e editor do boneco =========================== */
+  function setorDetalhe(nome, d) {
+    const s = (d.sectors || []).find((x) => x.nome === nome); if (!s) return;
+    const podeRH = Perm.aba('rh-colab') !== 'nenhum';
+    const lead = s.people.find((p) => p.id === s.lead);
+    const card = modal({
+      title: s.nome, sub: `${s.people.length} ${s.people.length === 1 ? 'pessoa' : 'pessoas'}${lead ? ' · responsável: ' + lead.name : ''}`, dialog: true,
+      body: `<div class="sd-head" style="--c:${s.cor}"><span class="sd-dot"></span><b>${esc(s.nome)}</b><em>${s.people.length}</em></div>
+        ${s.people.length ? `<div class="sd-list">${s.people.slice().sort((a, b) => (a.id === s.lead ? -1 : b.id === s.lead ? 1 : a.name.localeCompare(b.name))).map((p) => `<button type="button" class="sd-p" data-p="${esc(p.id)}" ${podeRH ? '' : 'disabled'}>${rhAvatar(p.name)}<span><b>${esc(p.name)}${p.id === s.lead ? ` <i class="sd-lead">${ic('award')}responsável</i>` : ''}</b><small>${esc(p.cargo || 'Sem cargo')}</small></span>${podeRH ? `<span class="sd-go">${ic('chevron')}</span>` : ''}</button>`).join('')}</div>`
+          : `<div class="qf-empty">${ic('users')}<span>Ninguém neste setor ainda.</span></div>`}`,
+      footer: `<button class="btn ghost" data-close>Fechar</button>${podeRH ? `<button class="btn primary" id="sdGo">${ic('users')}Abrir em Pessoas & setores</button>` : ''}`,
+    });
+    Icons.apply(card);
+    $$('[data-p]', card).forEach((b) => (b.onclick = () => { closeModal(); if (Store.find('team', b.dataset.p)) rhOpenPessoa(b.dataset.p); }));
+    const g = $('#sdGo', card); if (g) g.onclick = () => { closeModal(); navTo('rh-colab', 'rh'); };
+  }
+  function meuBoneco() {
+    const tid = CCAuth && CCAuth.perfil && CCAuth.perfil.team_id; const u = tid && Store.find('team', tid);
+    if (!u) return modal({ title: 'Meu boneco', sub: 'Sua conta ainda não está ligada a um colaborador', dialog: true, body: `<p class="sv-note">${ic('users')}<span>Peça ao administrador para ligar o seu usuário ao seu cadastro do RH (T.I. → Usuários & permissões → seu usuário → Colaborador). Depois disso você monta o seu boneco aqui.</span></p>`, footer: '<button class="btn primary" data-close>Entendi</button>' });
+    avatarEditor(u);
+  }
+  function avatarEditor(u, done) {
+    const O = window.Campus3D && Campus3D.OPC;
+    const abrir = () => {
+      const O2 = Campus3D.OPC; const base = Campus3D.avatarOf({ id: u.id, name: u.name, sexo: u.sexo, avatar: u.avatar });
+      const av = { ...base };
+      const sw = (k, cores) => `<div class="av-sw" data-k="${k}">${cores.map((c, i) => `<button type="button" data-v="${i}" style="--c:${c}" aria-label="Cor ${i + 1}"></button>`).join('')}</div>`;
+      const card = modal({
+        title: u.id === (CCAuth.perfil || {}).team_id ? 'Meu boneco' : `Boneco de ${u.name.split(' ')[0]}`, sub: 'Como a pessoa aparece na planta da Home', wide: true,
+        body: `<div class="av-wrap"><div class="av-prev" id="avPrev"><span class="av-hint">${ic('refresh')}arraste para girar</span></div>
+          <div class="av-opts">
+            <div class="av-g"><span class="av-l">Corpo</span><div class="av-seg" data-k="sexo"><button type="button" data-v="M">Masculino</button><button type="button" data-v="F">Feminino</button></div></div>
+            <div class="av-g"><span class="av-l">Tom de pele</span>${sw('pele', O2.SKIN)}</div>
+            <div class="av-g"><span class="av-l">Cabelo</span><div class="av-chips" id="avCab"></div></div>
+            <div class="av-g"><span class="av-l">Cor do cabelo</span>${sw('corCabelo', O2.HAIR)}</div>
+            <div class="av-g"><span class="av-l">Camisa</span>${sw('roupa', O2.ROUPA)}</div>
+            <div class="av-g av-tg"><button type="button" class="av-t" data-t="oculos">${ic('eye')}Óculos</button><button type="button" class="av-t" data-t="barba">${ic('users')}Barba</button></div>
+          </div></div>`,
+        footer: `<button class="btn ghost" id="avReset" style="margin-right:auto">${ic('refresh')}Padrão</button><button class="btn ghost" data-close>Cancelar</button><button class="btn primary" id="saveBtn">${ic('check')}Salvar boneco</button>`,
+      });
+      Icons.apply(card);
+      const pv = Campus3D.preview($('#avPrev', card), { id: u.id, name: u.name, avatar: av });
+      const fechouObs = new MutationObserver(() => { if (!document.body.contains(card) || !$('#modalRoot').classList.contains('open')) { pv.stop(); fechouObs.disconnect(); } });
+      fechouObs.observe($('#modalRoot'), { attributes: true, childList: true, subtree: false });
+      const pintar = () => {
+        $$('.av-seg button', card).forEach((b) => b.classList.toggle('on', b.dataset.v === av.sexo));
+        $$('.av-sw', card).forEach((g) => $$('button', g).forEach((b) => b.classList.toggle('on', +b.dataset.v === av[g.dataset.k])));
+        $('#avCab', card).innerHTML = O2.ESTILOS[av.sexo === 'F' ? 'F' : 'M'].map((k) => `<button type="button" data-v="${k}" class="${av.cabelo === k ? 'on' : ''}">${esc(O2.ESTILO_TXT[k])}</button>`).join('');
+        $$('#avCab button', card).forEach((b) => (b.onclick = () => { av.cabelo = b.dataset.v; pintar(); }));
+        $$('.av-t', card).forEach((b) => b.classList.toggle('on', !!av[b.dataset.t]));
+        pv.update({ id: u.id, name: u.name, avatar: av });
+      };
+      $$('.av-seg button', card).forEach((b) => (b.onclick = () => { av.sexo = b.dataset.v; const l = O2.ESTILOS[av.sexo]; if (!l.includes(av.cabelo)) av.cabelo = l[0]; if (av.sexo === 'F') av.barba = false; pintar(); }));
+      $$('.av-sw', card).forEach((g) => $$('button', g).forEach((b) => (b.onclick = () => { av[g.dataset.k] = +b.dataset.v; pintar(); })));
+      $$('.av-t', card).forEach((b) => (b.onclick = () => { av[b.dataset.t] = !av[b.dataset.t]; pintar(); }));
+      $('#avReset', card).onclick = () => { Object.assign(av, Campus3D.avatarOf({ id: u.id, name: u.name, sexo: u.sexo })); pintar(); };
+      $('#saveBtn', card).onclick = async () => {
+        const salvo = { sexo: av.sexo, pele: av.pele, cabelo: av.cabelo, corCabelo: av.corCabelo, roupa: av.roupa, oculos: !!av.oculos, barba: !!av.barba };
+        if (Perm.podeGravar('team')) Store.update('team', u.id, { avatar: salvo });
+        else {
+          // o próprio usuário salva o boneco dele pelo banco (sem precisar de permissão de edição no RH)
+          try { const { error } = await Cloud.SB.rpc('cc_salvar_avatar', { av: salvo }); if (error) throw error; } catch (e) { return toast('Não foi possível salvar o boneco agora', 'warn'); }
+          const it = Store.find('team', u.id); if (it) { it.avatar = salvo; Store.save(); }
+        }
+        pv.stop(); closeModal(); toast('Boneco salvo'); try { CP.built = ''; campusBuild(true); } catch (e) {} if (done) done();
+      };
+      requestAnimationFrame(() => { pv.resize(); pintar(); });
+    };
+    if (O) abrir(); else campusLoad().then((ok) => (ok ? abrir() : toast('Não foi possível carregar o 3D', 'warn')));
+  }
+
   /* =========================== USUÁRIOS & PERMISSÕES (admin) =========================== */
   // menu da conta (topo)
   function userChip() {
@@ -3168,13 +3243,14 @@
     const pop = document.createElement('div'); pop.className = 'um-pop';
     pop.innerHTML = `<div class="um-h"><span class="tb-uav lg" style="--h:${pvHue(p.nome || '?')}">${esc(pvInitials(p.nome || '?'))}</span><span><b>${esc(p.nome || '')}</b><small>${esc(p.email || '')}</small>${p.admin ? '<em>Administrador</em>' : ''}</span></div>
       ${p.admin ? `<button type="button" data-um="usuarios">${ic('key')}Usuários & permissões</button>` : ''}
+      <button type="button" data-um="boneco">${ic('users')}Meu boneco</button>
       <button type="button" data-um="senha">${ic('lock')}Trocar senha</button>
       <button type="button" data-um="sair" class="danger">${ic('logOut')}Sair</button>`;
     document.body.appendChild(pop); Icons.apply(pop);
     const fechar = () => { pop.remove(); document.removeEventListener('click', fora, true); };
     const fora = (e) => { if (!pop.contains(e.target) && !e.target.closest('#tbUser')) fechar(); };
     setTimeout(() => document.addEventListener('click', fora, true), 0);
-    $$('[data-um]', pop).forEach((x) => (x.onclick = () => { const a = x.dataset.um; fechar(); if (a === 'usuarios') navTo('usuarios', 'ti'); if (a === 'senha') CCAuth.trocarSenha(); if (a === 'sair') confirmDialog('Sair do Control Center neste aparelho?', () => CCAuth.sair(), 'primary'); }));
+    $$('[data-um]', pop).forEach((x) => (x.onclick = () => { const a = x.dataset.um; fechar(); if (a === 'usuarios') navTo('usuarios', 'ti'); if (a === 'senha') CCAuth.trocarSenha(); if (a === 'boneco') meuBoneco(); if (a === 'sair') confirmDialog('Sair do Control Center neste aparelho?', () => CCAuth.sair(), 'primary'); }));
   }
 
   // áreas e abas que entram na tela de permissões (na ordem da Home)
@@ -3346,7 +3422,7 @@
     const setores = (typeof rhSetores === 'function' ? rhSetores() : []).slice(0, 16);
     const ativos = Store.get('team').filter((u) => u.situacao !== 'desligado');
     const nomes = new Set(setores.map((x) => x.nome));
-    const pess = (u) => ({ id: u.id, name: u.name, cargo: ((typeof rhCargo === 'function' && rhCargo(u.cargoId)) || {}).nome || u.role || '' });
+    const pess = (u) => ({ id: u.id, name: u.name, sexo: u.sexo || '', avatar: u.avatar || null, cargo: ((typeof rhCargo === 'function' && rhCargo(u.cargoId)) || {}).nome || u.role || '' });
     return {
       sectors: setores.map((x, i) => ({ nome: x.nome, cor: rhSetCor(x.nome, i), lead: x.responsavelId, people: ativos.filter((u) => u.sector === x.nome).map(pess) })),
       lobby: ativos.filter((u) => !u.sector || !nomes.has(u.sector)).map(pess),
@@ -3364,7 +3440,7 @@
       if (!ok || !window.Campus3D) return;
       host.classList.toggle('empty', !d.sectors.length);
       Campus3D.render(host, { ...d, theme, interactive: Perm.aba('rh-colab') !== 'nenhum',
-        onPerson: (id) => { if (Store.find('team', id)) rhOpenPessoa(id); }, onRoom: () => navTo('rh-colab', 'rh') });
+        onRoom: (nome) => setorDetalhe(nome, d) });
     });
   }
   function campusFit() { if (window.Campus3D) Campus3D.resize(); }
