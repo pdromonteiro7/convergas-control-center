@@ -2029,14 +2029,8 @@
     const d = Math.max(0, rhDias(u.admissao, fim)); const a = Math.floor(d / 365), m = Math.floor((d % 365) / 30);
     return a ? `${a} ano${a > 1 ? 's' : ''}${m ? ` e ${m} m` : ''}` : m ? `${m} ${m > 1 ? 'meses' : 'mês'}` : `${d} dia${d === 1 ? '' : 's'}`;
   };
-  // setores: cadastro próprio + os que já estão nas pessoas (ids fixos para não duplicar entre navegadores)
-  function rhSetores() {
-    const cad = rhList('rhSetores');
-    const names = new Set(cad.map((s) => s.nome));
-    const extra = [];
-    rhList('team').forEach((u) => { if (u.sector && !names.has(u.sector)) { names.add(u.sector); const o = { id: 'rs_' + rhSlug(u.sector), nome: u.sector }; if (Perm.podeGravar('rhSetores')) Store.add('rhSetores', o); else extra.push(o); } });
-    return rhList('rhSetores').concat(extra).slice().sort((a, b) => a.nome.localeCompare(b.nome));
-  }
+  // setores: só os cadastrados no RH (quem está num setor que não existe aparece em "Sem setor")
+  function rhSetores() { return rhList('rhSetores').slice().sort((a, b) => a.nome.localeCompare(b.nome)); }
   // treinamentos de exemplo (ids fixos; só entram se o catálogo estiver vazio)
   // sugestões de treinamentos (só entram quando a pessoa clica em "Usar sugestões")
   function rhTreinosSugestoes() {
@@ -7439,7 +7433,14 @@
     requestAnimationFrame(() => { try { campusBuild(); campusFit(); } catch (e) {} });
     if (location.hash !== '#home') history.replaceState(null, '', '#home');
   }
-  function enterArea(area) { const r = Perm.primeira(area); if (!r) { toast('Você não tem acesso a esta área', 'warn'); return; } currentArea = area; renderSidebar(area); navTo(r, area); }
+  function semAcessoArea(area) {
+    const ha = HOME_AREAS_ALL.find((x) => x.area === area) || {};
+    const card = modal({ title: 'Acesso restrito', sub: ha.label || 'Área', dialog: true,
+      body: `<div class="na-box" style="--c:${ha.color || '#5CE1E6'}"><span class="na-ic">${ic('lock')}</span><div><b>Você não tem permissão para acessar ${esc(ha.label || 'esta área')}.</b><span>Se precisa usar esta área, peça ao administrador do Control Center para liberar o seu acesso em T.I. → Usuários & permissões.</span></div></div>`,
+      footer: '<button class="btn primary" data-close>Entendi</button>' });
+    Icons.apply(card);
+  }
+  function enterArea(area) { const r = Perm.primeira(area); if (!r) { semAcessoArea(area); return; } currentArea = area; renderSidebar(area); navTo(r, area); }
 
   function go(route) {
     if (!PAGES[route]) route = AREA_HOME[currentArea] || 'dashboard';
@@ -7508,8 +7509,6 @@
 
   function buildHome() {
     const mount = $('#wheelMount'); if (!mount) return;
-    for (let i = HOME_AREAS.length - 1; i >= 0; i--) if (Perm.area(HOME_AREAS[i].area) === 'nenhum') HOME_AREAS.splice(i, 1);
-    if (!HOME_AREAS.length) { mount.innerHTML = `<div class="hx-none"><b>Nenhuma área liberada</b><span>Peça ao administrador para liberar o seu acesso.</span></div>`; return; }
     const N = HOME_AREAS.length, step = 360 / N;
     HX.stats = HOME_AREAS.map((a) => { try { return a.stat(); } catch (e) { return { v: '—', l: '', tone: '' }; } });
     // marcações do anel (estilo mostrador de instrumento)
@@ -7533,7 +7532,7 @@
       </svg>
       ${HOME_AREAS.map((a, i) => { const st = HX.stats[i]; const alert = st.tone === 'warn' || st.tone === 'danger';
         return `<button class="hx-node" role="option" data-i="${i}" style="--a:${i * step}deg;--c:${a.color};--d:${i * 60}ms" aria-label="${esc(a.label)}">
-          <span class="hx-orb"><span class="hx-orb-glow" aria-hidden="true"></span><span class="hx-orb-i" data-icon="${a.icon}"></span>${alert ? `<span class="hx-flag t-${st.tone}">${esc(String(st.v))}</span>` : ''}</span>
+          <span class="hx-orb"><span class="hx-orb-glow" aria-hidden="true"></span><span class="hx-orb-i" data-icon="${a.icon}"></span>${Perm.area(a.area) === 'nenhum' ? `<span class="hx-lock" title="Sem acesso">${ic('lock')}</span>` : ''}${alert ? `<span class="hx-flag t-${st.tone}">${esc(String(st.v))}</span>` : ''}</span>
           <span class="hx-lbl"><small>${String(i + 1).padStart(2, '0')}</small>${esc(a.label)}</span>
         </button>`; }).join('')}
       <div class="hx-hub" id="hxHub"><div class="hx-hub-in" id="hxHubIn"></div></div>`;

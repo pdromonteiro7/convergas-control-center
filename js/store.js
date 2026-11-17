@@ -879,8 +879,7 @@
       const m2 = window.Cloud.pullMeta ? await window.Cloud.pullMeta('reset2') : null;
       if (m2 && m2.epoch && m2.epoch !== data._reset2Epoch) {
         (m2.colls || []).forEach((k) => { if (Array.isArray(data[k])) data[k] = []; });
-        (data.rhVeiculos || []).forEach((v) => { v.responsavelId = ''; });
-        (data.phones || []).forEach((f) => { if (f.userId) f.userId = ''; });
+        if (m2.soltar !== false) { (data.rhVeiculos || []).forEach((v) => { v.responsavelId = ''; }); (data.phones || []).forEach((f) => { if (f.userId) f.userId = ''; }); }
         data._reset2Epoch = m2.epoch; changed = true; persist();
       }
     } catch (e) {}

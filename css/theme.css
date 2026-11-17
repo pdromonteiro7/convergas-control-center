@@ -2773,3 +2773,13 @@ body.cc-ro #rpBoneco { display: none !important; }
 .hx-user { padding: 0; overflow: hidden; margin-left: 4px; border: 1px solid color-mix(in srgb, var(--accent) 35%, transparent) !important; }
 .hx-user[hidden] { display: none; }
 .hx-user .tb-uav { border-radius: 10px; font-size: .74rem; }
+
+/* roda da Home: área sem acesso */
+.hx-lock { position: absolute; right: -2px; bottom: -2px; z-index: 2; width: 22px; height: 22px; border-radius: 50%; display: grid; place-items: center; color: #fff; background: #3A4558; border: 2px solid var(--bg); box-shadow: 0 2px 6px rgba(0,0,0,.4); }
+.hx-lock > span { display: grid; line-height: 0; } .hx-lock svg { width: 11px; height: 11px; display: block; }
+.na-box { display: flex; gap: 14px; align-items: flex-start; padding: 14px; border-radius: 16px; background: color-mix(in srgb, var(--c) 7%, transparent); border: 1px solid color-mix(in srgb, var(--c) 28%, transparent); }
+.na-ic { flex: none; width: 42px; height: 42px; border-radius: 13px; display: grid; place-items: center; color: var(--c); background: color-mix(in srgb, var(--c) 15%, transparent); }
+.na-ic > span { display: grid; line-height: 0; } .na-ic svg { width: 19px; height: 19px; display: block; }
+.na-box > div { display: flex; flex-direction: column; gap: 6px; }
+.na-box b { font-size: .95rem; color: var(--text); }
+.na-box span { font-size: .86rem; color: var(--text-2); line-height: 1.5; }
