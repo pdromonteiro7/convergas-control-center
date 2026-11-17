@@ -1979,6 +1979,892 @@
     requestAnimationFrame(() => requestAnimationFrame(() => { el.classList.add('in'); pvCountUp(el); }));
   };
 
+  /* =====================================================================
+     RH — cadastro único de pessoas (coleção "team", a mesma da T.I. e do EPI),
+     cargos & setores, treinamentos & competências (IATF 7.2), admissão/desligamento,
+     férias & ausências e controle de veículos.
+     Dados sensíveis (CPF, documentos, exames médicos) ficam de fora até existir login.
+     ===================================================================== */
+  const RH_COR = '#FB923C';
+  const RH_SIT = { ativo: { cls: 'ok', label: 'Ativo' }, experiencia: { cls: 'info', label: 'Em experiência' }, ferias: { cls: 'warn', label: 'Em férias' }, afastado: { cls: 'warn', label: 'Afastado' }, desligado: { cls: 'neutral', label: 'Desligado' } };
+  const RH_CONTRATOS = ['CLT', 'Estágio', 'Aprendiz', 'Temporário', 'PJ'];
+  const RH_AUS = { ferias: { l: 'Férias', c: '#46D39A', i: 'sun2' }, afastamento: { l: 'Afastamento', c: '#FF7A7A', i: 'alert' }, licenca: { l: 'Licença', c: '#A78BFA', i: 'file' }, folga: { l: 'Folga / compensação', c: '#3FA9F5', i: 'clock' }, ausencia: { l: 'Ausência justificada', c: '#F5B840', i: 'calendar' } };
+  const RH_MOTIVOS = ['Pedido de demissão', 'Dispensa sem justa causa', 'Dispensa com justa causa', 'Fim do contrato / experiência', 'Acordo entre as partes', 'Aposentadoria', 'Outro'];
+  const RH_TIPOS_TREINO = ['Integração', 'Norma Regulamentadora (NR)', 'Técnico / operação', 'Qualidade (IATF / ISO)', 'Segurança', 'Comportamental', 'Outro'];
+  const RH_PAL = ['#FB923C', '#5CE1E6', '#A78BFA', '#46D39A', '#F5B840', '#3FA9F5', '#F472B6', '#94A3B8'];
+  const rhSlug = (s) => String(s || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-z0-9]+/g, '_').replace(/^_|_$/g, '').slice(0, 40);
+  const rhList = (k) => Store.get(k) || [];
+  const rhPessoas = () => rhList('team').slice().sort((a, b) => (a.name || '').localeCompare(b.name || ''));
+  const rhPessoa = (id) => Store.find('team', id);
+  const rhNome = (id) => { const u = rhPessoa(id); return u ? u.name : '—'; };
+  const rhCargo = (id) => Store.find('rhCargos', id);
+  const rhHoje = () => todayISO();
+  const rhDias = (a, b) => Math.round((new Date(b + 'T00:00:00') - new Date(a + 'T00:00:00')) / 864e5);
+  const rhAddMeses = (iso, m) => { const d = new Date(iso + 'T00:00:00'); d.setMonth(d.getMonth() + Number(m || 0)); return d.toISOString().slice(0, 10); };
+  // ausência em andamento hoje (férias, afastamento…)
+  const rhAusHoje = (id) => rhList('rhAusencias').find((a) => a.colaboradorId === id && a.inicio <= rhHoje() && (a.fim || a.inicio) >= rhHoje());
+  function rhSit(u) {
+    if (!u) return 'ativo';
+    if (u.situacao === 'desligado') return 'desligado';
+    const a = rhAusHoje(u.id); if (a) return a.tipo === 'ferias' ? 'ferias' : 'afastado';
+    if ((u.contrato || 'CLT') === 'CLT' && u.admissao && rhDias(u.admissao, rhHoje()) >= 0 && rhDias(u.admissao, rhHoje()) < 90) return 'experiencia';
+    return 'ativo';
+  }
+  const rhAtivos = () => rhPessoas().filter((u) => u.situacao !== 'desligado');
+  // contrato de experiência CLT: 45 + 45 dias
+  function rhExperiencia(u) {
+    if (!u || u.situacao === 'desligado' || (u.contrato || 'CLT') !== 'CLT' || !u.admissao) return null;
+    const v1 = addDays(u.admissao, 44), v2 = addDays(u.admissao, 89), h = rhHoje();
+    if (h <= v1) return { fase: '1º período', vence: v1 };
+    if (h <= v2) return { fase: '2º período', vence: v2 };
+    return null;
+  }
+  const rhTempoCasa = (u) => {
+    if (!u || !u.admissao) return '—';
+    const fim = u.situacao === 'desligado' && u.desligamento ? u.desligamento : rhHoje();
+    const d = Math.max(0, rhDias(u.admissao, fim)); const a = Math.floor(d / 365), m = Math.floor((d % 365) / 30);
+    return a ? `${a} ano${a > 1 ? 's' : ''}${m ? ` e ${m} m` : ''}` : m ? `${m} ${m > 1 ? 'meses' : 'mês'}` : `${d} dia${d === 1 ? '' : 's'}`;
+  };
+  // setores: cadastro próprio + os que já estão nas pessoas (ids fixos para não duplicar entre navegadores)
+  function rhSetores() {
+    const cad = rhList('rhSetores');
+    const names = new Set(cad.map((s) => s.nome));
+    rhList('team').forEach((u) => { if (u.sector && !names.has(u.sector)) { names.add(u.sector); Store.add('rhSetores', { id: 'rs_' + rhSlug(u.sector), nome: u.sector }); } });
+    return rhList('rhSetores').slice().sort((a, b) => a.nome.localeCompare(b.nome));
+  }
+  // treinamentos de exemplo (ids fixos; só entram se o catálogo estiver vazio)
+  function rhTreinos() {
+    if (!rhList('rhTreinos').length) {
+      [['rt_integracao', 'Integração de novos colaboradores', 'Integração', 4, 0], ['rt_iatf', 'Conscientização IATF 16949 / ISO 9001', 'Qualidade (IATF / ISO)', 2, 12],
+        ['rt_nr06', 'NR-06 · Uso de EPI', 'Norma Regulamentadora (NR)', 2, 12], ['rt_nr10', 'NR-10 · Segurança em eletricidade', 'Norma Regulamentadora (NR)', 40, 24],
+        ['rt_nr12', 'NR-12 · Máquinas e equipamentos', 'Norma Regulamentadora (NR)', 8, 24], ['rt_nr35', 'NR-35 · Trabalho em altura', 'Norma Regulamentadora (NR)', 8, 24],
+        ['rt_gnv', 'Instalação de sistemas GNV / dual-fuel', 'Técnico / operação', 16, 24]]
+        .forEach(([id, nome, tipo, ch, val]) => Store.add('rhTreinos', { id, nome, tipo, cargaHoras: ch, validadeMeses: val }));
+    }
+    return rhList('rhTreinos').slice().sort((a, b) => a.nome.localeCompare(b.nome));
+  }
+  // situação de um treinamento para uma pessoa: ok | vencendo | vencido | faltando
+  function rhTreinoSt(colabId, treinoId) {
+    const regs = rhList('rhTreinoReg').filter((r) => r.colaboradorId === colabId && r.treinoId === treinoId).sort((a, b) => String(b.data).localeCompare(String(a.data)));
+    const r = regs[0]; if (!r) return { st: 'faltando', r: null };
+    if (!r.validade) return { st: 'ok', r };
+    const d = rhDias(rhHoje(), r.validade);
+    return { st: d < 0 ? 'vencido' : d <= 30 ? 'vencendo' : 'ok', r, dias: d };
+  }
+  const rhExigidos = (u) => { const c = u && rhCargo(u.cargoId); return c && Array.isArray(c.treinos) ? c.treinos : []; };
+  const RH_TST = { ok: { cls: 'ok', l: 'Em dia', c: '#46D39A' }, vencendo: { cls: 'warn', l: 'Vencendo', c: '#F5B840' }, vencido: { cls: 'danger', l: 'Vencido', c: '#FF7A7A' }, faltando: { cls: 'danger', l: 'Pendente', c: '#FF7A7A' } };
+  function rhTreinoResumo(u) {
+    const ex = rhExigidos(u); const r = { ok: 0, vencendo: 0, vencido: 0, faltando: 0, total: ex.length };
+    ex.forEach((t) => { r[rhTreinoSt(u.id, t).st]++; });
+    return r;
+  }
+  const rhAvatar = (nome, cls) => `<span class="qf-av ${cls || ''}" style="--h:${pvHue(nome || '?')}">${esc(pvInitials(nome || '?'))}</span>`;
+  const rhSitBadge = (u) => { const s = RH_SIT[rhSit(u)]; return `<span class="badge ${s.cls}">${esc(s.label)}</span>`; };
+  // veículos
+  const rhVeicEmUso = (vid) => rhList('rhVeicUso').find((x) => x.veiculoId === vid && !x.retorno);
+  const rhVenc = (iso) => { if (!iso) return null; const d = rhDias(rhHoje(), iso); return { d, st: d < 0 ? 'vencido' : d <= 30 ? 'vencendo' : 'ok' }; };
+
+  /* ---------- formulário do colaborador (cadastro rápido / edição) ---------- */
+  function rhFormPessoa(u, onDone) {
+    const editing = !!(u && u.id); u = u || {};
+    const setores = rhSetores(), cargos = rhList('rhCargos').slice().sort((a, b) => a.nome.localeCompare(b.nome));
+    const pessoas = rhAtivos().filter((p) => p.id !== u.id);
+    const opt = (v, t, sel) => `<option value="${esc(v)}" ${sel ? 'selected' : ''}>${esc(t)}</option>`;
+    const card = modal({
+      title: editing ? 'Editar colaborador' : 'Novo colaborador', sub: 'RH · cadastro de pessoas',
+      body: `<div class="form-sec">${ic('users')}Identificação</div>
+        <div class="form-grid">
+          ${field('Nome completo', 'name', u.name, 'text', { full: true, ph: 'Nome e sobrenome' })}
+          ${field('E-mail corporativo', 'email', u.email, 'email', { ph: 'nome@convergas.com.br' })}
+          ${field('Celular corporativo', 'celular', u.celular, 'tel', { ph: '(00) 00000-0000' })}
+          ${field('Ramal', 'ramal', u.ramal, 'text', { ph: 'Ex.: 215' })}
+          ${field('Aniversário (dia/mês)', 'aniversario', u.aniversario, 'text', { ph: 'dd/mm', hint: 'Só o dia e o mês — para o mural de aniversariantes.' })}
+        </div>
+        <div class="form-sec">${ic('briefcase')}Trabalho</div>
+        <div class="form-grid">
+          <div class="field"><label>Setor</label><select name="sector"><option value="">Selecione</option>${setores.map((s) => opt(s.nome, s.nome, u.sector === s.nome)).join('')}</select></div>
+          <div class="field"><label>Cargo</label><select name="cargoId"><option value="">Selecione</option>${cargos.map((c) => opt(c.id, c.nome + (c.setor ? ' · ' + c.setor : ''), u.cargoId === c.id)).join('')}</select></div>
+          <div class="field"><label>Gestor imediato</label><select name="gestorId"><option value="">Sem gestor</option>${pessoas.map((p) => opt(p.id, p.name, u.gestorId === p.id)).join('')}</select></div>
+          <div class="field"><label>Tipo de contrato</label><select name="contrato">${RH_CONTRATOS.map((c) => opt(c, c, (u.contrato || 'CLT') === c)).join('')}</select></div>
+          ${field('Data de admissão', 'admissao', u.admissao, 'date')}
+          ${field('Validade da CNH', 'cnhValidade', u.cnhValidade, 'date', { hint: 'Só se dirige veículo da empresa.' })}
+        </div>
+        <p class="sv-note">${ic('shield')}CPF, documentos e exames médicos entram quando o login com permissão do RH estiver ativo (LGPD).</p>`,
+      footer: submitFooter(editing),
+    });
+    ['sector', 'cargoId', 'gestorId', 'contrato'].forEach((n) => ccSelect($(`[name="${n}"]`, card), { search: n !== 'contrato', icon: { sector: 'grid', cargoId: 'briefcase', gestorId: 'users', contrato: 'file' }[n] }));
+    const cel = $('[name="celular"]', card); cel.addEventListener('input', () => { cel.value = pvMaskFone(cel.value); });
+    const ani = $('[name="aniversario"]', card); ani.addEventListener('input', () => { const d = pvDig(ani.value).slice(0, 4); ani.value = d.length > 2 ? d.slice(0, 2) + '/' + d.slice(2) : d; });
+    $('#saveBtn', card).onclick = () => {
+      const d = readForm(card);
+      if (!d.name) return toast('Informe o nome', 'warn');
+      if (d.aniversario && !/^(0[1-9]|[12]\d|3[01])\/(0[1-9]|1[0-2])$/.test(d.aniversario)) return toast('Aniversário no formato dd/mm', 'warn');
+      const c = rhCargo(d.cargoId);
+      const obj = { name: d.name, email: (d.email || '').toLowerCase(), celular: d.celular, ramal: d.ramal, aniversario: d.aniversario, sector: d.sector || (c && c.setor) || '', cargoId: d.cargoId, role: c ? c.nome : (u.role || ''), gestorId: d.gestorId, contrato: d.contrato || 'CLT', admissao: d.admissao, cnhValidade: d.cnhValidade };
+      const saved = editing ? Store.update('team', u.id, obj) : Store.add('team', { ...obj, situacao: 'ativo', vpn: false, engServer: false, machineId: '' });
+      toast(editing ? 'Colaborador atualizado' : 'Colaborador cadastrado'); closeModal();
+      if (onDone) onDone(saved); else go(currentRoute);
+    };
+  }
+
+  /* ---------- PAINEL ---------- */
+  PAGES['rh-painel'] = () => {
+    pageShell('RH', 'Painel do RH', 'Pessoas, movimentações, treinamentos, férias e frota em um só lugar.',
+      `<button class="btn" id="rhDesl">${ic('x')}Desligamento</button><button class="btn primary" id="rhAdm">${ic('userPlus')}Admissão</button>`);
+    $('#rhAdm').onclick = () => rhNovaMov('admissao');
+    $('#rhDesl').onclick = () => rhNovaMov('desligamento');
+    rhTreinos(); const setores = rhSetores();
+    const ativos = rhAtivos(), h = rhHoje(), ym = h.slice(0, 7);
+    const sits = ativos.map(rhSit);
+    const exp = ativos.filter((u) => rhSit(u) === 'experiencia');
+    const fora = ativos.filter((u) => ['ferias', 'afastado'].includes(rhSit(u)));
+    const adm = rhList('team').filter((u) => (u.admissao || '').slice(0, 7) === ym);
+    const des = rhList('team').filter((u) => (u.desligamento || '').slice(0, 7) === ym);
+    const des12 = rhList('team').filter((u) => u.desligamento && rhDias(u.desligamento, h) <= 365);
+    const turnover = ativos.length ? Math.round((100 * des12.length) / (ativos.length + des12.length / 2)) : 0;
+    // treinamentos exigidos em dia
+    let tOk = 0, tTot = 0; const tCount = { ok: 0, vencendo: 0, vencido: 0, faltando: 0 };
+    ativos.forEach((u) => { const r = rhTreinoResumo(u); tOk += r.ok + r.vencendo; tTot += r.total; Object.keys(tCount).forEach((k) => (tCount[k] += r[k])); });
+    const pctT = tTot ? Math.round((100 * tOk) / tTot) : 100;
+    // mostrador por setor
+    const bySet = {}; ativos.forEach((u) => { const s = u.sector || 'Sem setor'; bySet[s] = (bySet[s] || 0) + 1; });
+    let segs = Object.entries(bySet).sort((a, b) => b[1] - a[1]).map(([l, n], i) => ({ k: 's' + i, l, n, c: RH_PAL[i % RH_PAL.length] }));
+    if (segs.length > 6) { const rest = segs.slice(5).reduce((a, x) => a + x.n, 0); segs = segs.slice(0, 5).concat([{ k: 'out', l: 'Outros', n: rest, c: '#94A3B8' }]); }
+    // agenda dos próximos 30 dias
+    const ag = [];
+    exp.forEach((u) => { const e = rhExperiencia(u); if (e && rhDias(h, e.vence) <= 15) ag.push({ d: e.vence, i: 'clock', c: '#3FA9F5', t: `Experiência de ${u.name} (${e.fase})`, s: 'Decidir se efetiva', go: () => rhOpenPessoa(u.id) }); });
+    ativos.forEach((u) => rhExigidos(u).forEach((t) => { const st = rhTreinoSt(u.id, t); const tr = Store.find('rhTreinos', t); if (tr && (st.st === 'vencendo' || st.st === 'vencido')) ag.push({ d: st.r.validade, i: 'award', c: st.st === 'vencido' ? '#FF7A7A' : '#F5B840', t: `${tr.nome} — ${u.name}`, s: st.st === 'vencido' ? 'Treinamento vencido' : 'Treinamento vencendo', go: () => navTo('rh-treinos') }); }));
+    rhList('rhAusencias').forEach((a) => { if (a.inicio >= h && rhDias(h, a.inicio) <= 30) ag.push({ d: a.inicio, i: (RH_AUS[a.tipo] || RH_AUS.ferias).i, c: (RH_AUS[a.tipo] || RH_AUS.ferias).c, t: `${(RH_AUS[a.tipo] || RH_AUS.ferias).l} de ${rhNome(a.colaboradorId)}`, s: `até ${fmtDate(a.fim || a.inicio)}`, go: () => navTo('rh-ferias') }); });
+    ativos.forEach((u) => { if (!u.aniversario) return; const [dd, mm] = u.aniversario.split('/'); let dt = `${h.slice(0, 4)}-${mm}-${dd}`; if (dt < h) dt = `${+h.slice(0, 4) + 1}-${mm}-${dd}`; if (rhDias(h, dt) <= 30) ag.push({ d: dt, i: 'sun2', c: '#F472B6', t: `Aniversário de ${u.name}`, s: u.sector || '', go: () => rhOpenPessoa(u.id) }); });
+    rhList('rhVeiculos').forEach((v) => [['licenciamento', 'Licenciamento'], ['seguro', 'Seguro'], ['revisaoData', 'Revisão']].forEach(([k, l]) => { const x = rhVenc(v[k]); if (x && x.d <= 30) ag.push({ d: v[k], i: 'car', c: x.st === 'vencido' ? '#FF7A7A' : '#F5B840', t: `${l} · ${v.placa}`, s: v.modelo || '', go: () => navTo('rh-veiculos') }); }));
+    rhList('team').forEach((u) => { if (u.cnhValidade && u.situacao !== 'desligado') { const x = rhVenc(u.cnhValidade); if (x && x.d <= 30) ag.push({ d: u.cnhValidade, i: 'car', c: x.st === 'vencido' ? '#FF7A7A' : '#F5B840', t: `CNH de ${u.name}`, s: x.st === 'vencido' ? 'vencida' : 'vencendo', go: () => rhOpenPessoa(u.id) }); } });
+    const movAb = rhList('rhMovs').filter((m) => m.status !== 'concluido');
+    ag.sort((a, b) => String(a.d).localeCompare(String(b.d)));
+    const MES = ['jan', 'fev', 'mar', 'abr', 'mai', 'jun', 'jul', 'ago', 'set', 'out', 'nov', 'dez'];
+
+    const el = document.createElement('section'); el.className = 'pvd rhd';
+    el.innerHTML = `
+      <div class="pvd-orbit">
+        <div class="pvd-dial">${qaDialSvg(segs, pctT)}
+          <div class="pvd-core"><b data-count="${ativos.length}">0</b><span>${ativos.length === 1 ? 'colaborador' : 'colaboradores'}</span><small><i class="pvd-dot ok"></i><em data-count="${pctT}" data-suf="%">0%</em> treinamentos em dia</small></div>
+        </div>
+        <div class="pvd-legend rhd-leg">${segs.slice(0, 6).map((x) => `<button type="button" data-set="${esc(x.l)}" style="--c:${x.c}"><i></i><span>${esc(x.l)}</span><b>${x.n}</b></button>`).join('')}</div>
+      </div>
+      <div class="pvd-side">
+        <div class="pvd-tiles">
+          <button type="button" class="pvd-tile t-ok" data-go="rh-movs"><span class="pvd-ti">${ic('userPlus')}</span><b data-count="${adm.length}">0</b><span>Admissões</span><small>neste mês</small></button>
+          <button type="button" class="pvd-tile t-danger" data-go="rh-movs"><span class="pvd-ti">${ic('x')}</span><b data-count="${des.length}">0</b><span>Desligamentos</span><small>neste mês</small></button>
+          <div class="pvd-tile t-info"><span class="pvd-ti">${ic('refresh')}</span><b><em class="sv-core-n" data-count="${turnover}" data-suf="%">0%</em></b><span>Turnover</span><small>últimos 12 meses</small></div>
+          <button type="button" class="pvd-tile t-warn" data-go="rh-ferias"><span class="pvd-ti">${ic('sun2')}</span><b data-count="${fora.length}">0</b><span>Ausentes hoje</span><small>férias ou afastados</small></button>
+        </div>
+        <div class="pvd-trend rh-ag">
+          <div class="pvd-trend-h"><b>Agenda do RH <small>próximos 30 dias</small></b>${movAb.length ? `<span class="badge warn plain">${movAb.length} processo(s) em andamento</span>` : ''}</div>
+          ${ag.length ? `<div class="rh-ag-l">${ag.slice(0, 7).map((x, i) => { const d = new Date(x.d + 'T00:00:00'); return `<button type="button" class="rh-ag-r" data-ag="${i}" style="--c:${x.c}"><span class="rh-ag-d"><b>${String(d.getDate()).padStart(2, '0')}</b><small>${MES[d.getMonth()]}</small></span><span class="rh-ag-i">${ic(x.i)}</span><span class="rh-ag-t"><b>${esc(x.t)}</b><small>${esc(x.s)}</small></span></button>`; }).join('')}</div>`
+            : `<div class="qf-empty">${ic('check')}<span>Nada nos próximos 30 dias.</span></div>`}
+        </div>
+      </div>`;
+    view.appendChild(el); Icons.apply(el);
+    $$('[data-ag]', el).forEach((b) => (b.onclick = () => ag[+b.dataset.ag].go()));
+    $$('[data-go]', el).forEach((b) => (b.onclick = () => navTo(b.dataset.go)));
+    $$('[data-set]', el).forEach((b) => (b.onclick = () => { rhFilt.setor = b.dataset.set === 'Outros' ? '' : b.dataset.set; navTo('rh-colab'); }));
+
+    // segunda linha: contrato (3D), admissões x desligamentos (12 meses), treinamentos
+    const contr = RH_CONTRATOS.map((c, i) => ({ k: c, l: c, n: ativos.filter((u) => (u.contrato || 'CLT') === c).length, c: RH_PAL[i] })).filter((x) => x.n);
+    const meses = []; const d0 = new Date(); d0.setDate(1);
+    for (let i = 11; i >= 0; i--) { const d = new Date(d0.getFullYear(), d0.getMonth() - i, 1); meses.push({ k: d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0'), l: MES[d.getMonth()], y: d.getFullYear() }); }
+    meses.forEach((m) => { m.a = rhList('team').filter((u) => (u.admissao || '').slice(0, 7) === m.k).length; m.dd = rhList('team').filter((u) => (u.desligamento || '').slice(0, 7) === m.k).length; });
+    const mx = Math.max(1, ...meses.map((m) => Math.max(m.a, m.dd))); const W = 520, H = 150, bw = W / 12;
+    const bars = meses.map((m, i) => { const x = i * bw + bw * 0.16, w = bw * 0.32; const bar = (v, xx, col) => { const hh = (v / mx) * (H - 22); return v ? `<rect x="${xx.toFixed(1)}" y="${(H - hh).toFixed(1)}" width="${w.toFixed(1)}" height="${hh.toFixed(1)}" rx="3" fill="${col}"/><text x="${(xx + w / 2).toFixed(1)}" y="${(H - hh - 5).toFixed(1)}">${v}</text>` : `<rect x="${xx.toFixed(1)}" y="${H - 2}" width="${w.toFixed(1)}" height="2" rx="1" class="qad-zero"/>`; }; return `<g class="qad-bar" style="--d:${300 + i * 45}ms">${bar(m.a, x, '#46D39A')}${bar(m.dd, x + w + bw * 0.04, '#FF7A7A')}</g>`; }).join('');
+    const tt = Object.values(tCount).reduce((a, b) => a + b, 0);
+    const an = document.createElement('section'); an.className = 'pvp-an pvd';
+    an.innerHTML = `
+      <div class="pvp-card" style="--d:0ms"><div class="pvp-card-h"><b>Tipo de contrato</b><span>${ativos.length} ativos</span></div><div class="pc-3d-b" id="rh3d"></div></div>
+      <div class="pvp-card" style="--d:80ms"><div class="pvp-card-h"><b>Admissões x desligamentos</b><span><i class="pvd-dot c"></i> admissões · <i class="pvd-dot" style="background:#FF7A7A"></i> desligamentos</span></div>
+        <svg class="pvd-spark qad-bars" viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" aria-hidden="true">${[0.25, 0.5, 0.75].map((f) => `<line class="pvd-grid" x1="0" x2="${W}" y1="${(H * f).toFixed(1)}" y2="${(H * f).toFixed(1)}"/>`).join('')}${bars}</svg>
+        <div class="qad-axis">${meses.map((m, i) => `<span>${m.l}${i === 0 || m.l === 'jan' ? `<small>${String(m.y).slice(2)}</small>` : ''}</span>`).join('')}</div></div>
+      <div class="pvp-card" style="--d:160ms"><div class="pvp-card-h"><b>Treinamentos exigidos</b><span>${tt} no total</span></div>
+        ${tt ? `<div class="qband-bar pvp-pbar">${['ok', 'vencendo', 'vencido', 'faltando'].filter((k) => tCount[k]).map((k, i) => `<i style="--w:${(100 * tCount[k]) / tt}%;--c:${RH_TST[k].c};--d:${300 + i * 120}ms"></i>`).join('')}</div>
+          <div class="pvp-proc">${['ok', 'vencendo', 'vencido', 'faltando'].map((k) => `<div style="--c:${RH_TST[k].c}"><i></i><span><b>${RH_TST[k].l}</b><small>${{ ok: 'dentro da validade', vencendo: 'vencem em até 30 dias', vencido: 'fora da validade', faltando: 'exigido pelo cargo e não feito' }[k]}</small></span><em>${tCount[k]}</em><small class="pc">${Math.round((100 * tCount[k]) / tt)}%</small></div>`).join('')}</div>`
+          : `<div class="qf-empty">${ic('award')}<span>Defina os treinamentos exigidos em Cargos & setores.</span></div>`}
+      </div>`;
+    view.appendChild(an); Icons.apply(an);
+    const c3 = pie3d(contr, { center: { v: ativos.length, l: 'ativos' } }); $('#rh3d', an).appendChild(c3); $('#rh3d', an).appendChild(pie3dLegend(c3, contr));
+    requestAnimationFrame(() => requestAnimationFrame(() => { el.classList.add('in'); an.classList.add('in'); pvCountUp(el); pvCountUp(an); }));
+  };
+
+  /* ---------- COLABORADORES ---------- */
+  const rhFilt = { st: 'ativos', q: '', setor: '' };
+  let rhPessoaId = null; try { rhPessoaId = sessionStorage.getItem('rh_pessoa') || null; } catch (e) {}
+  function rhOpenPessoa(id) { rhPessoaId = id; try { sessionStorage.setItem('rh_pessoa', id); } catch (e) {} go('rh-pessoa'); }
+
+  PAGES['rh-colab'] = () => {
+    pageShell('RH', 'Colaboradores', 'Cadastro único de pessoas da Convergas — usado também pela T.I. e pelo controle de EPI.',
+      `<button class="btn" id="rhNovo">${ic('plus')}Cadastro rápido</button><button class="btn primary" id="rhAdm">${ic('userPlus')}Admissão</button>`);
+    $('#rhNovo').onclick = () => rhFormPessoa(null);
+    $('#rhAdm').onclick = () => rhNovaMov('admissao');
+    const all = rhPessoas(); const setores = rhSetores();
+    const grp = { ativos: (u) => u.situacao !== 'desligado', experiencia: (u) => rhSit(u) === 'experiencia', fora: (u) => ['ferias', 'afastado'].includes(rhSit(u)), desligados: (u) => u.situacao === 'desligado', todos: () => true };
+    const tabs = [['ativos', 'Ativos'], ['experiencia', 'Em experiência'], ['fora', 'Férias / afastados'], ['desligados', 'Desligados'], ['todos', 'Todos']];
+    const tb = document.createElement('div'); tb.className = 'pvf';
+    tb.innerHTML = `<div class="pvf-tabs" id="rhTabs"><span class="pvf-thumb"></span>${tabs.map(([k, l]) => `<button data-s="${k}" class="${rhFilt.st === k ? 'on' : ''}">${l}<span class="pvf-n">${all.filter(grp[k]).length}</span></button>`).join('')}</div>
+      <div class="pvf-row"><label class="pvf-search">${ic('search')}<input id="rhQ" placeholder="Buscar nome, cargo, e-mail…" value="${esc(rhFilt.q)}" autocomplete="off"><button type="button" class="pvf-x" id="rhQx" aria-label="Limpar busca">${ic('x')}</button></label>
+        <div class="pvf-ddw"><select id="rhSet" aria-label="Setor"><option value="">Todos os setores</option>${setores.map((s) => `<option value="${esc(s.nome)}" ${rhFilt.setor === s.nome ? 'selected' : ''}>${esc(s.nome)}</option>`).join('')}</select></div></div>
+      <div class="pvf-meta"><span id="rhMeta"></span></div>`;
+    view.appendChild(tb); Icons.apply(tb);
+    ccSelect($('#rhSet', tb), { icon: 'grid', search: true, cls: 'pvf-ccs', shortAll: 'Setor', minWidth: 240 });
+    const holder = document.createElement('div'); view.appendChild(holder);
+    const render = () => {
+      let l = all.filter(grp[rhFilt.st]);
+      if (rhFilt.setor) l = l.filter((u) => u.sector === rhFilt.setor);
+      if (rhFilt.q) { const q = rhFilt.q.toLowerCase(); l = l.filter((u) => [u.name, u.email, u.role, u.sector, (rhCargo(u.cargoId) || {}).nome].join(' ').toLowerCase().includes(q)); }
+      $('#rhMeta', tb).innerHTML = `<b>${l.length}</b> ${l.length === 1 ? 'pessoa' : 'pessoas'}`;
+      $('#rhQx', tb).classList.toggle('show', !!rhFilt.q);
+      holder.innerHTML = l.length ? `<div class="tbl-wrap"><table class="data rh-table"><thead><tr><th>Colaborador</th><th>Setor</th><th>Gestor</th><th>Tempo de casa</th><th>Treinamentos</th><th>Situação</th></tr></thead><tbody>${l.map((u) => {
+        const c = rhCargo(u.cargoId); const tr = rhTreinoResumo(u); const pend = tr.vencido + tr.faltando;
+        return `<tr data-p="${u.id}" class="pvx-tr"><td><div class="pvc-who">${rhAvatar(u.name)}<div><div class="cell-main">${esc(u.name)}</div><div class="cell-sub">${esc((c && c.nome) || u.role || 'Sem cargo')}</div></div></div></td>
+          <td>${u.sector ? `<span class="wz-cli-seg">${esc(u.sector)}</span>` : '<span class="pvx-muted">—</span>'}</td>
+          <td>${u.gestorId ? esc(rhNome(u.gestorId)) : '<span class="pvx-muted">—</span>'}</td>
+          <td><div class="cell-main">${esc(rhTempoCasa(u))}</div><div class="cell-sub">${u.admissao ? 'desde ' + fmtDate(u.admissao) : 'admissão não informada'}</div></td>
+          <td>${!tr.total ? '<span class="pvx-muted">—</span>' : pend ? `<span class="badge danger plain">${pend} pendente${pend > 1 ? 's' : ''}</span>` : tr.vencendo ? `<span class="badge warn plain">${tr.vencendo} vencendo</span>` : `<span class="badge ok plain">${tr.total}/${tr.total} em dia</span>`}</td>
+          <td>${rhSitBadge(u)}</td></tr>`;
+      }).join('')}</tbody></table></div>` : `<div class="tbl-wrap">${emptyState('users', all.length ? 'Ninguém neste filtro' : 'Nenhum colaborador', all.length ? 'Ajuste os filtros.' : 'Use "Admissão" para cadastrar com o checklist completo.')}</div>`;
+      Icons.apply(holder);
+      $$('tr[data-p]', holder).forEach((tr) => (tr.onclick = () => rhOpenPessoa(tr.dataset.p)));
+    };
+    const tabsEl = $('#rhTabs', tb);
+    $$('button', tabsEl).forEach((b) => (b.onclick = () => { rhFilt.st = b.dataset.s; $$('button', tabsEl).forEach((x) => x.classList.toggle('on', x === b)); tabsThumb(tabsEl); render(); }));
+    $('#rhSet', tb).onchange = (e) => { rhFilt.setor = e.target.value; render(); };
+    $('#rhQ', tb).oninput = (e) => { rhFilt.q = e.target.value; render(); };
+    $('#rhQx', tb).onclick = (e) => { e.preventDefault(); rhFilt.q = ''; $('#rhQ', tb).value = ''; render(); };
+    render(); tabsThumbInit(tabsEl, 'rh');
+  };
+
+  /* ---------- PERFIL DO COLABORADOR ---------- */
+  PAGES['rh-pessoa'] = () => {
+    const u = rhPessoaId && rhPessoa(rhPessoaId);
+    if (!u) { go('rh-colab'); return; }
+    rhTreinos();
+    const c = rhCargo(u.cargoId); const sit = rhSit(u); const e = rhExperiencia(u);
+    const tr = rhTreinoResumo(u);
+    const aus = rhList('rhAusencias').filter((a) => a.colaboradorId === u.id).sort((a, b) => String(b.inicio).localeCompare(String(a.inicio)));
+    const feriasAno = aus.filter((a) => a.tipo === 'ferias' && (a.inicio || '').slice(0, 4) === rhHoje().slice(0, 4)).reduce((s, a) => s + rhDias(a.inicio, a.fim || a.inicio) + 1, 0);
+    const epis = rhList('epiEntregas').filter((x) => x.funcionarioId === u.id);
+    const veics = rhList('rhVeiculos').filter((v) => v.responsavelId === u.id);
+    const movs = rhList('rhMovs').filter((m) => m.colaboradorId === u.id);
+    const subs = rhAtivos().filter((p) => p.gestorId === u.id);
+    pageShell('RH', u.name, `${(c && c.nome) || u.role || 'Sem cargo'}${u.sector ? ' · ' + u.sector : ''}`,
+      `<button class="btn" id="rpBack">${ic('chevron')}Colaboradores</button><button class="btn" id="rpEdit">${ic('edit')}Editar</button>${u.situacao !== 'desligado' ? `<button class="btn" id="rpDesl">${ic('x')}Desligar</button>` : ''}<button class="btn primary" id="rpTr">${ic('award')}Registrar treinamento</button>`);
+    $('#rpBack').onclick = () => go('rh-colab');
+    $('#rpEdit').onclick = () => rhFormPessoa(u, () => go('rh-pessoa'));
+    $('#rpTr').onclick = () => rhFormTreinoReg({ colabs: [u.id] }, () => go('rh-pessoa'));
+    const db = $('#rpDesl'); if (db) db.onclick = () => rhNovaMov('desligamento', u.id);
+    const line = (icn, v, href) => v ? `<div class="pc-ln">${ic(icn)}${href ? `<a href="${href}">${esc(v)}</a>` : `<span>${esc(v)}</span>`}</div>` : '';
+    const hero = document.createElement('section'); hero.className = 'pc-hero'; hero.style.setProperty('--h', pvHue(u.name));
+    hero.innerHTML = `
+      <div class="pc-id"><span class="pc-av">${esc(pvInitials(u.name))}</span>
+        <div class="pc-name"><b>${esc(u.name)}</b><span>${esc((c && c.nome) || u.role || 'Sem cargo')}${u.sector ? ' · ' + esc(u.sector) : ''}</span>
+          <div class="pc-chips">${rhSitBadge(u)}<span class="badge neutral plain">${esc(u.contrato || 'CLT')}</span>${e ? `<span class="badge info plain">Experiência até ${fmtDate(e.vence)}</span>` : ''}${u.gestorId ? `<span class="badge neutral plain">Gestor: ${esc(rhNome(u.gestorId))}</span>` : ''}</div></div></div>
+      <div class="pc-info">
+        ${line('mail', u.email, u.email ? 'mailto:' + u.email : '')}${line('phone', u.celular, u.celular ? 'tel:' + pvDig(u.celular) : '')}
+        ${line('phone', u.ramal ? 'Ramal ' + u.ramal : '')}${line('calendar', u.admissao ? 'Admissão em ' + fmtDate(u.admissao) : '')}
+        ${line('sun2', u.aniversario ? 'Aniversário ' + u.aniversario : '')}${line('x', u.situacao === 'desligado' && u.desligamento ? `Desligado em ${fmtDate(u.desligamento)}${u.motivoDesligamento ? ' · ' + u.motivoDesligamento : ''}` : '')}
+        ${line('monitor', u.machineId ? 'Máquina ' + u.machineId : '')}
+      </div>
+      <div class="pc-sat rh-casa"><span class="pc-sat-k">Tempo de casa</span><b>${esc(rhTempoCasa(u))}</b><small>${u.admissao ? 'desde ' + fmtDate(u.admissao) : 'admissão não informada'}</small></div>`;
+    view.appendChild(hero); Icons.apply(hero);
+    const tile = (cls, icn, v, l, s) => `<div class="pvd-tile ${cls}"><span class="pvd-ti">${ic(icn)}</span><b>${v}</b><span>${esc(l)}</span><small>${esc(s)}</small></div>`;
+    const tiles = document.createElement('section'); tiles.className = 'pc-tiles';
+    tiles.innerHTML = [
+      tile(tr.vencido + tr.faltando ? 't-danger' : 't-ok', 'award', tr.total ? `${tr.ok + tr.vencendo}/${tr.total}` : '—', 'Treinamentos em dia', tr.total ? (tr.vencido + tr.faltando ? `${tr.vencido + tr.faltando} pendente(s)` : 'todos válidos') : 'cargo sem exigências'),
+      tile('t-warn', 'clock', String(tr.vencendo), 'Vencendo', 'em até 30 dias'),
+      tile('t-info', 'sun2', String(feriasAno), 'Dias de férias', 'neste ano'),
+      tile('', 'shield', String(epis.length), 'EPIs entregues', 'ficha da Qualidade'),
+      tile('', 'car', veics.length ? veics.map((v) => v.placa).join(', ') : '—', 'Veículo', veics.length ? 'responsável' : 'nenhum'),
+      tile('', 'users', String(subs.length), 'Equipe', subs.length ? 'pessoas lideradas' : 'sem liderados'),
+    ].join('');
+    view.appendChild(tiles); Icons.apply(tiles);
+    // treinamentos exigidos + realizados
+    const regs = rhList('rhTreinoReg').filter((r) => r.colaboradorId === u.id);
+    const ids = Array.from(new Set(rhExigidos(u).concat(regs.map((r) => r.treinoId))));
+    const grid = document.createElement('section'); grid.className = 'rh-pgrid';
+    grid.innerHTML = `
+      <div class="pvp-card"><div class="pvp-card-h"><b>Treinamentos & competências</b><span>${c ? 'exigidos pelo cargo ' + esc(c.nome) : 'defina o cargo para ver as exigências'}</span></div>
+        ${ids.length ? `<div class="rh-tl">${ids.map((t) => { const T = Store.find('rhTreinos', t); if (!T) return ''; const st = rhTreinoSt(u.id, t); const req = rhExigidos(u).includes(t); const S = RH_TST[st.st];
+          return `<div class="rh-tr" style="--c:${S.c}"><i></i><span><b>${esc(T.nome)}</b><small>${st.r ? `Realizado em ${fmtDate(st.r.data)}${st.r.validade ? ' · válido até ' + fmtDate(st.r.validade) : ' · sem vencimento'}` : 'Ainda não realizado'}${req ? '' : ' · extra'}</small></span><span class="badge ${S.cls} plain">${S.l}</span></div>`; }).join('')}</div>`
+          : `<div class="qf-empty">${ic('award')}<span>Nenhum treinamento exigido ou registrado.</span></div>`}
+      </div>
+      <div class="pvp-card"><div class="pvp-card-h"><b>Férias & ausências</b><button type="button" class="btn sm" id="rpAus">${ic('plus')}Registrar</button></div>
+        ${aus.length ? `<div class="rh-tl">${aus.slice(0, 8).map((a) => { const T = RH_AUS[a.tipo] || RH_AUS.ferias; const n = rhDias(a.inicio, a.fim || a.inicio) + 1; return `<div class="rh-tr" style="--c:${T.c}"><i></i><span><b>${esc(T.l)}</b><small>${fmtDate(a.inicio)}${a.fim && a.fim !== a.inicio ? ' a ' + fmtDate(a.fim) : ''} · ${n} dia${n > 1 ? 's' : ''}</small></span>${a.inicio <= rhHoje() && (a.fim || a.inicio) >= rhHoje() ? '<span class="badge warn plain">agora</span>' : a.inicio > rhHoje() ? '<span class="badge info plain">programada</span>' : ''}</div>`; }).join('')}</div>`
+          : `<div class="qf-empty">${ic('sun2')}<span>Nenhum registro.</span></div>`}
+      </div>
+      <div class="pvp-card"><div class="pvp-card-h"><b>EPIs entregues</b><span>da ficha de EPI (Qualidade)</span></div>
+        ${epis.length ? `<div class="rh-tl">${epis.slice(0, 8).map((x) => { const st = certStatus(x.expiryDate); return `<div class="rh-tr" style="--c:${{ ok: '#46D39A', atencao: '#3FA9F5', vencendo: '#F5B840', vencido: '#FF7A7A', na: '#94A3B8' }[st.key]}"><i></i><span><b>${esc(x.epiName || (Store.find('epis', x.epiId) || {}).name || 'EPI')}</b><small>Entregue em ${fmtDate(x.deliveryDate)}${x.ca ? ' · CA ' + esc(x.ca) : ''}</small></span><span class="badge ${st.cls} plain">${esc(st.label)}</span></div>`; }).join('')}</div>`
+          : `<div class="qf-empty">${ic('shield')}<span>Nenhum EPI registrado para esta pessoa.</span></div>`}
+      </div>
+      <div class="pvp-card"><div class="pvp-card-h"><b>Movimentações</b><span>admissão e desligamento</span></div>
+        ${movs.length ? `<div class="rh-tl">${movs.map((m) => { const done = (m.checklist || []).filter((x) => x.done).length, tot = (m.checklist || []).length; return `<button type="button" class="rh-tr rh-trb" data-mov="${m.id}" style="--c:${m.tipo === 'admissao' ? '#46D39A' : '#FF7A7A'}"><i></i><span><b>${m.tipo === 'admissao' ? 'Admissão' : 'Desligamento'} · ${fmtDate(m.data)}</b><small>Checklist ${done}/${tot}${m.motivo ? ' · ' + esc(m.motivo) : ''}</small></span>${m.status === 'concluido' ? '<span class="badge ok plain">concluído</span>' : '<span class="badge warn plain">em andamento</span>'}</button>`; }).join('')}</div>`
+          : `<div class="qf-empty">${ic('refresh')}<span>Sem movimentações registradas.</span></div>`}
+      </div>`;
+    view.appendChild(grid); Icons.apply(grid);
+    $('#rpAus', grid).onclick = () => rhFormAus({ colaboradorId: u.id }, () => go('rh-pessoa'));
+    $$('[data-mov]', grid).forEach((b) => (b.onclick = () => rhVerMov(b.dataset.mov, () => go('rh-pessoa'))));
+  };
+
+  /* ---------- seleção múltipla de pessoas (chips com busca) ---------- */
+  function rhPickPeople(host, sel) {
+    const set = new Set(sel || []);
+    const ppl = rhAtivos();
+    host.innerHTML = `<div class="rh-pk"><label class="pvf-search rh-pk-q">${ic('search')}<input placeholder="Buscar pessoa…" autocomplete="off"></label>
+      <div class="rh-pk-acts"><button type="button" class="btn sm ghost" data-all>Todos</button><button type="button" class="btn sm ghost" data-none>Limpar</button><span class="rh-pk-n"></span></div>
+      <div class="rh-pk-l">${ppl.map((u) => `<button type="button" class="rh-pk-p${set.has(u.id) ? ' on' : ''}" data-id="${u.id}">${rhAvatar(u.name)}<span><b>${esc(u.name)}</b><small>${esc(u.sector || u.role || '')}</small></span><i>${ic('check')}</i></button>`).join('')}</div></div>`;
+    Icons.apply(host);
+    const n = () => { $('.rh-pk-n', host).textContent = set.size ? `${set.size} selecionada${set.size > 1 ? 's' : ''}` : 'ninguém selecionado'; };
+    $$('.rh-pk-p', host).forEach((b) => (b.onclick = () => { const id = b.dataset.id; set.has(id) ? set.delete(id) : set.add(id); b.classList.toggle('on', set.has(id)); n(); }));
+    $('input', host).oninput = (e) => { const q = e.target.value.toLowerCase(); $$('.rh-pk-p', host).forEach((b) => (b.hidden = q && !b.textContent.toLowerCase().includes(q))); };
+    $('[data-all]', host).onclick = () => $$('.rh-pk-p', host).forEach((b) => { if (!b.hidden) { set.add(b.dataset.id); b.classList.add('on'); } n(); });
+    $('[data-none]', host).onclick = () => { set.clear(); $$('.rh-pk-p', host).forEach((b) => b.classList.remove('on')); n(); };
+    n();
+    return () => Array.from(set);
+  }
+
+  /* =========================== CARGOS & SETORES =========================== */
+  let rhCargoTab = 'cargos';
+  function rhFormCargo(c) {
+    const editing = !!(c && c.id); c = c || { treinos: [] };
+    const tr = rhTreinos(); const set = new Set(c.treinos || []);
+    const card = modal({
+      title: editing ? 'Editar cargo' : 'Novo cargo', sub: 'Descrição de cargo e competências exigidas (IATF 7.2)',
+      body: `<div class="form-grid">
+          ${field('Nome do cargo', 'nome', c.nome, 'text', { ph: 'Ex.: Técnico de instalação' })}
+          <div class="field"><label>Setor</label><select name="setor"><option value="">Selecione</option>${rhSetores().map((s) => `<option ${c.setor === s.nome ? 'selected' : ''}>${esc(s.nome)}</option>`).join('')}</select></div>
+          ${field('Responsabilidades', 'descricao', c.descricao, 'textarea', { full: true, ph: 'O que a pessoa faz no dia a dia' })}
+          ${field('Requisitos (escolaridade, experiência)', 'requisitos', c.requisitos, 'textarea', { full: true, ph: 'Ex.: Técnico em mecânica; CNH B' })}
+        </div>
+        <div class="form-sec">${ic('award')}Treinamentos exigidos para o cargo</div>
+        <div class="rh-chk">${tr.map((t) => `<button type="button" class="rh-chk-i${set.has(t.id) ? ' on' : ''}" data-t="${t.id}"><i>${ic('check')}</i><span><b>${esc(t.nome)}</b><small>${esc(t.tipo)}${t.validadeMeses ? ' · reciclagem a cada ' + t.validadeMeses + ' meses' : ' · sem vencimento'}</small></span></button>`).join('')}</div>`,
+      footer: (editing ? `<button class="btn danger ghost" id="delBtn" style="margin-right:auto">${ic('trash')}Excluir</button>` : '') + submitFooter(editing),
+      wide: true,
+    });
+    ccSelect($('[name="setor"]', card), { icon: 'grid', search: true });
+    $$('.rh-chk-i', card).forEach((b) => (b.onclick = () => { const t = b.dataset.t; set.has(t) ? set.delete(t) : set.add(t); b.classList.toggle('on', set.has(t)); }));
+    const del = $('#delBtn', card);
+    if (del) del.onclick = () => { const n = rhList('team').filter((u) => u.cargoId === c.id).length; if (n) return toast(`${n} pessoa(s) usam este cargo — troque o cargo delas antes`, 'warn'); confirmDialog(`Excluir o cargo "${c.nome}"?`, () => { Store.remove('rhCargos', c.id); toast('Cargo excluído', 'info'); go(currentRoute); }); };
+    $('#saveBtn', card).onclick = () => {
+      const d = readForm(card); if (!d.nome) return toast('Informe o nome do cargo', 'warn');
+      const obj = { nome: d.nome, setor: d.setor, descricao: d.descricao, requisitos: d.requisitos, treinos: Array.from(set) };
+      if (editing) { Store.update('rhCargos', c.id, obj); rhList('team').filter((u) => u.cargoId === c.id && u.role !== d.nome).forEach((u) => Store.update('team', u.id, { role: d.nome })); }
+      else Store.add('rhCargos', obj);
+      toast(editing ? 'Cargo atualizado' : 'Cargo criado'); closeModal(); go(currentRoute);
+    };
+  }
+  function rhFormSetor(s) {
+    const editing = !!(s && s.id); s = s || {};
+    const card = modal({
+      title: editing ? 'Editar setor' : 'Novo setor', sub: 'Setores organizam pessoas, cargos e o organograma',
+      body: `<div class="form-grid">${field('Nome do setor', 'nome', s.nome, 'text', { full: true, ph: 'Ex.: Engenharia' })}
+        <div class="field full"><label>Responsável</label><select name="responsavelId"><option value="">Sem responsável</option>${rhAtivos().map((u) => `<option value="${u.id}" ${s.responsavelId === u.id ? 'selected' : ''}>${esc(u.name)}</option>`).join('')}</select></div></div>`,
+      footer: (editing ? `<button class="btn danger ghost" id="delBtn" style="margin-right:auto">${ic('trash')}Excluir</button>` : '') + submitFooter(editing),
+    });
+    ccSelect($('[name="responsavelId"]', card), { icon: 'users', search: true });
+    const del = $('#delBtn', card);
+    if (del) del.onclick = () => { const n = rhList('team').filter((u) => u.sector === s.nome && u.situacao !== 'desligado').length; if (n) return toast(`${n} pessoa(s) estão neste setor — mude o setor delas antes`, 'warn'); confirmDialog(`Excluir o setor "${s.nome}"?`, () => { Store.remove('rhSetores', s.id); toast('Setor excluído', 'info'); go(currentRoute); }); };
+    $('#saveBtn', card).onclick = () => {
+      const d = readForm(card); if (!d.nome) return toast('Informe o nome do setor', 'warn');
+      if (rhSetores().some((x) => x.nome.toLowerCase() === d.nome.toLowerCase() && x.id !== s.id)) return toast('Já existe um setor com esse nome', 'warn');
+      if (editing) {
+        if (d.nome !== s.nome) { rhList('team').filter((u) => u.sector === s.nome).forEach((u) => Store.update('team', u.id, { sector: d.nome })); rhList('rhCargos').filter((c) => c.setor === s.nome).forEach((c) => Store.update('rhCargos', c.id, { setor: d.nome })); }
+        Store.update('rhSetores', s.id, { nome: d.nome, responsavelId: d.responsavelId });
+      } else Store.add('rhSetores', { id: 'rs_' + rhSlug(d.nome), nome: d.nome, responsavelId: d.responsavelId });
+      toast(editing ? 'Setor atualizado' : 'Setor criado'); closeModal(); go(currentRoute);
+    };
+  }
+  PAGES['rh-cargos'] = () => {
+    pageShell('RH', 'Cargos & setores', 'Estrutura da empresa: setores, cargos com as competências exigidas e o organograma.',
+      `<button class="btn" id="rhNs">${ic('plus')}Setor</button><button class="btn primary" id="rhNc">${ic('briefcase')}Novo cargo</button>`);
+    $('#rhNs').onclick = () => rhFormSetor(null);
+    $('#rhNc').onclick = () => rhFormCargo(null);
+    const setores = rhSetores(), cargos = rhList('rhCargos').slice().sort((a, b) => a.nome.localeCompare(b.nome)), ativos = rhAtivos();
+    const tabs = [['cargos', 'Cargos', cargos.length], ['setores', 'Setores', setores.length], ['org', 'Organograma', ativos.length]];
+    const tb = document.createElement('div'); tb.className = 'pvf';
+    tb.innerHTML = `<div class="pvf-tabs" id="rcTabs"><span class="pvf-thumb"></span>${tabs.map(([k, l, n]) => `<button data-s="${k}" class="${rhCargoTab === k ? 'on' : ''}">${l}<span class="pvf-n">${n}</span></button>`).join('')}</div>`;
+    view.appendChild(tb);
+    const holder = document.createElement('div'); view.appendChild(holder);
+    const render = () => {
+      if (rhCargoTab === 'cargos') {
+        holder.innerHTML = cargos.length ? `<div class="rh-cards">${cargos.map((c, i) => { const ppl = ativos.filter((u) => u.cargoId === c.id); const tr = (c.treinos || []).map((t) => Store.find('rhTreinos', t)).filter(Boolean);
+          return `<button type="button" class="rh-card" data-c="${c.id}" style="--d:${i * 40}ms;--c:${RH_PAL[setores.findIndex((s) => s.nome === c.setor) % RH_PAL.length] || RH_COR}">
+            <span class="rh-card-h"><span class="rh-card-ic">${ic('briefcase')}</span><span><b>${esc(c.nome)}</b><small>${esc(c.setor || 'Sem setor')}</small></span></span>
+            ${c.descricao ? `<span class="rh-card-d">${esc(c.descricao)}</span>` : ''}
+            <span class="rh-card-tags">${tr.length ? tr.slice(0, 4).map((t) => `<em>${esc(t.nome.split(' · ')[0])}</em>`).join('') + (tr.length > 4 ? `<em>+${tr.length - 4}</em>` : '') : '<em class="mut">Nenhum treinamento exigido</em>'}</span>
+            <span class="rh-card-f"><span class="rh-stack">${ppl.slice(0, 4).map((u) => rhAvatar(u.name)).join('')}</span><small>${ppl.length} ${ppl.length === 1 ? 'pessoa' : 'pessoas'}</small></span></button>`; }).join('')}</div>`
+          : `<div class="tbl-wrap">${emptyState('briefcase', 'Nenhum cargo cadastrado', 'Crie os cargos e marque os treinamentos que cada um exige — a matriz de competências se monta sozinha.')}</div>`;
+        $$('[data-c]', holder).forEach((b) => (b.onclick = () => rhFormCargo(Store.find('rhCargos', b.dataset.c))));
+      } else if (rhCargoTab === 'setores') {
+        holder.innerHTML = `<div class="rh-cards">${setores.map((s, i) => { const ppl = ativos.filter((u) => u.sector === s.nome); const nc = cargos.filter((c) => c.setor === s.nome).length;
+          return `<button type="button" class="rh-card" data-s="${s.id}" style="--d:${i * 40}ms;--c:${RH_PAL[i % RH_PAL.length]}">
+            <span class="rh-card-h"><span class="rh-card-ic">${ic('grid')}</span><span><b>${esc(s.nome)}</b><small>${s.responsavelId ? 'Responsável: ' + esc(rhNome(s.responsavelId)) : 'Sem responsável definido'}</small></span></span>
+            <span class="rh-card-kpis"><span><b>${ppl.length}</b><small>pessoas</small></span><span><b>${nc}</b><small>cargos</small></span></span>
+            <span class="rh-card-f"><span class="rh-stack">${ppl.slice(0, 6).map((u) => rhAvatar(u.name)).join('')}</span></span></button>`; }).join('')}</div>`;
+        $$('[data-s]', holder).forEach((b) => (b.onclick = () => rhFormSetor(Store.find('rhSetores', b.dataset.s))));
+      } else {
+        const ids = new Set(ativos.map((u) => u.id));
+        const kids = (id) => ativos.filter((u) => u.gestorId === id);
+        const roots = ativos.filter((u) => !u.gestorId || !ids.has(u.gestorId));
+        const lideres = roots.filter((u) => kids(u.id).length), soltos = roots.filter((u) => !kids(u.id).length);
+        const node = (u, depth) => { const k = kids(u.id); if (depth > 8) return ''; return `<li><button type="button" class="rh-org-n" data-p="${u.id}">${rhAvatar(u.name)}<span><b>${esc(u.name)}</b><small>${esc((rhCargo(u.cargoId) || {}).nome || u.role || u.sector || '')}</small></span>${k.length ? `<em>${k.length}</em>` : ''}</button>${k.length ? `<ul>${k.map((x) => node(x, depth + 1)).join('')}</ul>` : ''}</li>`; };
+        holder.innerHTML = `<div class="pvp-card rh-org">${lideres.length ? `<ul class="rh-org-t">${lideres.map((u) => node(u, 0)).join('')}</ul>` : `<div class="qf-empty">${ic('users')}<span>Defina o <b>gestor imediato</b> de cada pessoa (em Colaboradores → Editar) para montar o organograma.</span></div>`}
+          ${soltos.length ? `<div class="rh-org-s"><span class="sv-msg-h">Sem gestor definido · ${soltos.length}</span><div class="rh-org-sl">${soltos.map((u) => `<button type="button" class="rh-org-n" data-p="${u.id}">${rhAvatar(u.name)}<span><b>${esc(u.name)}</b><small>${esc(u.sector || '')}</small></span></button>`).join('')}</div></div>` : ''}</div>`;
+        $$('[data-p]', holder).forEach((b) => (b.onclick = () => rhOpenPessoa(b.dataset.p)));
+      }
+      Icons.apply(holder);
+    };
+    const tabsEl = $('#rcTabs', tb); Icons.apply(tb);
+    $$('button', tabsEl).forEach((b) => (b.onclick = () => { rhCargoTab = b.dataset.s; $$('button', tabsEl).forEach((x) => x.classList.toggle('on', x === b)); tabsThumb(tabsEl); render(); }));
+    render(); tabsThumbInit(tabsEl, 'rhc');
+  };
+
+  /* =========================== TREINAMENTOS & COMPETÊNCIAS =========================== */
+  let rhTreinoTab = 'matriz';
+  function rhFormTreino(t) {
+    const editing = !!(t && t.id); t = t || {};
+    const card = modal({
+      title: editing ? 'Editar treinamento' : 'Novo treinamento', sub: 'Catálogo de treinamentos',
+      body: `<div class="form-grid">${field('Nome', 'nome', t.nome, 'text', { full: true, ph: 'Ex.: NR-35 · Trabalho em altura' })}
+        <div class="field"><label>Tipo</label><select name="tipo">${RH_TIPOS_TREINO.map((x) => `<option ${t.tipo === x ? 'selected' : ''}>${esc(x)}</option>`).join('')}</select></div>
+        ${field('Carga horária (h)', 'cargaHoras', t.cargaHoras, 'number', { ph: '8' })}
+        <div class="field full"><label>Reciclagem</label><select name="validadeMeses">${[['0', 'Não vence'], ['6', 'A cada 6 meses'], ['12', 'A cada 12 meses'], ['24', 'A cada 24 meses'], ['36', 'A cada 36 meses']].map(([v, l]) => `<option value="${v}" ${String(t.validadeMeses || 0) === v ? 'selected' : ''}>${l}</option>`).join('')}</select><span class="hint">Define a validade de cada registro e os avisos de vencimento.</span></div></div>`,
+      footer: (editing ? `<button class="btn danger ghost" id="delBtn" style="margin-right:auto">${ic('trash')}Excluir</button>` : '') + submitFooter(editing),
+    });
+    ccSelect($('[name="tipo"]', card), { icon: 'award' }); ccSelect($('[name="validadeMeses"]', card), { icon: 'refresh' });
+    const del = $('#delBtn', card);
+    if (del) del.onclick = () => confirmDialog(`Excluir "${t.nome}" do catálogo? Os registros já feitos continuam no histórico.`, () => { Store.remove('rhTreinos', t.id); rhList('rhCargos').filter((c) => (c.treinos || []).includes(t.id)).forEach((c) => Store.update('rhCargos', c.id, { treinos: c.treinos.filter((x) => x !== t.id) })); toast('Treinamento excluído', 'info'); go(currentRoute); });
+    $('#saveBtn', card).onclick = () => {
+      const d = readForm(card); if (!d.nome) return toast('Informe o nome', 'warn');
+      const obj = { nome: d.nome, tipo: d.tipo, cargaHoras: Number(d.cargaHoras) || 0, validadeMeses: Number(d.validadeMeses) || 0 };
+      if (editing) Store.update('rhTreinos', t.id, obj); else Store.add('rhTreinos', obj);
+      toast(editing ? 'Treinamento atualizado' : 'Treinamento criado'); closeModal(); go(currentRoute);
+    };
+  }
+  function rhFormTreinoReg(pre, onDone) {
+    pre = pre || {}; const tr = rhTreinos();
+    const card = modal({
+      title: 'Registrar treinamento', sub: 'Registre a turma inteira de uma vez — cada pessoa recebe o registro',
+      body: `<div class="form-grid">
+          <div class="field full"><label>Treinamento</label><select name="treinoId">${tr.map((t) => `<option value="${t.id}" ${pre.treinoId === t.id ? 'selected' : ''}>${esc(t.nome)}</option>`).join('')}</select></div>
+          ${field('Data de realização', 'data', todayISO(), 'date')}
+          ${field('Instrutor / instituição', 'instrutor', '', 'text', { ph: 'Ex.: SENAI, interno…' })}
+          <div class="field"><label>Avaliação de eficácia</label><select name="eficacia"><option value="pendente">A avaliar</option><option value="eficaz">Eficaz</option><option value="nao">Não eficaz — reciclar</option></select></div>
+          ${field('Observações', 'obs', '', 'text', { ph: 'Opcional' })}
+        </div>
+        <p class="sv-note" id="rtVal"></p>
+        <div class="form-sec">${ic('users')}Participantes</div><div id="rtPk"></div>`,
+      footer: submitFooter(false), wide: true,
+    });
+    ccSelect($('[name="treinoId"]', card), { icon: 'award', search: true }); ccSelect($('[name="eficacia"]', card), { icon: 'check' });
+    const pick = rhPickPeople($('#rtPk', card), pre.colabs);
+    const val = () => { const t = Store.find('rhTreinos', $('[name="treinoId"]', card).value); const d = $('[name="data"]', card).value; $('#rtVal', card).innerHTML = `${ic('clock')}<span>${t && t.validadeMeses && d ? `Válido até <b>${fmtDate(rhAddMeses(d, t.validadeMeses))}</b> (reciclagem a cada ${t.validadeMeses} meses).` : 'Este treinamento não vence.'}</span>`; Icons.apply($('#rtVal', card)); };
+    $('[name="treinoId"]', card).addEventListener('change', val); $('[name="data"]', card).addEventListener('change', val); val();
+    $('#saveBtn', card).innerHTML = `${ic('check')}Registrar`; Icons.apply($('#saveBtn', card));
+    $('#saveBtn', card).onclick = () => {
+      const d = readForm(card); const ids = pick(); const t = Store.find('rhTreinos', d.treinoId);
+      if (!t) return toast('Escolha o treinamento', 'warn'); if (!d.data) return toast('Informe a data', 'warn'); if (!ids.length) return toast('Selecione ao menos um participante', 'warn');
+      const turma = 'tu_' + Date.now().toString(36);
+      ids.forEach((id) => Store.add('rhTreinoReg', { treinoId: t.id, colaboradorId: id, data: d.data, validade: t.validadeMeses ? rhAddMeses(d.data, t.validadeMeses) : '', instrutor: d.instrutor, cargaHoras: t.cargaHoras, eficacia: d.eficacia, obs: d.obs, turmaId: turma }));
+      toast(`${ids.length} registro(s) de "${t.nome}" salvos`); closeModal(); if (onDone) onDone(); else go(currentRoute);
+    };
+  }
+  PAGES['rh-treinos'] = () => {
+    pageShell('RH', 'Treinamentos & competências', 'Matriz de competências por pessoa, catálogo e histórico — evidência para a IATF 16949 (7.2).',
+      `<button class="btn" id="rtNovo">${ic('plus')}Treinamento</button><button class="btn primary" id="rtReg">${ic('award')}Registrar treinamento</button>`);
+    $('#rtNovo').onclick = () => rhFormTreino(null);
+    $('#rtReg').onclick = () => rhFormTreinoReg({});
+    const tr = rhTreinos(), ativos = rhAtivos(), regs = rhList('rhTreinoReg').slice().sort((a, b) => String(b.data).localeCompare(String(a.data)));
+    const tabs = [['matriz', 'Matriz', ativos.length], ['catalogo', 'Catálogo', tr.length], ['registros', 'Registros', regs.length]];
+    const tb = document.createElement('div'); tb.className = 'pvf';
+    tb.innerHTML = `<div class="pvf-tabs" id="rtTabs"><span class="pvf-thumb"></span>${tabs.map(([k, l, n]) => `<button data-s="${k}" class="${rhTreinoTab === k ? 'on' : ''}">${l}<span class="pvf-n">${n}</span></button>`).join('')}</div>`;
+    view.appendChild(tb);
+    const holder = document.createElement('div'); view.appendChild(holder);
+    const render = () => {
+      if (rhTreinoTab === 'matriz') {
+        const cols = tr.filter((t) => ativos.some((u) => rhExigidos(u).includes(t.id)) || regs.some((r) => r.treinoId === t.id));
+        holder.innerHTML = cols.length && ativos.length ? `<div class="rh-mx-leg">${['ok', 'vencendo', 'vencido', 'faltando'].map((k) => `<span style="--c:${RH_TST[k].c}"><i></i>${RH_TST[k].l}</span>`).join('')}<span class="x"><i></i>Não exigido</span></div>
+          <div class="tbl-wrap rh-mx-w"><table class="data rh-mx"><thead><tr><th>Colaborador</th>${cols.map((t) => `<th title="${esc(t.nome)}"><span>${esc(t.nome.split(' · ')[0])}</span></th>`).join('')}<th>Em dia</th></tr></thead><tbody>${ativos.map((u) => { const ex = rhExigidos(u); const r = rhTreinoResumo(u);
+            return `<tr><td><button type="button" class="pvc-who rh-mx-who" data-p="${u.id}">${rhAvatar(u.name)}<div><div class="cell-main">${esc(u.name)}</div><div class="cell-sub">${esc((rhCargo(u.cargoId) || {}).nome || u.role || '—')}</div></div></button></td>${cols.map((t) => { const st = rhTreinoSt(u.id, t.id); const req = ex.includes(t.id); const k = req ? st.st : st.r ? st.st : 'x';
+              return `<td><span class="rh-mx-c ${k === 'x' ? 'x' : ''}" style="--c:${k === 'x' ? 'transparent' : RH_TST[k].c}" title="${esc(t.nome)} — ${k === 'x' ? 'não exigido' : RH_TST[k].l}${st.r && st.r.validade ? ' · até ' + fmtDate(st.r.validade) : ''}">${k === 'ok' ? ic('check') : k === 'x' ? '' : k === 'vencendo' ? ic('clock') : ic('x')}</span></td>`; }).join('')}
+              <td>${r.total ? `<b class="rh-mx-p" style="--c:${r.vencido + r.faltando ? '#FF7A7A' : '#46D39A'}">${Math.round((100 * (r.ok + r.vencendo)) / r.total)}%</b>` : '<span class="pvx-muted">—</span>'}</td></tr>`; }).join('')}</tbody></table></div>`
+          : `<div class="tbl-wrap">${emptyState('award', 'Matriz vazia', 'Em Cargos & setores, marque os treinamentos que cada cargo exige e vincule as pessoas aos cargos.')}</div>`;
+      } else if (rhTreinoTab === 'catalogo') {
+        holder.innerHTML = `<div class="rh-cards">${tr.map((t, i) => { const quem = new Set(regs.filter((r) => r.treinoId === t.id).map((r) => r.colaboradorId)).size; const exige = rhList('rhCargos').filter((c) => (c.treinos || []).includes(t.id)).length;
+          return `<button type="button" class="rh-card" data-t="${t.id}" style="--d:${i * 40}ms;--c:${RH_PAL[RH_TIPOS_TREINO.indexOf(t.tipo) % RH_PAL.length] || RH_COR}">
+            <span class="rh-card-h"><span class="rh-card-ic">${ic('award')}</span><span><b>${esc(t.nome)}</b><small>${esc(t.tipo || '')}</small></span></span>
+            <span class="rh-card-kpis"><span><b>${t.cargaHoras || 0}h</b><small>carga</small></span><span><b>${t.validadeMeses ? t.validadeMeses + 'm' : '—'}</b><small>reciclagem</small></span><span><b>${quem}</b><small>treinados</small></span><span><b>${exige}</b><small>cargos</small></span></span></button>`; }).join('')}</div>`;
+        $$('[data-t]', holder).forEach((b) => (b.onclick = () => rhFormTreino(Store.find('rhTreinos', b.dataset.t))));
+      } else {
+        const EF = { eficaz: ['ok', 'Eficaz'], nao: ['danger', 'Não eficaz'], pendente: ['neutral', 'A avaliar'] };
+        holder.innerHTML = regs.length ? `<div class="tbl-wrap"><table class="data"><thead><tr><th>Treinamento</th><th>Colaborador</th><th>Realizado</th><th>Validade</th><th>Eficácia</th><th></th></tr></thead><tbody>${regs.map((r) => { const t = Store.find('rhTreinos', r.treinoId) || { nome: 'Treinamento removido' }; const v = rhVenc(r.validade); const ef = EF[r.eficacia] || EF.pendente;
+          return `<tr><td><div class="cell-main">${esc(t.nome)}</div><div class="cell-sub">${esc(r.instrutor || 'Instrutor não informado')}${r.cargaHoras ? ' · ' + r.cargaHoras + 'h' : ''}</div></td><td>${esc(rhNome(r.colaboradorId))}</td><td>${fmtDate(r.data)}</td>
+            <td>${r.validade ? `<span class="badge ${v.st === 'vencido' ? 'danger' : v.st === 'vencendo' ? 'warn' : 'ok'} plain">${fmtDate(r.validade)}</span>` : '<span class="pvx-muted">não vence</span>'}</td>
+            <td><button type="button" class="badge ${ef[0]} plain rh-ef" data-ef="${r.id}" title="Alterar avaliação">${ef[1]}</button></td>
+            <td class="row-actions"><button class="icon-btn" data-del="${r.id}" title="Excluir">${ic('trash')}</button></td></tr>`; }).join('')}</tbody></table></div>`
+          : `<div class="tbl-wrap">${emptyState('award', 'Nenhum treinamento registrado', 'Use "Registrar treinamento" para lançar uma turma.')}</div>`;
+        $$('[data-ef]', holder).forEach((b) => (b.onclick = () => { const r = Store.find('rhTreinoReg', b.dataset.ef); const nx = { pendente: 'eficaz', eficaz: 'nao', nao: 'pendente' }[r.eficacia || 'pendente']; Store.update('rhTreinoReg', r.id, { eficacia: nx }); render(); }));
+        $$('[data-del]', holder).forEach((b) => (b.onclick = () => confirmDialog('Excluir este registro de treinamento?', () => { Store.remove('rhTreinoReg', b.dataset.del); toast('Registro excluído', 'info'); go(currentRoute); })));
+      }
+      Icons.apply(holder);
+      $$('[data-p]', holder).forEach((b) => (b.onclick = () => rhOpenPessoa(b.dataset.p)));
+    };
+    const tabsEl = $('#rtTabs', tb);
+    $$('button', tabsEl).forEach((b) => (b.onclick = () => { rhTreinoTab = b.dataset.s; $$('button', tabsEl).forEach((x) => x.classList.toggle('on', x === b)); tabsThumb(tabsEl); render(); }));
+    render(); tabsThumbInit(tabsEl, 'rht');
+  };
+
+  /* =========================== ADMISSÃO / DESLIGAMENTO =========================== */
+  const RH_CK_ADM = ['Documentos pessoais recebidos', 'Exame admissional (ASO) realizado', 'Registro no eSocial / carteira de trabalho', 'Conta de e-mail e acessos criados (T.I.)', 'Computador / equipamentos entregues', 'EPIs entregues com ficha assinada', 'Integração de novos colaboradores', 'Apresentação ao gestor e à equipe'];
+  const RH_CK_DES = ['Comunicado ao colaborador e ao gestor', 'Exame demissional (ASO) realizado', 'Devolução de EPIs', 'Devolução de computador, celular e periféricos', 'Acessos e e-mail bloqueados (T.I.)', 'Devolução de veículo, chaves e crachá', 'Cálculo e pagamento das verbas rescisórias', 'Baixa no eSocial / carteira de trabalho'];
+  let rhMovDraft = null;
+  function rhNovaMov(tipo, colabId) { rhMovDraft = { tipo, colabId }; navTo('rh-mov-novo'); }
+  PAGES['rh-mov-novo'] = () => {
+    const dr = rhMovDraft || { tipo: 'admissao' }; rhMovDraft = null;
+    const adm = dr.tipo === 'admissao';
+    pageShell('RH', adm ? 'Nova admissão' : 'Novo desligamento', adm ? 'Cadastro guiado da pessoa, cargo e checklist de entrada.' : 'Desligamento guiado com o checklist de saída e devoluções.',
+      `<button class="btn" id="rmBack">${ic('chevron')}Admissão / Desligamento</button>`);
+    $('#rmBack').onclick = () => go('rh-movs');
+    const setores = rhSetores(), cargos = rhList('rhCargos').slice().sort((a, b) => a.nome.localeCompare(b.nome)), ativos = rhAtivos();
+    const opt = (v, t, s) => `<option value="${esc(v)}" ${s ? 'selected' : ''}>${esc(t)}</option>`;
+    const ckHtml = (list) => `<div class="rh-chk rh-chk-1">${list.map((t, i) => `<button type="button" class="rh-chk-i" data-ck="${i}"><i>${ic('check')}</i><span><b>${esc(t)}</b></span></button>`).join('')}</div><p class="sv-note">${ic('alert')}Marque o que já foi feito. O restante fica pendente no processo e pode ser marcado depois.</p>`;
+    let steps, panes;
+    if (adm) {
+      steps = [{ t: 'Pessoa', s: 'Identificação', h: 'Quem está chegando?', p: 'Dados de contato da nova pessoa.' }, { t: 'Cargo', s: 'Setor e contrato', h: 'Onde a pessoa vai trabalhar', p: 'Cargo, setor, gestor e tipo de contrato.' }, { t: 'Checklist', s: 'Entrada', h: 'Checklist de admissão', p: 'O que precisa estar pronto para o primeiro dia.' }, { t: 'Revisão', s: 'Confirmar', h: 'Tudo certo?', p: 'Confira antes de concluir.' }];
+      panes = [
+        `<div class="form-grid">${field('Nome completo', 'name', '', 'text', { full: true, ph: 'Nome e sobrenome' })}${field('E-mail corporativo', 'email', '', 'email', { ph: 'nome@convergas.com.br' })}${field('Celular corporativo', 'celular', '', 'tel', { ph: '(00) 00000-0000' })}${field('Ramal', 'ramal', '', 'text', { ph: 'Opcional' })}${field('Aniversário (dia/mês)', 'aniversario', '', 'text', { ph: 'dd/mm' })}</div>
+         <p class="sv-note">${ic('shield')}CPF, RG e exames médicos ficam fora do sistema até o login com permissão do RH (LGPD).</p>`,
+        `<div class="form-grid"><div class="field"><label>Setor</label><select name="sector"><option value="">Selecione</option>${setores.map((s) => opt(s.nome, s.nome)).join('')}</select></div>
+          <div class="field"><label>Cargo</label><select name="cargoId"><option value="">Selecione</option>${cargos.map((c) => opt(c.id, c.nome + (c.setor ? ' · ' + c.setor : ''))).join('')}</select></div>
+          <div class="field"><label>Gestor imediato</label><select name="gestorId"><option value="">Sem gestor</option>${ativos.map((p) => opt(p.id, p.name)).join('')}</select></div>
+          <div class="field"><label>Tipo de contrato</label><select name="contrato">${RH_CONTRATOS.map((c) => opt(c, c)).join('')}</select></div>
+          ${field('Data de admissão', 'admissao', todayISO(), 'date')}${field('Validade da CNH', 'cnhValidade', '', 'date', { hint: 'Só se for dirigir veículo da empresa.' })}</div>
+          <div class="wz-tip" id="rmExp">${ic('clock')}<span></span></div>`,
+        ckHtml(RH_CK_ADM),
+        `<div id="rmRev"></div>`,
+      ];
+    } else {
+      steps = [{ t: 'Pessoa', s: 'Quem sai', h: 'Quem está saindo?', p: 'Escolha o colaborador.' }, { t: 'Motivo', s: 'Data e tipo', h: 'Motivo e data', p: 'Último dia de trabalho e o tipo de desligamento.' }, { t: 'Checklist', s: 'Saída', h: 'Checklist de desligamento', p: 'Devoluções e bloqueios.' }, { t: 'Revisão', s: 'Confirmar', h: 'Tudo certo?', p: 'Ao concluir, a pessoa sai da lista de ativos.' }];
+      panes = [
+        `<div class="wz-search">${ic('search')}<input id="rmQ" placeholder="Buscar colaborador…" autocomplete="off"></div><div class="rh-pk-l rh-one" id="rmPpl">${ativos.map((u) => `<button type="button" class="rh-pk-p${dr.colabId === u.id ? ' on' : ''}" data-id="${u.id}">${rhAvatar(u.name)}<span><b>${esc(u.name)}</b><small>${esc([(rhCargo(u.cargoId) || {}).nome || u.role, u.sector].filter(Boolean).join(' · '))}</small></span><i>${ic('check')}</i></button>`).join('')}</div>`,
+        `<div class="form-grid">${field('Último dia de trabalho', 'data', todayISO(), 'date')}<div class="field"><label>Motivo</label><select name="motivo">${RH_MOTIVOS.map((m) => opt(m, m)).join('')}</select></div>
+          <div class="field"><label>Aviso prévio</label><select name="aviso">${['Trabalhado', 'Indenizado', 'Dispensado', 'Não se aplica'].map((m) => opt(m, m)).join('')}</select></div>${field('Observações', 'obs', '', 'text', { ph: 'Opcional' })}</div>`,
+        `<div id="rmDev"></div>${ckHtml(RH_CK_DES)}`,
+        `<div id="rmRev"></div>`,
+      ];
+    }
+    const w = document.createElement('div'); w.className = 'wz pvx-form rh-wz';
+    w.innerHTML = wzShell(steps, panes); view.appendChild(w); Icons.apply(w);
+    $$('select', w).forEach((s) => ccSelect(s, { search: s.options.length > 8, icon: { sector: 'grid', cargoId: 'briefcase', gestorId: 'users', contrato: 'file', motivo: 'list', aviso: 'clock' }[s.name] }));
+    const ck = new Set(); $$('[data-ck]', w).forEach((b) => (b.onclick = () => { const i = +b.dataset.ck; ck.has(i) ? ck.delete(i) : ck.add(i); b.classList.toggle('on', ck.has(i)); }));
+    let colab = dr.colabId || '';
+    if (adm) {
+      const cel = $('[name="celular"]', w); cel.addEventListener('input', () => { cel.value = pvMaskFone(cel.value); });
+      const ani = $('[name="aniversario"]', w); ani.addEventListener('input', () => { const d = pvDig(ani.value).slice(0, 4); ani.value = d.length > 2 ? d.slice(0, 2) + '/' + d.slice(2) : d; });
+      const cg = $('[name="cargoId"]', w); cg.addEventListener('change', () => { const c = rhCargo(cg.value); const st = $('[name="sector"]', w); if (c && c.setor && !st.value) { st.value = c.setor; st.dispatchEvent(new Event('change')); } });
+      const expTip = () => { const d = $('[name="admissao"]', w).value, ct = $('[name="contrato"]', w).value; $('#rmExp span', w).innerHTML = ct === 'CLT' && d ? `Experiência: 1º período até <b>${fmtDate(addDays(d, 44))}</b> e 2º até <b>${fmtDate(addDays(d, 89))}</b>. O painel avisa antes de cada data.` : 'Sem contrato de experiência para este tipo de contrato.'; };
+      $('[name="admissao"]', w).addEventListener('change', expTip); $('[name="contrato"]', w).addEventListener('change', expTip); expTip();
+    } else {
+      $$('#rmPpl .rh-pk-p', w).forEach((b) => (b.onclick = () => { colab = b.dataset.id; $$('#rmPpl .rh-pk-p', w).forEach((x) => x.classList.toggle('on', x === b)); }));
+      $('#rmQ', w).oninput = (e) => { const q = e.target.value.toLowerCase(); $$('#rmPpl .rh-pk-p', w).forEach((b) => (b.hidden = q && !b.textContent.toLowerCase().includes(q))); };
+    }
+    const rev = (rows) => `<div class="rh-rev">${rows.filter((r) => r[1]).map(([k, v]) => `<div><span>${esc(k)}</span><b>${esc(v)}</b></div>`).join('')}</div>`;
+    wzRun(w, {
+      steps, finalLabel: adm ? 'Concluir admissão' : 'Concluir desligamento',
+      check: (i, shake) => {
+        if (adm && i === 0 && !$('[name="name"]', w).value.trim()) { shake($('[name="name"]', w)); toast('Informe o nome', 'warn'); return false; }
+        if (adm && i === 0) { const a = $('[name="aniversario"]', w).value; if (a && !/^(0[1-9]|[12]\d|3[01])\/(0[1-9]|1[0-2])$/.test(a)) { shake($('[name="aniversario"]', w)); toast('Aniversário no formato dd/mm', 'warn'); return false; } }
+        if (adm && i === 1 && !$('[name="admissao"]', w).value) { toast('Informe a data de admissão', 'warn'); return false; }
+        if (!adm && i === 0 && !colab) { shake($('#rmPpl', w)); toast('Escolha o colaborador', 'warn'); return false; }
+        if (!adm && i === 1 && !$('[name="data"]', w).value) { toast('Informe a data', 'warn'); return false; }
+        return true;
+      },
+      onEnter: (i) => {
+        const d = readForm(w);
+        if (!adm && i === 2) {
+          const u = rhPessoa(colab);
+          const epis = rhList('epiEntregas').filter((x) => x.funcionarioId === colab);
+          const inv = (Store.itemsForUser ? Store.itemsForUser(colab) : []);
+          const veic = rhList('rhVeiculos').filter((v) => v.responsavelId === colab);
+          const it = [].concat(u && u.machineId ? [['monitor', 'Computador ' + ((Store.find('computers', u.machineId) || {}).hostname || u.machineId)]] : [], inv.map((x) => ['box', x.name || 'Periférico']), epis.map((x) => ['shield', 'EPI · ' + (x.epiName || (Store.find('epis', x.epiId) || {}).name || 'EPI')]), veic.map((v) => ['car', 'Veículo ' + v.placa]));
+          $('#rmDev', w).innerHTML = it.length ? `<div class="wz-sub">${ic('box')}Itens com ${esc(u ? u.name.split(' ')[0] : 'a pessoa')} — recolher</div><div class="rh-dev">${it.map(([i2, t]) => `<span>${ic(i2)}${esc(t)}</span>`).join('')}</div>` : '';
+          Icons.apply($('#rmDev', w));
+        }
+        if (i === 3) {
+          const list = adm ? RH_CK_ADM : RH_CK_DES;
+          $('#rmRev', w).innerHTML = (adm ? rev([['Nome', d.name], ['E-mail', d.email], ['Celular', d.celular], ['Setor', d.sector], ['Cargo', (rhCargo(d.cargoId) || {}).nome], ['Gestor', d.gestorId ? rhNome(d.gestorId) : ''], ['Contrato', d.contrato], ['Admissão', fmtDate(d.admissao)]])
+            : rev([['Colaborador', rhNome(colab)], ['Último dia', fmtDate(d.data)], ['Motivo', d.motivo], ['Aviso prévio', d.aviso], ['Observações', d.obs]]))
+            + `<div class="rh-rev-ck"><b>Checklist</b><span>${ck.size} de ${list.length} itens feitos</span><div class="qband-bar"><i style="--w:${(100 * ck.size) / list.length}%;--c:#46D39A;width:${(100 * ck.size) / list.length}%"></i></div></div>`;
+        }
+      },
+      onFinish: () => {
+        const d = readForm(w); const list = adm ? RH_CK_ADM : RH_CK_DES;
+        const checklist = list.map((t, i) => ({ t, done: ck.has(i) }));
+        const status = checklist.every((x) => x.done) ? 'concluido' : 'andamento';
+        let pid = colab;
+        if (adm) {
+          const c = rhCargo(d.cargoId);
+          const p = Store.add('team', { name: d.name, email: (d.email || '').toLowerCase(), celular: d.celular, ramal: d.ramal, aniversario: d.aniversario, sector: d.sector || (c && c.setor) || '', cargoId: d.cargoId, role: c ? c.nome : '', gestorId: d.gestorId, contrato: d.contrato || 'CLT', admissao: d.admissao, cnhValidade: d.cnhValidade, situacao: 'ativo', vpn: false, engServer: false, machineId: '' });
+          pid = p.id;
+          Store.add('rhMovs', { tipo: 'admissao', colaboradorId: pid, nome: d.name, data: d.admissao, checklist, status, criadoEm: new Date().toISOString() });
+        } else {
+          Store.add('rhMovs', { tipo: 'desligamento', colaboradorId: pid, nome: rhNome(pid), data: d.data, motivo: d.motivo, aviso: d.aviso, obs: d.obs, checklist, status, criadoEm: new Date().toISOString() });
+          Store.update('team', pid, { situacao: 'desligado', desligamento: d.data, motivoDesligamento: d.motivo, gestorId: '' });
+          rhList('team').filter((u) => u.gestorId === pid).forEach((u) => Store.update('team', u.id, { gestorId: '' }));
+          rhList('rhVeiculos').filter((v) => v.responsavelId === pid).forEach((v) => Store.update('rhVeiculos', v.id, { responsavelId: '' }));
+        }
+        toast(adm ? 'Admissão registrada' : 'Desligamento registrado');
+        rhOpenPessoa(pid);
+      },
+    });
+  };
+  function rhVerMov(id, onDone) {
+    const m = Store.find('rhMovs', id); if (!m) return;
+    const adm = m.tipo === 'admissao';
+    const card = modal({
+      title: `${adm ? 'Admissão' : 'Desligamento'} · ${m.nome || rhNome(m.colaboradorId)}`, sub: `${fmtDate(m.data)}${m.motivo ? ' · ' + m.motivo : ''}`,
+      body: `<div class="rh-chk rh-chk-1">${(m.checklist || []).map((x, i) => `<button type="button" class="rh-chk-i${x.done ? ' on' : ''}" data-ck="${i}"><i>${ic('check')}</i><span><b>${esc(x.t)}</b></span></button>`).join('')}</div>`,
+      footer: `<button class="btn danger ghost" id="mvDel" style="margin-right:auto">${ic('trash')}Excluir</button><button class="btn" data-close>Fechar</button><button class="btn primary" id="mvOk">${ic('check')}Salvar</button>`,
+    });
+    const ck = (m.checklist || []).map((x) => ({ ...x }));
+    $$('[data-ck]', card).forEach((b) => (b.onclick = () => { const x = ck[+b.dataset.ck]; x.done = !x.done; b.classList.toggle('on', x.done); }));
+    $('#mvOk', card).onclick = () => { Store.update('rhMovs', m.id, { checklist: ck, status: ck.every((x) => x.done) ? 'concluido' : 'andamento' }); toast(ck.every((x) => x.done) ? 'Processo concluído' : 'Checklist salvo'); closeModal(); if (onDone) onDone(); else go(currentRoute); };
+    $('#mvDel', card).onclick = () => confirmDialog('Excluir o registro deste processo? (O cadastro da pessoa não é apagado.)', () => { Store.remove('rhMovs', m.id); toast('Processo excluído', 'info'); if (onDone) onDone(); else go(currentRoute); });
+  }
+  let rhMovTab = 'andamento';
+  PAGES['rh-movs'] = () => {
+    pageShell('RH', 'Admissão / Desligamento', 'Entradas e saídas com checklist — nada fica esquecido (acessos, EPIs, equipamentos, eSocial).',
+      `<button class="btn" id="rmD">${ic('x')}Desligamento</button><button class="btn primary" id="rmA">${ic('userPlus')}Admissão</button>`);
+    $('#rmA').onclick = () => rhNovaMov('admissao'); $('#rmD').onclick = () => rhNovaMov('desligamento');
+    const all = rhList('rhMovs').slice().sort((a, b) => String(b.data).localeCompare(String(a.data)));
+    const grp = { andamento: (m) => m.status !== 'concluido', admissao: (m) => m.tipo === 'admissao', desligamento: (m) => m.tipo === 'desligamento', todos: () => true };
+    const tabs = [['andamento', 'Em andamento'], ['admissao', 'Admissões'], ['desligamento', 'Desligamentos'], ['todos', 'Todos']];
+    const tb = document.createElement('div'); tb.className = 'pvf';
+    tb.innerHTML = `<div class="pvf-tabs" id="rmTabs"><span class="pvf-thumb"></span>${tabs.map(([k, l]) => `<button data-s="${k}" class="${rhMovTab === k ? 'on' : ''}">${l}<span class="pvf-n">${all.filter(grp[k]).length}</span></button>`).join('')}</div>`;
+    view.appendChild(tb);
+    const holder = document.createElement('div'); view.appendChild(holder);
+    const render = () => {
+      const l = all.filter(grp[rhMovTab]);
+      holder.innerHTML = l.length ? `<div class="rh-cards">${l.map((m, i) => { const adm = m.tipo === 'admissao'; const done = (m.checklist || []).filter((x) => x.done).length, tot = (m.checklist || []).length || 1; const nm = m.nome || rhNome(m.colaboradorId); const pend = (m.checklist || []).filter((x) => !x.done);
+        return `<button type="button" class="rh-card rh-mv" data-m="${m.id}" style="--d:${i * 40}ms;--c:${adm ? '#46D39A' : '#FF7A7A'}">
+          <span class="rh-card-h">${rhAvatar(nm)}<span><b>${esc(nm)}</b><small>${adm ? 'Admissão' : 'Desligamento'} · ${fmtDate(m.data)}</small></span>${m.status === 'concluido' ? '<span class="badge ok plain">Concluído</span>' : '<span class="badge warn plain">Em andamento</span>'}</span>
+          <span class="rh-mv-p"><span class="qband-bar"><i style="--w:${(100 * done) / tot}%;--c:${adm ? '#46D39A' : '#FF7A7A'};width:${(100 * done) / tot}%"></i></span><small>${done}/${tot}</small></span>
+          <span class="rh-card-d">${pend.length ? 'Falta: ' + esc(pend.slice(0, 2).map((x) => x.t).join(' · ')) + (pend.length > 2 ? ` e mais ${pend.length - 2}` : '') : 'Checklist completo'}</span></button>`; }).join('')}</div>`
+        : `<div class="tbl-wrap">${emptyState('refresh', rhMovTab === 'andamento' ? 'Nenhum processo em andamento' : 'Nada registrado', 'Use "Admissão" ou "Desligamento" para começar um processo guiado.')}</div>`;
+      Icons.apply(holder);
+      $$('[data-m]', holder).forEach((b) => (b.onclick = () => rhVerMov(b.dataset.m)));
+    };
+    const tabsEl = $('#rmTabs', tb);
+    $$('button', tabsEl).forEach((b) => (b.onclick = () => { rhMovTab = b.dataset.s; $$('button', tabsEl).forEach((x) => x.classList.toggle('on', x === b)); tabsThumb(tabsEl); render(); }));
+    render(); tabsThumbInit(tabsEl, 'rhm');
+  };
+
+  /* =========================== FÉRIAS & AUSÊNCIAS =========================== */
+  function rhFormAus(a, onDone) {
+    const editing = !!(a && a.id); a = a || {};
+    const card = modal({
+      title: editing ? 'Editar ausência' : 'Registrar férias / ausência', sub: 'Aparece no calendário e na situação da pessoa',
+      body: `<div class="form-grid">
+          <div class="field full"><label>Colaborador</label><select name="colaboradorId"><option value="">Selecione</option>${rhAtivos().map((u) => `<option value="${u.id}" ${a.colaboradorId === u.id ? 'selected' : ''}>${esc(u.name)}</option>`).join('')}</select></div>
+          <div class="field full"><label>Tipo</label><div class="rh-tipos">${Object.entries(RH_AUS).map(([k, t]) => `<button type="button" class="rh-tp${(a.tipo || 'ferias') === k ? ' on' : ''}" data-tp="${k}" style="--c:${t.c}">${ic(t.i)}<span>${esc(t.l)}</span></button>`).join('')}</div><input type="hidden" name="tipo" value="${esc(a.tipo || 'ferias')}"></div>
+          ${field('Início', 'inicio', a.inicio || todayISO(), 'date')}${field('Fim', 'fim', a.fim || '', 'date')}
+          ${field('Observações', 'obs', a.obs, 'text', { full: true, ph: 'Opcional (sem dados médicos)' })}
+        </div><p class="sv-note" id="raN"></p>`,
+      footer: (editing ? `<button class="btn danger ghost" id="delBtn" style="margin-right:auto">${ic('trash')}Excluir</button>` : '') + submitFooter(editing),
+    });
+    ccSelect($('[name="colaboradorId"]', card), { icon: 'users', search: true });
+    $$('.rh-tp', card).forEach((b) => (b.onclick = () => { $$('.rh-tp', card).forEach((x) => x.classList.toggle('on', x === b)); $('[name="tipo"]', card).value = b.dataset.tp; }));
+    const n = () => { const i = $('[name="inicio"]', card).value, f = $('[name="fim"]', card).value || i; const d = i ? rhDias(i, f) + 1 : 0; $('#raN', card).innerHTML = d > 0 ? `${ic('calendar')}<span><b>${d}</b> dia${d > 1 ? 's' : ''} corrido${d > 1 ? 's' : ''}${$('[name="tipo"]', card).value === 'ferias' && d > 30 ? ' — férias acima de 30 dias?' : ''}</span>` : `${ic('alert')}<span>O fim precisa ser depois do início.</span>`; Icons.apply($('#raN', card)); };
+    card.addEventListener('change', n); card.addEventListener('click', n); n();
+    const del = $('#delBtn', card);
+    if (del) del.onclick = () => confirmDialog('Excluir este registro?', () => { Store.remove('rhAusencias', a.id); toast('Registro excluído', 'info'); if (onDone) onDone(); else go(currentRoute); });
+    $('#saveBtn', card).onclick = () => {
+      const d = readForm(card);
+      if (!d.colaboradorId) return toast('Escolha o colaborador', 'warn'); if (!d.inicio) return toast('Informe o início', 'warn');
+      if (d.fim && d.fim < d.inicio) return toast('O fim precisa ser depois do início', 'warn');
+      const obj = { colaboradorId: d.colaboradorId, tipo: d.tipo, inicio: d.inicio, fim: d.fim || d.inicio, obs: d.obs };
+      if (editing) Store.update('rhAusencias', a.id, obj); else Store.add('rhAusencias', obj);
+      toast('Registro salvo'); closeModal(); if (onDone) onDone(); else go(currentRoute);
+    };
+  }
+  let rhCalMes = null, rhAusTab = 'calendario';
+  PAGES['rh-ferias'] = () => {
+    pageShell('RH', 'Férias & ausências', 'Quem está fora, quando e quem precisa tirar férias.', `<button class="btn primary" id="raNovo">${ic('plus')}Registrar</button>`);
+    $('#raNovo').onclick = () => rhFormAus(null);
+    const h = rhHoje(); if (!rhCalMes) rhCalMes = h.slice(0, 7);
+    const all = rhList('rhAusencias').slice().sort((a, b) => String(a.inicio).localeCompare(String(b.inicio)));
+    const ativos = rhAtivos();
+    // períodos aquisitivos (CLT): a cada 12 meses de casa nasce um direito de 30 dias, que vence 12 meses depois
+    const prog = ativos.filter((u) => (u.contrato || 'CLT') === 'CLT' && u.admissao).map((u) => {
+      const anos = Math.floor(rhDias(u.admissao, h) / 365); if (anos < 1) return null;
+      const iniPer = rhAddMeses(u.admissao, 12 * (anos - 1)), venc = rhAddMeses(u.admissao, 12 * (anos + 1));
+      const tirados = all.filter((a) => a.colaboradorId === u.id && a.tipo === 'ferias' && a.inicio >= rhAddMeses(iniPer, 12)).reduce((s, a) => s + rhDias(a.inicio, a.fim) + 1, 0);
+      const saldo = Math.max(0, 30 - tirados); if (!saldo) return null;
+      return { u, saldo, venc, dias: rhDias(h, venc) };
+    }).filter(Boolean).sort((a, b) => a.dias - b.dias);
+    const agora = all.filter((a) => a.inicio <= h && a.fim >= h), prox = all.filter((a) => a.inicio > h && rhDias(h, a.inicio) <= 30);
+    const top = document.createElement('section'); top.className = 'pc-tiles rh-aus-t';
+    const tile = (cls, icn, v, l, s) => `<div class="pvd-tile ${cls}"><span class="pvd-ti">${ic(icn)}</span><b>${v}</b><span>${esc(l)}</span><small>${esc(s)}</small></div>`;
+    top.innerHTML = tile('t-warn', 'sun2', agora.length, 'Fora hoje', agora.map((a) => rhNome(a.colaboradorId).split(' ')[0]).slice(0, 3).join(', ') || 'todos presentes') + tile('t-info', 'calendar', prox.length, 'Próximos 30 dias', 'saídas programadas') + tile(prog.some((p) => p.dias <= 60) ? 't-danger' : 't-ok', 'clock', prog.length, 'Férias a programar', prog.some((p) => p.dias <= 60) ? 'com prazo em até 60 dias' : 'períodos com saldo');
+    view.appendChild(top); Icons.apply(top);
+    const tabs = [['calendario', 'Calendário'], ['lista', 'Lista'], ['programar', 'A programar']];
+    const tb = document.createElement('div'); tb.className = 'pvf';
+    tb.innerHTML = `<div class="pvf-tabs" id="raTabs"><span class="pvf-thumb"></span>${tabs.map(([k, l]) => `<button data-s="${k}" class="${rhAusTab === k ? 'on' : ''}">${l}${k === 'programar' ? `<span class="pvf-n">${prog.length}</span>` : ''}</button>`).join('')}</div>`;
+    view.appendChild(tb);
+    const holder = document.createElement('div'); view.appendChild(holder);
+    const MESES = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'];
+    const render = () => {
+      if (rhAusTab === 'calendario') {
+        const [Y, M] = rhCalMes.split('-').map(Number); const first = new Date(Y, M - 1, 1), nd = new Date(Y, M, 0).getDate(); const pad = (first.getDay() + 6) % 7;
+        const iso = (d) => `${Y}-${String(M).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+        const mesIni = iso(1), mesFim = iso(nd);
+        const doMes = all.filter((a) => a.inicio <= mesFim && a.fim >= mesIni);
+        let cells = ''; for (let i = 0; i < pad; i++) cells += '<div class="rh-cal-d x"></div>';
+        for (let d = 1; d <= nd; d++) { const di = iso(d); const evs = doMes.filter((a) => a.inicio <= di && a.fim >= di); const wd = (pad + d - 1) % 7;
+          cells += `<div class="rh-cal-d${di === h ? ' hoje' : ''}${wd > 4 ? ' fds' : ''}"><span class="rh-cal-n">${d}</span>${evs.slice(0, 3).map((a) => { const T = RH_AUS[a.tipo] || RH_AUS.ferias; return `<button type="button" class="rh-cal-e${a.inicio === di || d === 1 || wd === 0 ? ' st' : ''}" data-a="${a.id}" style="--c:${T.c}" title="${esc(T.l)} · ${esc(rhNome(a.colaboradorId))}">${a.inicio === di || d === 1 || wd === 0 ? esc(rhNome(a.colaboradorId).split(' ')[0]) : '&nbsp;'}</button>`; }).join('')}${evs.length > 3 ? `<small class="rh-cal-more">+${evs.length - 3}</small>` : ''}</div>`; }
+        holder.innerHTML = `<div class="pvp-card rh-cal"><div class="rh-cal-h"><button type="button" class="icon-btn" id="calP" aria-label="Mês anterior">${ic('chevron')}</button><b>${MESES[M - 1]} ${Y}</b><button type="button" class="icon-btn rh-nx" id="calN" aria-label="Próximo mês">${ic('chevron')}</button><button type="button" class="btn sm ghost" id="calH">Hoje</button></div>
+          <div class="rh-cal-w">${['Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb', 'Dom'].map((x) => `<span>${x}</span>`).join('')}</div><div class="rh-cal-g">${cells}</div>
+          <div class="rh-mx-leg">${Object.values(RH_AUS).map((t) => `<span style="--c:${t.c}"><i></i>${esc(t.l)}</span>`).join('')}</div>
+          ${doMes.length ? `<div class="rh-tl rh-cal-l">${doMes.map((a) => { const T = RH_AUS[a.tipo] || RH_AUS.ferias; const n = rhDias(a.inicio, a.fim) + 1; return `<button type="button" class="rh-tr rh-trb" data-a="${a.id}" style="--c:${T.c}"><i></i><span><b>${esc(rhNome(a.colaboradorId))}</b><small>${esc(T.l)} · ${fmtDate(a.inicio)}${a.fim !== a.inicio ? ' a ' + fmtDate(a.fim) : ''} · ${n} dia${n > 1 ? 's' : ''}</small></span></button>`; }).join('')}</div>` : ''}</div>`;
+        const mv = (k) => { const d = new Date(Y, M - 1 + k, 1); rhCalMes = d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0'); render(); };
+        $('#calP', holder).onclick = () => mv(-1); $('#calN', holder).onclick = () => mv(1); $('#calH', holder).onclick = () => { rhCalMes = h.slice(0, 7); render(); };
+      } else if (rhAusTab === 'lista') {
+        const l = all.slice().reverse();
+        holder.innerHTML = l.length ? `<div class="tbl-wrap"><table class="data"><thead><tr><th>Colaborador</th><th>Tipo</th><th>Período</th><th>Dias</th><th>Situação</th></tr></thead><tbody>${l.map((a) => { const T = RH_AUS[a.tipo] || RH_AUS.ferias; const n = rhDias(a.inicio, a.fim) + 1;
+          return `<tr class="pvx-tr" data-a="${a.id}"><td><div class="pvc-who">${rhAvatar(rhNome(a.colaboradorId))}<div class="cell-main">${esc(rhNome(a.colaboradorId))}</div></div></td><td><span class="rh-tag" style="--c:${T.c}">${ic(T.i)}${esc(T.l)}</span></td><td>${fmtDate(a.inicio)}${a.fim !== a.inicio ? ' a ' + fmtDate(a.fim) : ''}</td><td>${n}</td>
+            <td>${a.fim < h ? '<span class="badge neutral plain">Concluída</span>' : a.inicio <= h ? '<span class="badge warn plain">Agora</span>' : '<span class="badge info plain">Programada</span>'}</td></tr>`; }).join('')}</tbody></table></div>`
+          : `<div class="tbl-wrap">${emptyState('sun2', 'Nenhum registro', 'Registre férias, folgas, licenças e afastamentos.')}</div>`;
+      } else {
+        holder.innerHTML = prog.length ? `<div class="tbl-wrap"><table class="data"><thead><tr><th>Colaborador</th><th>Saldo</th><th>Tirar até</th><th></th></tr></thead><tbody>${prog.map((p) => `<tr><td><div class="pvc-who">${rhAvatar(p.u.name)}<div><div class="cell-main">${esc(p.u.name)}</div><div class="cell-sub">${esc(p.u.sector || '')} · admissão ${fmtDate(p.u.admissao)}</div></div></div></td><td><b>${p.saldo}</b> dias</td>
+            <td><span class="badge ${p.dias < 0 ? 'danger' : p.dias <= 60 ? 'warn' : 'neutral'} plain">${fmtDate(p.venc)}${p.dias < 0 ? ' · vencidas' : p.dias <= 60 ? ` · ${p.dias}d` : ''}</span></td>
+            <td class="row-actions"><button class="btn sm" data-prog="${p.u.id}">${ic('calendar')}Programar</button></td></tr>`).join('')}</tbody></table></div>
+            <p class="sv-note">${ic('alert')}Estimativa pela data de admissão (CLT): a cada 12 meses de casa a pessoa ganha 30 dias, que precisam ser tirados nos 12 meses seguintes. Não considera faltas — confira com a folha.</p>`
+          : `<div class="tbl-wrap">${emptyState('check', 'Nada a programar', 'Ninguém com período de férias em aberto (pela data de admissão).')}</div>`;
+        $$('[data-prog]', holder).forEach((b) => (b.onclick = () => rhFormAus({ colaboradorId: b.dataset.prog, tipo: 'ferias', inicio: addDays(h, 30), fim: addDays(h, 59) })));
+      }
+      Icons.apply(holder);
+      $$('[data-a]', holder).forEach((b) => (b.onclick = () => rhFormAus(Store.find('rhAusencias', b.dataset.a))));
+    };
+    const tabsEl = $('#raTabs', tb);
+    $$('button', tabsEl).forEach((b) => (b.onclick = () => { rhAusTab = b.dataset.s; $$('button', tabsEl).forEach((x) => x.classList.toggle('on', x === b)); tabsThumb(tabsEl); render(); }));
+    render(); tabsThumbInit(tabsEl, 'rha');
+  };
+
+  /* =========================== CONTROLE DE VEÍCULOS =========================== */
+  const rhPlaca = (p) => String(p || '').toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 7);
+  const rhPlacaFmt = (p) => { p = rhPlaca(p); return /^[A-Z]{3}\d{4}$/.test(p) ? p.slice(0, 3) + '-' + p.slice(3) : p; };
+  const rhPlacaHtml = (p) => `<span class="rh-placa"><small>BRASIL</small><b>${esc(rhPlacaFmt(p))}</b></span>`;
+  function rhFormVeic(v) {
+    const editing = !!(v && v.id); v = v || {};
+    const card = modal({
+      title: editing ? 'Editar veículo' : 'Novo veículo', sub: 'Frota da empresa', wide: true,
+      body: `<div class="form-sec">${ic('car')}Veículo</div><div class="form-grid">
+          ${field('Placa', 'placa', rhPlacaFmt(v.placa), 'text', { ph: 'ABC1D23' })}${field('Modelo', 'modelo', v.modelo, 'text', { ph: 'Ex.: Fiat Strada 1.3' })}
+          ${field('Ano', 'ano', v.ano, 'text', { ph: '2024' })}<div class="field"><label>Combustível</label><select name="combustivel">${['Flex', 'GNV', 'Dual-fuel (GNV + diesel)', 'Diesel', 'Gasolina', 'Elétrico'].map((x) => `<option ${v.combustivel === x ? 'selected' : ''}>${esc(x)}</option>`).join('')}</select></div>
+          ${field('Quilometragem atual', 'km', v.km, 'number', { ph: '0' })}<div class="field"><label>Responsável fixo</label><select name="responsavelId"><option value="">Uso compartilhado</option>${rhAtivos().map((u) => `<option value="${u.id}" ${v.responsavelId === u.id ? 'selected' : ''}>${esc(u.name)}</option>`).join('')}</select></div></div>
+        <div class="form-sec">${ic('calendar')}Vencimentos</div><div class="form-grid">
+          ${field('Licenciamento (CRLV) até', 'licenciamento', v.licenciamento, 'date')}${field('Seguro até', 'seguro', v.seguro, 'date')}
+          ${field('Próxima revisão (data)', 'revisaoData', v.revisaoData, 'date')}${field('Próxima revisão (km)', 'revisaoKm', v.revisaoKm, 'number', { ph: 'Ex.: 40000' })}</div>`,
+      footer: (editing ? `<button class="btn danger ghost" id="delBtn" style="margin-right:auto">${ic('trash')}Excluir</button>` : '') + submitFooter(editing),
+    });
+    ccSelect($('[name="combustivel"]', card), { icon: 'activity' }); ccSelect($('[name="responsavelId"]', card), { icon: 'users', search: true });
+    const pl = $('[name="placa"]', card); pl.addEventListener('input', () => { pl.value = rhPlaca(pl.value); });
+    const del = $('#delBtn', card);
+    if (del) del.onclick = () => confirmDialog(`Excluir o veículo ${rhPlacaFmt(v.placa)}? O histórico de uso também sai.`, () => { rhList('rhVeicUso').filter((x) => x.veiculoId === v.id).forEach((x) => Store.remove('rhVeicUso', x.id)); Store.remove('rhVeiculos', v.id); toast('Veículo excluído', 'info'); go(currentRoute); });
+    $('#saveBtn', card).onclick = () => {
+      const d = readForm(card); const placa = rhPlaca(d.placa);
+      if (!/^[A-Z]{3}\d[A-Z0-9]\d{2}$/.test(placa)) return toast('Placa inválida (ABC1234 ou ABC1D23)', 'warn');
+      if (rhList('rhVeiculos').some((x) => x.placa === placa && x.id !== v.id)) return toast('Já existe um veículo com essa placa', 'warn');
+      const obj = { placa, modelo: d.modelo, ano: d.ano, combustivel: d.combustivel, km: Number(d.km) || 0, responsavelId: d.responsavelId, licenciamento: d.licenciamento, seguro: d.seguro, revisaoData: d.revisaoData, revisaoKm: Number(d.revisaoKm) || 0 };
+      if (editing) Store.update('rhVeiculos', v.id, obj); else Store.add('rhVeiculos', obj);
+      toast(editing ? 'Veículo atualizado' : 'Veículo cadastrado'); closeModal(); go(currentRoute);
+    };
+  }
+  function rhVeicSaida(v) {
+    const card = modal({
+      title: `Saída · ${rhPlacaFmt(v.placa)}`, sub: v.modelo || 'Registrar quem levou o veículo',
+      body: `<div class="form-grid"><div class="field full"><label>Motorista</label><select name="colaboradorId"><option value="">Selecione</option>${rhAtivos().map((u) => `<option value="${u.id}" ${v.responsavelId === u.id ? 'selected' : ''}>${esc(u.name)}</option>`).join('')}</select></div>
+        ${field('Destino / finalidade', 'destino', '', 'text', { full: true, ph: 'Ex.: Instalação no cliente X — Campinas' })}${field('Km na saída', 'kmSaida', v.km || '', 'number')}${field('Data e hora', 'saida', new Date(Date.now() - new Date().getTimezoneOffset() * 6e4).toISOString().slice(0, 16), 'datetime-local')}</div><p class="sv-note" id="vsCnh"></p>`,
+      footer: `<button class="btn ghost" data-close>Cancelar</button><button class="btn primary" id="saveBtn">${ic('arrowUpRight')}Registrar saída</button>`,
+    });
+    ccSelect($('[name="colaboradorId"]', card), { icon: 'users', search: true });
+    const cnh = () => { const u = rhPessoa($('[name="colaboradorId"]', card).value); const x = u && rhVenc(u.cnhValidade); $('#vsCnh', card).innerHTML = !u ? '' : !u.cnhValidade ? `${ic('alert')}<span>Validade da CNH de ${esc(u.name.split(' ')[0])} não cadastrada.</span>` : x.st === 'vencido' ? `${ic('alert')}<span><b>CNH vencida</b> desde ${fmtDate(u.cnhValidade)}.</span>` : `${ic('check')}<span>CNH válida até ${fmtDate(u.cnhValidade)}.</span>`; Icons.apply($('#vsCnh', card)); };
+    $('[name="colaboradorId"]', card).addEventListener('change', cnh); cnh();
+    $('#saveBtn', card).onclick = () => {
+      const d = readForm(card); if (!d.colaboradorId) return toast('Escolha o motorista', 'warn');
+      const u = rhPessoa(d.colaboradorId); if (u && u.cnhValidade && rhVenc(u.cnhValidade).st === 'vencido') return toast('CNH vencida — não é possível liberar o veículo', 'warn');
+      Store.add('rhVeicUso', { veiculoId: v.id, colaboradorId: d.colaboradorId, destino: d.destino, kmSaida: Number(d.kmSaida) || 0, saida: d.saida, retorno: '', kmRetorno: 0 });
+      toast('Saída registrada'); closeModal(); go(currentRoute);
+    };
+  }
+  function rhVeicRetorno(v, uso) {
+    const card = modal({
+      title: `Retorno · ${rhPlacaFmt(v.placa)}`, sub: `${rhNome(uso.colaboradorId)} · saiu ${pvFmtDT(uso.saida)}`,
+      body: `<div class="form-grid">${field('Km no retorno', 'kmRetorno', '', 'number', { ph: String(uso.kmSaida || '') })}${field('Data e hora', 'retorno', new Date(Date.now() - new Date().getTimezoneOffset() * 6e4).toISOString().slice(0, 16), 'datetime-local')}
+        ${field('Ocorrências', 'obs', '', 'textarea', { full: true, ph: 'Avaria, multa, abastecimento… (opcional)' })}</div>`,
+      footer: `<button class="btn ghost" data-close>Cancelar</button><button class="btn primary" id="saveBtn">${ic('check')}Registrar retorno</button>`,
+    });
+    $('#saveBtn', card).onclick = () => {
+      const d = readForm(card); const km = Number(d.kmRetorno) || 0;
+      if (!km) return toast('Informe o km no retorno', 'warn'); if (km < (uso.kmSaida || 0)) return toast('O km de retorno é menor que o de saída', 'warn');
+      Store.update('rhVeicUso', uso.id, { retorno: d.retorno || new Date().toISOString(), kmRetorno: km, obs: d.obs });
+      Store.update('rhVeiculos', v.id, { km: Math.max(km, v.km || 0) });
+      toast(`Retorno registrado · ${km - (uso.kmSaida || 0)} km rodados`); closeModal(); go(currentRoute);
+    };
+  }
+  let rhVeicTab = 'frota';
+  PAGES['rh-veiculos'] = () => {
+    pageShell('RH', 'Controle de veículos', 'Frota, quem está com cada veículo, quilometragem e vencimentos (licenciamento, seguro, revisão, CNH).', `<button class="btn primary" id="rvNovo">${ic('car')}Novo veículo</button>`);
+    $('#rvNovo').onclick = () => rhFormVeic(null);
+    const vs = rhList('rhVeiculos').slice().sort((a, b) => a.placa.localeCompare(b.placa));
+    const usos = rhList('rhVeicUso').slice().sort((a, b) => String(b.saida).localeCompare(String(a.saida)));
+    const venc = [];
+    vs.forEach((v) => { [['licenciamento', 'Licenciamento'], ['seguro', 'Seguro'], ['revisaoData', 'Revisão']].forEach(([k, l]) => { const x = rhVenc(v[k]); if (x && x.d <= 60) venc.push({ t: `${l} · ${rhPlacaFmt(v.placa)}`, s: v.modelo || '', d: v[k], x }); }); if (v.revisaoKm && v.km && v.revisaoKm - v.km <= 1000) venc.push({ t: `Revisão por km · ${rhPlacaFmt(v.placa)}`, s: `${v.km.toLocaleString('pt-BR')} de ${v.revisaoKm.toLocaleString('pt-BR')} km`, d: '', x: { st: v.km >= v.revisaoKm ? 'vencido' : 'vencendo' } }); });
+    rhAtivos().forEach((u) => { const x = rhVenc(u.cnhValidade); if (x && x.d <= 60) venc.push({ t: `CNH · ${u.name}`, s: u.sector || '', d: u.cnhValidade, x }); });
+    venc.sort((a, b) => String(a.d || '0').localeCompare(String(b.d || '0')));
+    const emUso = vs.filter((v) => rhVeicEmUso(v.id));
+    const kmMes = usos.filter((x) => x.retorno && String(x.retorno).slice(0, 7) === rhHoje().slice(0, 7)).reduce((s, x) => s + Math.max(0, (x.kmRetorno || 0) - (x.kmSaida || 0)), 0);
+    const top = document.createElement('section'); top.className = 'pc-tiles rh-aus-t';
+    const tile = (cls, icn, v, l, s) => `<div class="pvd-tile ${cls}"><span class="pvd-ti">${ic(icn)}</span><b>${v}</b><span>${esc(l)}</span><small>${esc(s)}</small></div>`;
+    top.innerHTML = tile('t-info', 'car', vs.length, 'Veículos', `${vs.length - emUso.length} disponíveis`) + tile('t-warn', 'arrowUpRight', emUso.length, 'Em uso agora', emUso.map((v) => rhPlacaFmt(v.placa)).join(', ') || 'nenhum') + tile(venc.some((x) => x.x.st === 'vencido') ? 't-danger' : venc.length ? 't-warn' : 't-ok', 'calendar', venc.length, 'Vencimentos', 'em até 60 dias') + tile('', 'activity', kmMes.toLocaleString('pt-BR'), 'Km rodados', 'neste mês');
+    view.appendChild(top); Icons.apply(top);
+    const tabs = [['frota', 'Frota', vs.length], ['uso', 'Saídas e retornos', usos.length], ['venc', 'Vencimentos', venc.length]];
+    const tb = document.createElement('div'); tb.className = 'pvf';
+    tb.innerHTML = `<div class="pvf-tabs" id="rvTabs"><span class="pvf-thumb"></span>${tabs.map(([k, l, n]) => `<button data-s="${k}" class="${rhVeicTab === k ? 'on' : ''}">${l}<span class="pvf-n">${n}</span></button>`).join('')}</div>`;
+    view.appendChild(tb);
+    const holder = document.createElement('div'); view.appendChild(holder);
+    const render = () => {
+      if (rhVeicTab === 'frota') {
+        holder.innerHTML = vs.length ? `<div class="rh-cards">${vs.map((v, i) => { const uso = rhVeicEmUso(v.id); const al = [['licenciamento', 'CRLV'], ['seguro', 'Seguro'], ['revisaoData', 'Revisão']].map(([k, l]) => { const x = rhVenc(v[k]); return x ? `<em class="${x.st}" title="${l} até ${fmtDate(v[k])}">${l} ${fmtDate(v[k]).slice(0, 5)}</em>` : `<em class="mut">${l} —</em>`; }).join('');
+          return `<div class="rh-card rh-vc" style="--d:${i * 40}ms;--c:${uso ? '#F5B840' : '#46D39A'}">
+            <div class="rh-vc-h">${rhPlacaHtml(v.placa)}<span class="badge ${uso ? 'warn' : 'ok'} plain">${uso ? 'Em uso' : 'Disponível'}</span></div>
+            <div class="rh-vc-m"><b>${esc(v.modelo || 'Modelo não informado')}</b><small>${esc([v.ano, v.combustivel].filter(Boolean).join(' · '))} · ${(v.km || 0).toLocaleString('pt-BR')} km</small></div>
+            <div class="rh-vc-who">${uso ? `${rhAvatar(rhNome(uso.colaboradorId))}<span><b>${esc(rhNome(uso.colaboradorId))}</b><small>${esc(uso.destino || 'Sem destino')} · desde ${pvFmtDT(uso.saida)}</small></span>` : v.responsavelId ? `${rhAvatar(rhNome(v.responsavelId))}<span><b>${esc(rhNome(v.responsavelId))}</b><small>responsável fixo</small></span>` : `<span class="rh-vc-free">${ic('users')}</span><span><b>Uso compartilhado</b><small>sem responsável fixo</small></span>`}</div>
+            <div class="rh-card-tags">${al}</div>
+            <div class="rh-vc-a"><button type="button" class="btn sm ghost" data-ed="${v.id}">${ic('edit')}Editar</button>${uso ? `<button type="button" class="btn sm primary" data-ret="${v.id}">${ic('check')}Registrar retorno</button>` : `<button type="button" class="btn sm primary" data-sai="${v.id}">${ic('arrowUpRight')}Registrar saída</button>`}</div></div>`; }).join('')}</div>`
+          : `<div class="tbl-wrap">${emptyState('car', 'Nenhum veículo cadastrado', 'Cadastre a frota para controlar saídas, quilometragem e vencimentos.')}</div>`;
+        $$('[data-ed]', holder).forEach((b) => (b.onclick = () => rhFormVeic(Store.find('rhVeiculos', b.dataset.ed))));
+        $$('[data-sai]', holder).forEach((b) => (b.onclick = () => rhVeicSaida(Store.find('rhVeiculos', b.dataset.sai))));
+        $$('[data-ret]', holder).forEach((b) => (b.onclick = () => { const v = Store.find('rhVeiculos', b.dataset.ret); rhVeicRetorno(v, rhVeicEmUso(v.id)); }));
+      } else if (rhVeicTab === 'uso') {
+        holder.innerHTML = usos.length ? `<div class="tbl-wrap"><table class="data"><thead><tr><th>Veículo</th><th>Motorista</th><th>Destino</th><th>Saída</th><th>Retorno</th><th>Km</th></tr></thead><tbody>${usos.map((x) => { const v = Store.find('rhVeiculos', x.veiculoId) || {};
+          return `<tr><td>${rhPlacaHtml(v.placa || '—')}</td><td>${esc(rhNome(x.colaboradorId))}</td><td><div class="cell-main">${esc(x.destino || '—')}</div>${x.obs ? `<div class="cell-sub">${esc(x.obs)}</div>` : ''}</td><td>${pvFmtDT(x.saida)}</td><td>${x.retorno ? pvFmtDT(x.retorno) : '<span class="badge warn plain">Em uso</span>'}</td><td>${x.retorno ? `<b>${Math.max(0, x.kmRetorno - x.kmSaida).toLocaleString('pt-BR')}</b>` : '—'}</td></tr>`; }).join('')}</tbody></table></div>`
+          : `<div class="tbl-wrap">${emptyState('car', 'Nenhuma saída registrada', 'Em Frota, use "Registrar saída" quando alguém levar um veículo.')}</div>`;
+      } else {
+        holder.innerHTML = venc.length ? `<div class="pvp-card rh-vz"><div class="rh-tl">${venc.map((x) => `<div class="rh-tr" style="--c:${x.x.st === 'vencido' ? '#FF7A7A' : '#F5B840'}"><i></i><span><b>${esc(x.t)}</b><small>${esc(x.s)}</small></span><span class="badge ${x.x.st === 'vencido' ? 'danger' : 'warn'} plain">${x.d ? (x.x.st === 'vencido' ? 'venceu ' : 'vence ') + fmtDate(x.d) : x.x.st === 'vencido' ? 'passou do km' : 'perto do km'}</span></div>`).join('')}</div></div>`
+          : `<div class="tbl-wrap">${emptyState('check', 'Tudo em dia', 'Nenhum licenciamento, seguro, revisão ou CNH vencendo nos próximos 60 dias.')}</div>`;
+      }
+      Icons.apply(holder);
+    };
+    const tabsEl = $('#rvTabs', tb);
+    $$('button', tabsEl).forEach((b) => (b.onclick = () => { rhVeicTab = b.dataset.s; $$('button', tabsEl).forEach((x) => x.classList.toggle('on', x === b)); tabsThumb(tabsEl); render(); }));
+    render(); tabsThumbInit(tabsEl, 'rhv');
+  };
+
   /* =========================== GRÁFICO DE ROSCA 3D ===========================
      Rosca em perspectiva (topo + paredes laterais) desenhada em SVG e girando devagar.
      segs: [{ k, l, n, c }]  ·  o: { center: { v, l }, w, h } — passar o mouse destaca a fatia. */
@@ -5302,7 +6188,7 @@
   function formEpiEntrega(en, after) {
     const editing = !!(en && en.id); en = en || {};
     const epis = Store.get('epis').slice().sort((a, b) => (a.name || '').localeCompare(b.name || ''));
-    const team = Store.get('team').slice().sort((a, b) => (a.name || '').localeCompare(b.name || ''));
+    const team = Store.get('team').filter((u) => u.situacao !== 'desligado' || u.id === en.funcionarioId).slice().sort((a, b) => (a.name || '').localeCompare(b.name || ''));
     const epiOpts = [{ v: '', t: '— selecione o EPI —' }].concat(epis.map((x) => ({ v: x.id, t: x.name })));
     const funcOpts = [{ v: '', t: '— selecione o colaborador —' }].concat(team.map((u) => ({ v: u.id, t: u.name + (u.sector ? ` · ${u.sector}` : '') })));
     const card = modal({
@@ -5848,6 +6734,11 @@
     manutencao: { label: 'Manutenção', groups: [
       { label: 'Manutenção', items: [ { r: 'manutencao-home', t: 'Indicadores', s: 'Painel', i: 'grid' }, { r: 'mnt-equip', t: 'Máquinas', s: 'Máquinas', i: 'cpu' }, { r: 'mnt-os', t: 'Ordens de Serviço', s: 'OS', i: 'file' }, { r: 'mnt-prev', t: 'Preventivas', s: 'Prevent.', i: 'refresh' }, { r: 'mnt-cal', t: 'Calendário', s: 'Agenda', i: 'calendar' }, { r: 'mnt-pecas', t: 'Peças', s: 'Peças', i: 'box' } ] },
     ] },
+    rh: { label: 'RH', groups: [
+      { label: 'Pessoas', items: [ { r: 'rh-painel', t: 'Painel', s: 'Painel', i: 'grid' }, { r: 'rh-colab', t: 'Colaboradores', s: 'Pessoas', i: 'users' }, { r: 'rh-movs', t: 'Admissão / Desligamento', s: 'Entradas', i: 'refresh' } ] },
+      { label: 'Desenvolvimento & rotina', items: [ { r: 'rh-treinos', t: 'Treinamentos & competências', s: 'Treinos', i: 'award' }, { r: 'rh-ferias', t: 'Férias & ausências', s: 'Férias', i: 'sun2' }, { r: 'rh-veiculos', t: 'Controle de veículos', s: 'Veículos', i: 'car' } ] },
+      { label: 'Estrutura', items: [ { r: 'rh-cargos', t: 'Cargos & setores', s: 'Cargos', i: 'briefcase' } ] },
+    ] },
     programacao: { label: 'Programação', groups: [
       { label: 'Operação', items: [ { r: 'prog-atividades', t: 'Atividades', s: 'Atividades', i: 'list' }, { r: 'prog-pedidos', t: 'Pedidos', s: 'Pedidos', i: 'file' }, { r: 'prog-rnc', t: 'Não Conformidades', s: 'RNC', i: 'alert' } ] },
       { label: 'Cadastros', items: [ { r: 'prog-cadastros', t: 'Equipe & Setores', s: 'Equipe', i: 'users' }, { r: 'prog-catalogo', t: 'Famílias, Fornecedores & Estoque', s: 'Catálogo', i: 'box' } ] },
@@ -5858,7 +6749,9 @@
   // páginas internas (fora do menu) que pertencem a uma área
   ROUTE_AREA['pv-novo'] = 'pos-vendas'; ROUTE_AREA['pv-detalhe'] = 'pos-vendas'; ROUTE_AREA['pv-cliente'] = 'pos-vendas'; TITLES['pv-cliente'] = 'Perfil do cliente';
   TITLES['pv-novo'] = 'Novo chamado'; TITLES['pv-detalhe'] = 'Chamado';
-  const AREA_HOME = { ti: 'dashboard', qualidade: 'qa-dashboard', sistemas: 'sistemas-home', 'pos-vendas': 'pv-painel', manutencao: 'manutencao-home', programacao: 'prog-atividades' };
+  ROUTE_AREA['rh-pessoa'] = 'rh'; TITLES['rh-pessoa'] = 'Perfil do colaborador'; ROUTE_AREA['rh-mov-novo'] = 'rh'; TITLES['rh-mov-novo'] = 'Admissão / Desligamento';
+  const NAV_PARENT = { 'pv-cliente': 'pv-clientes', 'rh-pessoa': 'rh-colab', 'rh-mov-novo': 'rh-movs' };
+  const AREA_HOME = { ti: 'dashboard', qualidade: 'qa-dashboard', sistemas: 'sistemas-home', 'pos-vendas': 'pv-painel', manutencao: 'manutencao-home', programacao: 'prog-atividades', rh: 'rh-painel' };
 
   function renderSidebar(area) {
     const cfg = NAV[area]; const nav = $('#nav');
@@ -5921,7 +6814,7 @@
     document.documentElement.style.setProperty('--area-c', ha ? ha.color : '#5CE1E6');
     const aico = $('#tbAreaIco'); if (aico) { aico.innerHTML = ic(ha ? ha.icon : 'grid'); Icons.apply(aico); }
     crumb.textContent = TITLES[route] || route;
-    $$('.nav-item').forEach((a) => a.classList.toggle('active', a.dataset.route === route || (route === 'pv-cliente' && a.dataset.route === 'pv-clientes')));
+    $$('.nav-item').forEach((a) => a.classList.toggle('active', a.dataset.route === route || NAV_PARENT[route] === a.dataset.route));
     renderMobileNav(currentArea, route);
     view.innerHTML = '';
     PAGES[route]();
@@ -5951,6 +6844,8 @@
       stat: () => { const n = Store.get('serviceOrders').filter((o) => o.kind === 'os' && !['finalizada', 'concluida', 'cancelada'].includes(o.status)).length; return { v: n, l: n === 1 ? 'ordem de serviço aberta' : 'ordens de serviço abertas', tone: n ? 'info' : 'ok' }; } },
     { area: 'programacao', label: 'Programação', icon: 'calendar', color: '#A78BFA', desc: 'Atividades do PCP, pedidos e RNC internas.',
       stat: () => { const t = todayISO(); const l = Store.get('progAtividades') || []; const late = l.filter((a) => a.status !== 'done' && a.prazo && a.prazo < t).length; return late ? { v: late, l: 'atividade(s) atrasada(s)', tone: 'warn' } : { v: l.filter((a) => a.status !== 'done').length, l: 'atividades em andamento', tone: 'info' }; } },
+    { area: 'rh', label: 'RH', icon: 'users', color: '#FB923C', desc: 'Pessoas, treinamentos, férias e veículos.', isNew: true,
+      stat: () => { const at = rhAtivos(); let pend = 0; at.forEach((u) => { const r = rhTreinoResumo(u); pend += r.vencido + r.faltando; }); if (pend) return { v: pend, l: pend === 1 ? 'treinamento pendente' : 'treinamentos pendentes', tone: 'warn' }; return { v: at.length, l: at.length === 1 ? 'colaborador ativo' : 'colaboradores ativos', tone: 'info' }; } },
     { area: 'ti', label: 'T.I', icon: 'cpu', color: '#5CE1E6', desc: 'Computadores, impressoras, licenças e cofre.',
       stat: () => { const n = computeAlerts().length; return n ? { v: n, l: n === 1 ? 'alerta de infraestrutura' : 'alertas de infraestrutura', tone: 'warn' } : { v: '✓', l: 'Infraestrutura sem alertas', tone: 'ok' }; } },
     { area: 'sistemas', label: 'Sistemas', icon: 'grid', color: '#3FA9F5', desc: 'Homologa, App de produção e painel da TV.',

@@ -348,6 +348,8 @@
     if (!Array.isArray(d.pvChamados)) d.pvChamados = [];
     if (!Array.isArray(d.pvClientes)) d.pvClientes = [];
     if (!Array.isArray(d.pvAvaliacoes)) d.pvAvaliacoes = []; // links de avaliação de satisfação
+    // RH (cadastro de pessoas continua em "team")
+    ['rhSetores', 'rhCargos', 'rhTreinos', 'rhTreinoReg', 'rhMovs', 'rhAusencias', 'rhVeiculos', 'rhVeicUso'].forEach((k) => { if (!Array.isArray(d[k])) d[k] = []; });
     if (Array.isArray(d.lgClientes)) delete d.lgClientes; // integração com o LifeGas desligada
     if (!Array.isArray(d.progPedidos)) d.progPedidos = [];
     if (!Array.isArray(d.progConfig)) d.progConfig = [];
