@@ -2733,8 +2733,28 @@
   };
 
   /* =========================== ADMISSÃO / DESLIGAMENTO =========================== */
-  const RH_CK_ADM = ['Documentos pessoais recebidos', 'Exame admissional (ASO) realizado', 'Registro no eSocial / carteira de trabalho', 'Conta de e-mail e acessos criados (T.I.)', 'Computador / equipamentos entregues', 'EPIs entregues com ficha assinada', 'Integração de novos colaboradores', 'Apresentação ao gestor e à equipe'];
-  const RH_CK_DES = ['Comunicado ao colaborador e ao gestor', 'Exame demissional (ASO) realizado', 'Devolução de EPIs', 'Devolução de computador, celular e periféricos', 'Acessos e e-mail bloqueados (T.I.)', 'Devolução de veículo, chaves e crachá', 'Cálculo e pagamento das verbas rescisórias', 'Baixa no eSocial / carteira de trabalho'];
+  // checklists conforme o tipo de contrato (CLT tem eSocial/carteira e ASO; PJ tem contrato de serviço etc.)
+  const RH_CK_TI = ['Conta de e-mail e acessos criados (T.I.)', 'Computador / equipamentos entregues'];
+  function rhCkAdm(ct) {
+    const porTipo = {
+      CLT: ['Exame admissional (ASO) realizado', 'Registro no eSocial / carteira de trabalho', 'Contrato de experiência assinado'],
+      'Aprendiz': ['Exame admissional (ASO) realizado', 'Registro no eSocial / carteira de trabalho', 'Contrato de aprendizagem assinado', 'Matrícula no curso de aprendizagem (ex.: SENAI)'],
+      'Estágio': ['Termo de compromisso de estágio (TCE) assinado com a escola', 'Seguro de acidentes pessoais do estagiário contratado', 'Supervisor do estágio definido'],
+      'Temporário': ['Contrato com a agência de trabalho temporário', 'Exame admissional (ASO) feito pela agência'],
+      PJ: ['Contrato de prestação de serviços assinado', 'Cartão CNPJ e dados para emissão de nota fiscal', 'Termo de confidencialidade (NDA) assinado'],
+    };
+    return ['Documentos pessoais recebidos'].concat(porTipo[ct] || porTipo.CLT, RH_CK_TI, ['EPIs entregues com ficha assinada', 'Integração de novos colaboradores', 'Apresentação ao gestor e à equipe']);
+  }
+  function rhCkDes(ct) {
+    const porTipo = {
+      CLT: ['Exame demissional (ASO) realizado', 'Cálculo e pagamento das verbas rescisórias', 'Baixa no eSocial / carteira de trabalho'],
+      'Aprendiz': ['Exame demissional (ASO) realizado', 'Cálculo e pagamento das verbas rescisórias', 'Baixa no eSocial / carteira de trabalho', 'Aviso à instituição do curso de aprendizagem'],
+      'Estágio': ['Termo de rescisão do estágio assinado', 'Aviso à escola / agente de integração', 'Termo de realização do estágio entregue'],
+      'Temporário': ['Aviso à agência de trabalho temporário'],
+      PJ: ['Encerramento do contrato de prestação de serviços', 'Última nota fiscal conferida e paga'],
+    };
+    return ['Comunicado ao colaborador e ao gestor'].concat(porTipo[ct] || porTipo.CLT, ['Devolução de EPIs', 'Devolução de computador, celular e periféricos', 'Acessos e e-mail bloqueados (T.I.)', 'Devolução de veículo, chaves e crachá']);
+  }
   let rhMovDraft = null;
   function rhNovaMov(tipo, colabId) { rhMovDraft = { tipo, colabId }; navTo('rh-mov-novo'); }
   PAGES['rh-mov-novo'] = () => {
@@ -2745,7 +2765,8 @@
     $('#rmBack').onclick = () => go('rh-movs');
     const setores = rhSetores(), cargos = rhList('rhCargos').slice().sort((a, b) => a.nome.localeCompare(b.nome)), ativos = rhAtivos();
     const opt = (v, t, s) => `<option value="${esc(v)}" ${s ? 'selected' : ''}>${esc(t)}</option>`;
-    const ckHtml = (list) => `<div class="rh-chk rh-chk-1">${list.map((t, i) => `<button type="button" class="rh-chk-i" data-ck="${i}"><i>${ic('check')}</i><span><b>${esc(t)}</b></span></button>`).join('')}</div><p class="sv-note">${ic('alert')}Marque o que já foi feito. O restante fica pendente no processo e pode ser marcado depois.</p>`;
+    const ck = new Set(); let ckList = [];
+    const ckHtml = (list, ct) => `<div class="rh-ck-ct">${ic('file')}<span>Checklist para contrato <b>${esc(ct)}</b></span></div><div class="rh-chk rh-chk-1">${list.map((t) => `<button type="button" class="rh-chk-i${ck.has(t) ? ' on' : ''}" data-ck="${esc(t)}"><i>${ic('check')}</i><span><b>${esc(t)}</b></span></button>`).join('')}</div><p class="sv-note">${ic('alert')}Marque o que já foi feito. O restante fica pendente no processo e pode ser marcado depois.</p>`;
     let steps, panes;
     if (adm) {
       steps = [{ t: 'Pessoa', s: 'Identificação', h: 'Quem está chegando?', p: 'Dados de contato da nova pessoa.' }, { t: 'Cargo', s: 'Setor e contrato', h: 'Onde a pessoa vai trabalhar', p: 'Cargo, setor, gestor e tipo de contrato.' }, { t: 'Checklist', s: 'Entrada', h: 'Checklist de admissão', p: 'O que precisa estar pronto para o primeiro dia.' }, { t: 'Revisão', s: 'Confirmar', h: 'Tudo certo?', p: 'Confira antes de concluir.' }];
@@ -2758,7 +2779,7 @@
           <div class="field"><label>Tipo de contrato</label><select name="contrato">${RH_CONTRATOS.map((c) => opt(c, c)).join('')}</select></div>
           ${field('Data de admissão', 'admissao', todayISO(), 'date')}${field('Validade da CNH', 'cnhValidade', '', 'date', { hint: 'Só se for dirigir veículo da empresa.' })}</div>
           <div class="wz-tip" id="rmExp">${ic('clock')}<span></span></div>`,
-        ckHtml(RH_CK_ADM),
+        `<div id="rmCk"></div>`,
         `<div id="rmRev"></div>`,
       ];
     } else {
@@ -2767,14 +2788,20 @@
         `<div class="wz-search">${ic('search')}<input id="rmQ" placeholder="Buscar colaborador…" autocomplete="off"></div><div class="rh-pk-l rh-one" id="rmPpl">${ativos.map((u) => `<button type="button" class="rh-pk-p${dr.colabId === u.id ? ' on' : ''}" data-id="${u.id}">${rhAvatar(u.name)}<span><b>${esc(u.name)}</b><small>${esc([(rhCargo(u.cargoId) || {}).nome || u.role, u.sector].filter(Boolean).join(' · '))}</small></span><i>${ic('check')}</i></button>`).join('')}</div>`,
         `<div class="form-grid">${field('Último dia de trabalho', 'data', todayISO(), 'date')}<div class="field"><label>Motivo</label><select name="motivo">${RH_MOTIVOS.map((m) => opt(m, m)).join('')}</select></div>
           <div class="field"><label>Aviso prévio</label><select name="aviso">${['Trabalhado', 'Indenizado', 'Dispensado', 'Não se aplica'].map((m) => opt(m, m)).join('')}</select></div>${field('Observações', 'obs', '', 'text', { ph: 'Opcional' })}</div>`,
-        `<div id="rmDev"></div>${ckHtml(RH_CK_DES)}`,
+        `<div id="rmDev"></div><div id="rmCk"></div>`,
         `<div id="rmRev"></div>`,
       ];
     }
     const w = document.createElement('div'); w.className = 'wz pvx-form rh-wz';
     w.innerHTML = wzShell(steps, panes); view.appendChild(w); Icons.apply(w);
     $$('select', w).forEach((s) => ccSelect(s, { search: s.options.length > 8, icon: { sector: 'grid', cargoId: 'briefcase', gestorId: 'users', contrato: 'file', motivo: 'list', aviso: 'clock' }[s.name] }));
-    const ck = new Set(); $$('[data-ck]', w).forEach((b) => (b.onclick = () => { const i = +b.dataset.ck; ck.has(i) ? ck.delete(i) : ck.add(i); b.classList.toggle('on', ck.has(i)); }));
+    const contratoAtual = () => adm ? (($('[name="contrato"]', w) || {}).value || 'CLT') : ((rhPessoa(colab) || {}).contrato || 'CLT');
+    const pintaCk = () => {
+      const ct = contratoAtual(); ckList = adm ? rhCkAdm(ct) : rhCkDes(ct);
+      Array.from(ck).forEach((t) => { if (!ckList.includes(t)) ck.delete(t); });
+      const box = $('#rmCk', w); box.innerHTML = ckHtml(ckList, ct); Icons.apply(box);
+      $$('[data-ck]', box).forEach((b) => (b.onclick = () => { const t = b.dataset.ck; ck.has(t) ? ck.delete(t) : ck.add(t); b.classList.toggle('on', ck.has(t)); }));
+    };
     let colab = dr.colabId || '';
     let devItems = []; const devOk = new Set(); // itens com a pessoa que precisam voltar (desligamento)
     if (adm) {
@@ -2806,6 +2833,7 @@
       },
       onEnter: (i) => {
         const d = readForm(w);
+        if (i === 2) pintaCk();
         if (!adm && i === 2) {
           const u = rhPessoa(colab);
           const epis = rhList('epiEntregas').filter((x) => x.funcionarioId === colab);
@@ -2831,15 +2859,15 @@
           if (devItems.length) cnt();
         }
         if (i === 3) {
-          const list = adm ? RH_CK_ADM : RH_CK_DES;
+          const list = ckList;
           $('#rmRev', w).innerHTML = (adm ? rev([['Nome', d.name], ['E-mail', d.email], ['Celular', d.celular], ['Setor', d.sector], ['Cargo', (rhCargo(d.cargoId) || {}).nome], ['Gestor', d.gestorId ? rhNome(d.gestorId) : ''], ['Contrato', d.contrato], ['Admissão', fmtDate(d.admissao)]])
             : rev([['Colaborador', rhNome(colab)], ['Último dia', fmtDate(d.data)], ['Motivo', d.motivo], ['Aviso prévio', d.aviso], ['Observações', d.obs]]))
             + `<div class="rh-rev-ck"><b>Checklist</b><span>${ck.size + devOk.size} de ${list.length + devItems.length} itens feitos${devItems.length ? ` · ${devOk.size}/${devItems.length} itens recolhidos` : ''}</span><div class="qband-bar"><i style="--w:${(100 * (ck.size + devOk.size)) / (list.length + devItems.length)}%;--c:#46D39A;width:${(100 * (ck.size + devOk.size)) / (list.length + devItems.length)}%"></i></div></div>`;
         }
       },
       onFinish: () => {
-        const d = readForm(w); const list = adm ? RH_CK_ADM : RH_CK_DES;
-        const checklist = devItems.map((x) => ({ t: `Recolher ${x.tipo.toLowerCase()}: ${x.nome}`, done: devOk.has(x.k) })).concat(list.map((t, i) => ({ t, done: ck.has(i) })));
+        const d = readForm(w); if (!ckList.length) pintaCk(); const list = ckList;
+        const checklist = devItems.map((x) => ({ t: `Recolher ${x.tipo.toLowerCase()}: ${x.nome}`, done: devOk.has(x.k) })).concat(list.map((t) => ({ t, done: ck.has(t) })));
         const status = checklist.every((x) => x.done) ? 'concluido' : 'andamento';
         let pid = colab;
         if (adm) {
