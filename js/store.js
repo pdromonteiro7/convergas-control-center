@@ -601,10 +601,19 @@
   }
 
   /* ---- ponte com a nuvem (best-effort; nunca quebra a UI) ---- */
+  // itens criados/alterados aqui que ainda não chegaram à nuvem ("pendentes"). Só eles são
+  // reenviados na sincronização — assim um item apagado em outro computador não volta.
+  const pendKey = (coll, id) => coll + '|' + id;
   function cloudPush(coll, item) {
-    try { if (window.Cloud && window.Cloud.ok && item) window.Cloud.pushItem(coll, item).catch(() => {}); } catch (e) {}
+    if (!item || !item.id) return;
+    try {
+      if (!data._pend) data._pend = {};
+      const k = pendKey(coll, item.id); data._pend[k] = 1; persist();
+      if (window.Cloud && window.Cloud.ok) window.Cloud.pushItem(coll, item).then((ok) => { if (ok !== false && data._pend) { delete data._pend[k]; persist(); } }).catch(() => {});
+    } catch (e) {}
   }
   function cloudDelete(coll, id) {
+    try { if (data._pend) { delete data._pend[pendKey(coll, id)]; persist(); } } catch (e) {}
     try { if (window.Cloud && window.Cloud.ok) window.Cloud.deleteItem(coll, id).catch(() => {}); } catch (e) {}
   }
   function cloudSettings() {
@@ -851,6 +860,8 @@
   /* ---- sincronização inicial com a nuvem (offline-first: chamada após o boot) ---- */
   Store.syncFromCloud = async function (onChange) {
     if (!window.Cloud || !window.Cloud.ok) return false;
+    // com login ativo e sem sessão o banco devolve listas vazias — não sincroniza (evita "apagar" a cópia local)
+    if (window.CCAuth && CCAuth.modo === 'login' && !CCAuth.session) return false;
     let changed = false;
     try {
       const s = await window.Cloud.pullSettings();
@@ -888,12 +899,17 @@
         // localmente (cadastrados offline ou enquanto a nuvem estava pausada) são enviados pra nuvem —
         // nunca se perde dado e os navegadores/PCs convergem para a união.
         const cloudIds = new Set(rows.map((r) => r.id));
-        const localOnly = local.filter((it) => it && it.id && !cloudIds.has(it.id));
-        localOnly.forEach((it) => window.Cloud.pushItem(coll, it).catch(() => {}));
+        if (!data._pend) data._pend = {};
+        // 1ª vez com esta regra: o que só existe aqui é tratado como pendente (comportamento antigo, uma única vez)
+        if (!data._pendInit) local.forEach((it) => { if (it && it.id && !cloudIds.has(it.id)) data._pend[pendKey(coll, it.id)] = 1; });
+        const localOnly = local.filter((it) => it && it.id && !cloudIds.has(it.id) && data._pend[pendKey(coll, it.id)]);
+        localOnly.forEach((it) => window.Cloud.pushItem(coll, it).then((ok) => { if (ok !== false) { delete data._pend[pendKey(coll, it.id)]; persist(); } }).catch(() => {}));
+        // o que estava aqui, não está na nuvem e não é pendente = foi apagado em outro lugar
         const merged = rows.concat(localOnly);
         if (JSON.stringify(merged) !== JSON.stringify(local)) { data[coll] = merged; changed = true; }
       } catch (e) {}
     }
+    data._pendInit = true;
     if (changed) persist();
     if (onChange) { try { onChange(changed); } catch (e) {} }
     return changed;

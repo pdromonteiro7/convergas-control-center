@@ -2684,3 +2684,5 @@ body.st-dragging, body.st-dragging * { cursor: grabbing !important; user-select:
   .st-cargo { width: 190px; }
 }
 .st-new-f[hidden] { display: none; }
+
+.rh-sug { display: flex; justify-content: center; padding: 0 0 26px; }

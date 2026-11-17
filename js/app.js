@@ -2038,16 +2038,17 @@
     return rhList('rhSetores').concat(extra).slice().sort((a, b) => a.nome.localeCompare(b.nome));
   }
   // treinamentos de exemplo (ids fixos; só entram se o catálogo estiver vazio)
-  function rhTreinos() {
-    if (!rhList('rhTreinos').length && Perm.podeGravar('rhTreinos')) {
+  // sugestões de treinamentos (só entram quando a pessoa clica em "Usar sugestões")
+  function rhTreinosSugestoes() {
+    {
       [['rt_integracao', 'Integração de novos colaboradores', 'Integração', 4, 0], ['rt_iatf', 'Conscientização IATF 16949 / ISO 9001', 'Qualidade (IATF / ISO)', 2, 12],
         ['rt_nr06', 'NR-06 · Uso de EPI', 'Norma Regulamentadora (NR)', 2, 12], ['rt_nr10', 'NR-10 · Segurança em eletricidade', 'Norma Regulamentadora (NR)', 40, 24],
         ['rt_nr12', 'NR-12 · Máquinas e equipamentos', 'Norma Regulamentadora (NR)', 8, 24], ['rt_nr35', 'NR-35 · Trabalho em altura', 'Norma Regulamentadora (NR)', 8, 24],
         ['rt_gnv', 'Instalação de sistemas GNV / dual-fuel', 'Técnico / operação', 16, 24]]
-        .forEach(([id, nome, tipo, ch, val]) => Store.add('rhTreinos', { id, nome, tipo, cargaHoras: ch, validadeMeses: val }));
+        .forEach(([id, nome, tipo, ch, val]) => { if (!Store.find('rhTreinos', id)) Store.add('rhTreinos', { id, nome, tipo, cargaHoras: ch, validadeMeses: val }); });
     }
-    return rhList('rhTreinos').slice().sort((a, b) => a.nome.localeCompare(b.nome));
   }
+  const rhTreinos = () => rhList('rhTreinos').slice().sort((a, b) => a.nome.localeCompare(b.nome));
   // situação de um treinamento para uma pessoa: ok | vencendo | vencido | faltando
   function rhTreinoSt(colabId, treinoId) {
     const regs = rhList('rhTreinoReg').filter((r) => r.colaboradorId === colabId && r.treinoId === treinoId && !r.anulado).sort((a, b) => String(b.data).localeCompare(String(a.data)));
@@ -2699,6 +2700,11 @@
         paintG();
       } else if (rhTreinoTab === 'catalogo') {
         const valTx = (m) => !m ? 'não vence' : m % 12 ? `${m} meses` : `${m / 12} ano${m > 12 ? 's' : ''}`;
+        if (!tr.length) {
+          holder.innerHTML = `<div class="tbl-wrap">${emptyState('award', 'Catálogo vazio', 'Crie os treinamentos da Convergas em “+ Treinamento”, ou comece pelas sugestões (Integração, IATF, NR-06, NR-10, NR-12, NR-35 e GNV) e ajuste depois.')}<div class="rh-sug"><button type="button" class="btn" id="rtSug">${ic('award')}Usar sugestões</button></div></div>`;
+          Icons.apply(holder); $('#rtSug', holder).onclick = () => { rhTreinosSugestoes(); toast('Sugestões adicionadas — edite ou apague as que não servirem'); go('rh-treinos'); };
+          return;
+        }
         holder.innerHTML = `<div class="rh-cards">${tr.map((t, i) => { const quem = new Set(regs.filter((r) => r.treinoId === t.id && !r.anulado).map((r) => r.colaboradorId)).size; const exige = rhList('rhCargos').filter((c) => (c.treinos || []).includes(t.id)).length;
           return `<button type="button" class="rh-card rh-tc" data-t="${t.id}" style="--d:${i * 40}ms;--c:${RH_PAL[RH_TIPOS_TREINO.indexOf(t.tipo) % RH_PAL.length] || RH_COR}">
             <span class="rh-card-h"><span class="rh-card-ic">${ic('award')}</span><span><b>${esc(t.nome)}</b><small>${esc(t.tipo || '')}</small></span></span>
