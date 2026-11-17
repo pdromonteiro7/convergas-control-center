@@ -592,6 +592,14 @@
       if (raw) { const d = migrate(JSON.parse(raw)); persist(d); return d; }
     } catch (e) {}
     const fresh = migrate(JSON.parse(JSON.stringify(SEED)));
+    // navegador novo com a nuvem ativa: começa VAZIO nas coleções sincronizadas e só recebe o que está
+    // na nuvem. Nada do exemplo inicial é enviado (antes isso recriava a lista antiga de pessoas, PCs…).
+    try {
+      if (window.Cloud && window.Cloud.ok && Array.isArray(window.Cloud.SYNCED)) {
+        window.Cloud.SYNCED.forEach((k) => { if (Array.isArray(fresh[k])) fresh[k] = []; });
+        fresh._pend = {}; fresh._pendInit = true;
+      }
+    } catch (e) {}
     persist(fresh);
     return fresh;
   }

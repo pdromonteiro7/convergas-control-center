@@ -2719,7 +2719,7 @@ body.st-dragging, body.st-dragging * { cursor: grabbing !important; user-select:
 .c3-tip.on { opacity: 1; }
 .c3-tip b { font-size: 13.5px; font-weight: 600; } .c3-tip small { font-size: 11px; color: #9FB3CC; }
 [data-theme="light"] .c3-tip { background: rgba(255,255,255,.96); color: #0B1B2E; }
-.hx-campus.empty::after { content: "Cadastre os setores em RH → Pessoas & setores para montar a planta"; position: absolute; left: 50%; top: 18%; transform: translateX(-50%); padding: 10px 16px; border-radius: 14px; font-size: .84rem; color: var(--text-2); background: color-mix(in srgb, var(--card) 85%, transparent); border: 1px dashed color-mix(in srgb, var(--accent) 45%, transparent); white-space: nowrap; }
+.hx-campus.empty::after { content: "Nenhum setor cadastrado"; position: absolute; left: 50%; top: 18%; transform: translateX(-50%); padding: 10px 16px; border-radius: 14px; font-size: .84rem; color: var(--text-2); background: color-mix(in srgb, var(--card) 85%, transparent); border: 1px dashed color-mix(in srgb, var(--accent) 45%, transparent); white-space: nowrap; }
 .c3-ov.many .c3-tag { font-size: 11px; padding: 4px 9px 4px 7px; gap: 5px; }
 .c3-ov.many .c3-tag em { font-size: 9.5px; padding: 0 5px; }
 .c3-tip { z-index: 5; }
