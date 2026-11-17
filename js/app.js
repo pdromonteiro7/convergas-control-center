@@ -3153,17 +3153,31 @@
   function setorDetalhe(nome, d) {
     const s = (d.sectors || []).find((x) => x.nome === nome); if (!s) return;
     const podeRH = Perm.aba('rh-colab') !== 'nenhum';
-    const lead = s.people.find((p) => p.id === s.lead);
-    const card = modal({
-      title: s.nome, sub: `${s.people.length} ${s.people.length === 1 ? 'pessoa' : 'pessoas'}${lead ? ' · responsável: ' + lead.name : ''}`, dialog: true,
-      body: `<div class="sd-head" style="--c:${s.cor}"><span class="sd-dot"></span><b>${esc(s.nome)}</b><em>${s.people.length}</em></div>
-        ${s.people.length ? `<div class="sd-list">${s.people.slice().sort((a, b) => (a.id === s.lead ? -1 : b.id === s.lead ? 1 : a.name.localeCompare(b.name))).map((p) => `<button type="button" class="sd-p" data-p="${esc(p.id)}" ${podeRH ? '' : 'disabled'}>${rhAvatar(p.name)}<span><b>${esc(p.name)}${p.id === s.lead ? ` <i class="sd-lead">${ic('award')}responsável</i>` : ''}</b><small>${esc(p.cargo || 'Sem cargo')}</small></span>${podeRH ? `<span class="sd-go">${ic('chevron')}</span>` : ''}</button>`).join('')}</div>`
-          : `<div class="qf-empty">${ic('users')}<span>Ninguém neste setor ainda.</span></div>`}`,
-      footer: `<button class="btn ghost" data-close>Fechar</button>${podeRH ? `<button class="btn primary" id="sdGo">${ic('users')}Abrir em Pessoas & setores</button>` : ''}`,
-    });
-    Icons.apply(card);
-    $$('[data-p]', card).forEach((b) => (b.onclick = () => { closeModal(); if (Store.find('team', b.dataset.p)) rhOpenPessoa(b.dataset.p); }));
-    const g = $('#sdGo', card); if (g) g.onclick = () => { closeModal(); navTo('rh-colab', 'rh'); };
+    const lista = s.people.slice().sort((a, b) => (a.id === s.lead ? -1 : b.id === s.lead ? 1 : a.name.localeCompare(b.name)));
+    const lead = lista.find((p) => p.id === s.lead);
+    const root = document.createElement('div'); root.className = 'na-pop sd-pop';
+    root.innerHTML = `<div class="sd-card" role="dialog" aria-modal="true" style="--c:${s.cor}">
+        <button type="button" class="sd-x" aria-label="Fechar">${ic('x')}</button>
+        <header class="sd-top">
+          <span class="sd-badge">${ic('grid')}</span>
+          <div class="sd-ttl"><small>Setor</small><b>${esc(s.nome)}</b></div>
+          <div class="sd-kpis"><span><b>${s.people.length}</b><small>${s.people.length === 1 ? 'pessoa' : 'pessoas'}</small></span>${lead ? `<span class="sd-ld">${rhAvatar(lead.name)}<span><small>Responsável</small><b>${esc(lead.name.split(' ')[0])}</b></span></span>` : ''}</div>
+        </header>
+        <div class="sd-body">${lista.length ? lista.map((p, i) => `<button type="button" class="sd-row" data-p="${esc(p.id)}" style="--d:${i * 35}ms" ${podeRH ? '' : 'disabled'}>
+            <span class="sd-av" style="--h:${pvHue(p.name)}">${esc(pvInitials(p.name))}${p.id === s.lead ? `<i>${ic('award')}</i>` : ''}</span>
+            <span class="sd-tx"><b>${esc(p.name)}</b><small>${esc(p.cargo || 'Sem cargo')}</small></span>
+            ${podeRH ? `<span class="sd-go">${ic('chevron')}</span>` : ''}</button>`).join('')
+          : `<div class="sd-empty">${ic('users')}<span>Nenhuma pessoa</span></div>`}</div>
+        ${podeRH ? `<footer class="sd-foot"><button type="button" class="sd-btn">${ic('users')}Pessoas & setores</button></footer>` : ''}
+      </div>`;
+    document.body.appendChild(root); Icons.apply(root);
+    requestAnimationFrame(() => root.classList.add('on'));
+    const fechar = () => { root.classList.remove('on'); setTimeout(() => root.remove(), 260); document.removeEventListener('keydown', tecla); };
+    const tecla = (e) => { if (e.key === 'Escape') fechar(); };
+    document.addEventListener('keydown', tecla);
+    root.addEventListener('click', (e) => { if (e.target === root || e.target.closest('.sd-x')) fechar(); });
+    $$('.sd-row', root).forEach((b) => (b.onclick = () => { fechar(); if (Store.find('team', b.dataset.p)) rhOpenPessoa(b.dataset.p); }));
+    const g = $('.sd-btn', root); if (g) g.onclick = () => { fechar(); navTo('rh-colab', 'rh'); };
   }
   function meuBoneco() {
     const tid = CCAuth && CCAuth.perfil && CCAuth.perfil.team_id; const u = tid && Store.find('team', tid);
