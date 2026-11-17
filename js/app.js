@@ -3328,6 +3328,108 @@
     });
   };
 
+  /* =========================== HOME — PLANTA 3D (campus) ===========================
+     Maquete isométrica em CSS 3D: cada setor do RH vira uma sala; cada colaborador ativo
+     é um bonequinho que anda dentro da sala do seu setor. Quem não tem setor fica na recepção. */
+  const CP = { timers: [], built: '' };
+  function campusStop() { CP.timers.forEach(clearTimeout); CP.timers = []; }
+  function campusBuild() {
+    const host = $('#homeCampus'); if (!host) return;
+    if (getComputedStyle(host).display === 'none') { campusStop(); return; }
+    const setores = (typeof rhSetores === 'function' ? rhSetores() : []).slice(0, 12);
+    const ativos = Store.get('team').filter((u) => u.situacao !== 'desligado');
+    const sig = JSON.stringify([setores.map((s) => s.nome + s.responsavelId), ativos.map((u) => u.id + u.sector + u.name + (u.cargoId || ''))]);
+    if (sig === CP.built && host.childElementCount) return;
+    CP.built = sig; campusStop();
+    const N = setores.length, cols = N <= 1 ? 1 : N <= 4 ? 2 : 3, rows = Math.max(1, Math.ceil(N / cols));
+    const RW = 230, RD = 180, G = 30, M = 34, LOB = 140; // sala, corredor, margem, recepção
+    const W = M * 2 + cols * RW + (cols - 1) * G, D = M * 2 + rows * RD + (rows - 1) * G + LOB;
+    const nomes = new Set(setores.map((s) => s.nome));
+    const semSetor = ativos.filter((u) => !u.sector || !nomes.has(u.sector));
+    const podeRH = Perm.aba('rh-colab') !== 'nenhum';
+    const box = (x, y, w, d, h, cls, extra) => `<div class="cp-box ${cls || ''}" style="left:${x}px;top:${y}px;width:${w}px;height:${d}px;--h:${h}px;${extra || ''}"><i class="t"></i><i class="f"></i><i class="r"></i></div>`;
+    const bb = (x, y, html, cls, extra) => `<div class="cp-bb ${cls || ''}" style="left:${x}px;top:${y}px;${extra || ''}"><div class="cp-bbi">${html}</div></div>`;
+    const arvore = (x, y, s) => bb(x, y, `<span class="cp-tree" style="--s:${s || 1}"><i></i><b></b></span>`, 'cp-deco');
+    const poste = (x, y) => bb(x, y, '<span class="cp-lamp"><i></i></span>', 'cp-deco');
+    let salas = '', gente = [];
+    setores.forEach((s, i) => {
+      const c = i % cols, r = Math.floor(i / cols);
+      const x = M + c * (RW + G), y = M + r * (RD + G);
+      const cor = rhSetCor(s.nome, i);
+      const pessoas = ativos.filter((u) => u.sector === s.nome);
+      const mesas = Math.min(4, Math.max(1, Math.ceil(pessoas.length / 2)));
+      let mob = '';
+      for (let k = 0; k < mesas; k++) {
+        const mx = x + 26 + (k % 2) * 104, my = y + 40 + Math.floor(k / 2) * 66;
+        mob += box(mx, my, 70, 30, 16, 'cp-desk') + box(mx + 22, my + 6, 26, 6, 18, 'cp-mon', 'transform:translateZ(16px)');
+      }
+      mob += arvore(x + RW - 20, y + 18, .6);
+      salas += `<div class="cp-room" data-set="${esc(s.nome)}" style="left:${x}px;top:${y}px;width:${RW}px;height:${RD}px;--c:${cor}">
+          <i class="cp-wall wn"></i><i class="cp-wall ww"></i><i class="cp-glow"></i></div>${mob}
+        ${bb(x + 18, y + 18, `<span class="cp-tag" style="--c:${cor}"><i></i><b>${esc(s.nome)}</b><em>${pessoas.length}</em></span>`, 'cp-label', `--lift:${66}px`)}`;
+      pessoas.forEach((u, k) => gente.push({ u, cx: x, cy: y, w: RW, d: RD, k, lead: s.responsavelId === u.id }));
+    });
+    // recepção (frente da maquete)
+    const ly = D - LOB - M + 30;
+    const lobby = `<div class="cp-lobby" style="left:${M}px;top:${ly}px;width:${W - M * 2}px;height:${LOB - 30}px"></div>
+      ${box(W / 2 - 70, ly + 40, 140, 26, 22, 'cp-recep')}
+      ${bb(W / 2, ly + 30, `<span class="cp-totem"><img src="assets/logo-icone.png" alt=""><b>Convergas</b></span>`, 'cp-deco')}
+      <div class="cp-floortx" style="left:${M + 250}px;top:${ly + 46}px">CONVERGAS</div>
+      ${box(M + 70, ly + LOB - 74, 60, 14, 8, 'cp-bench')}${box(W - M - 160, ly + LOB - 74, 60, 14, 8, 'cp-bench')}
+      ${bb(W - M - 120, D - M - 14, '<span class="cp-signtx"><img src="assets/logo-icone.png" alt="">Convergas</span>', 'cp-deco')}
+      ${arvore(M + 34, ly + 50, 1)}${arvore(W - M - 34, ly + 40, .9)}${arvore(W / 2 - 150, ly + 70, .75)}${arvore(M + 150, D - M - 20, .8)}${poste(M + 10, ly + LOB - 50)}${poste(W - M - 10, ly + LOB - 50)}${poste(W / 2 + 10, D - M - 6)}
+      <div class="cp-cross" style="left:${W / 2 - 60}px;top:${D - 22}px"></div>`;
+    semSetor.forEach((u, k) => gente.push({ u, cx: M + 40, cy: ly + 20, w: W - M * 2 - 80, d: LOB - 80, k, lobby: true }));
+    const vazio = !N ? bb(W / 2, M + 70, `<span class="cp-hint">${ic('grid')}<span><b>Monte a sua planta</b>Crie os setores em RH → Pessoas & setores</span></span>`, 'cp-label', '--lift:20px') : '';
+    host.innerHTML = `<div class="cp-fit"><div class="cp-world" style="width:${W}px;height:${D}px">
+        <div class="cp-slab"></div>${salas}${lobby}${vazio}
+        ${gente.map((g, i) => bb(0, 0, `<button type="button" class="cp-pp" data-p="${g.u.id}" ${podeRH ? '' : 'tabindex="-1"'}><span class="cp-name"><b>${esc(g.u.name)}</b><small>${esc(((typeof rhCargo === 'function' && rhCargo(g.u.cargoId)) || {}).nome || g.u.sector || 'Sem setor')}</small></span><span class="st-fig" style="--h:${pvHue(g.u.name)}"><span class="st-shadow"></span><span class="st-body"><i>${esc(pvInitials(g.u.name))}</i></span><span class="st-head"></span>${g.lead ? `<span class="st-crown">${ic('award')}</span>` : ''}</span></button>`, 'cp-who', `--d:${(i % 9) * -0.37}s`)).join('')}
+      </div></div>`;
+    Icons.apply(host);
+    // posiciona e faz cada pessoa andar pela sala
+    const els = $$('.cp-who', host);
+    gente.forEach((g, i) => {
+      const el = els[i]; if (!el) return;
+      const pad = 22;
+      const pos = () => ({ x: g.cx + pad + Math.random() * (g.w - pad * 2), y: g.cy + (g.lobby ? 10 : 30) + Math.random() * (g.d - (g.lobby ? 20 : 50)) });
+      const ini = g.lobby ? { x: g.cx + 30 + (g.k * 46) % Math.max(60, g.w - 40), y: g.cy + 20 + Math.floor((g.k * 46) / Math.max(60, g.w - 40)) * 40 } : { x: g.cx + 40 + (g.k % 4) * 46, y: g.cy + 120 + Math.floor(g.k / 4) * 26 };
+      el.style.left = Math.min(ini.x, g.cx + g.w - 20) + 'px'; el.style.top = Math.min(ini.y, g.cy + g.d - 14) + 'px';
+      if (hxReduce()) return;
+      const andar = () => {
+        if (!document.body.contains(el) || !$('#homeScreen').classList.contains('show')) { CP.timers.push(setTimeout(andar, 4000)); return; }
+        const p = pos(); const x0 = parseFloat(el.style.left), y0 = parseFloat(el.style.top);
+        const dist = Math.hypot(p.x - x0, p.y - y0), dur = Math.max(1.4, dist / 38);
+        el.style.transition = `left ${dur}s linear, top ${dur}s linear`; el.classList.add('walk'); el.classList.toggle('flip', p.x - x0 < p.y - y0);
+        el.style.left = p.x + 'px'; el.style.top = p.y + 'px';
+        CP.timers.push(setTimeout(() => { el.classList.remove('walk'); CP.timers.push(setTimeout(andar, 2500 + Math.random() * 6000)); }, dur * 1000));
+      };
+      CP.timers.push(setTimeout(andar, 800 + Math.random() * 5000));
+    });
+    if (podeRH) {
+      $$('.cp-pp', host).forEach((b) => (b.onclick = () => { rhOpenPessoa(b.dataset.p); }));
+      $$('.cp-room', host).forEach((r) => (r.onclick = () => navTo('rh-colab', 'rh')));
+    }
+    $$('.cp-room', host).forEach((r) => {
+      const tag = $$('.cp-tag', host).find((t) => t.textContent.trim().startsWith(r.dataset.set));
+      r.onmouseenter = () => { r.classList.add('hov'); if (tag) tag.classList.add('hov'); };
+      r.onmouseleave = () => { r.classList.remove('hov'); if (tag) tag.classList.remove('hov'); };
+    });
+    campusFit();
+  }
+  // encaixa a maquete no espaço disponível
+  function campusFit() {
+    const host = $('#homeCampus'); const fit = host && $('.cp-fit', host); if (!fit) return;
+    fit.style.transform = 'none';
+    const world = $('.cp-world', fit);
+    const r = world.getBoundingClientRect(), hr = host.getBoundingClientRect();
+    if (!r.width || !hr.width) return;
+    const s = Math.min(hr.width * 0.98 / r.width, hr.height * 0.96 / r.height, 1.4);
+    const dx = (hr.left + hr.width / 2) - (r.left + r.width / 2), dy = (hr.top + hr.height / 2) - (r.top + r.height / 2);
+    fit.style.transform = `translate(${dx}px, ${dy + 10}px) scale(${s})`;
+    fit.style.transformOrigin = `${r.left - hr.left + r.width / 2}px ${r.top - hr.top + r.height / 2}px`;
+  }
+  addEventListener('resize', () => { clearTimeout(CP.rz); CP.rz = setTimeout(() => { CP.built = ''; campusBuild(); }, 200); });
+
   /* =========================== GRÁFICO DE ROSCA 3D ===========================
      Rosca em perspectiva (topo + paredes laterais) desenhada em SVG e girando devagar.
      segs: [{ k, l, n, c }]  ·  o: { center: { v, l }, w, h } — passar o mouse destaca a fatia. */
@@ -7315,6 +7417,7 @@
     try { buildHome(); } catch (e) {}
     $('#homeScreen').classList.add('show'); $('#homeScreen').setAttribute('aria-hidden', 'false');
     $('.app-shell').style.display = 'none';
+    requestAnimationFrame(() => { try { campusBuild(); campusFit(); } catch (e) {} });
     if (location.hash !== '#home') history.replaceState(null, '', '#home');
   }
   function enterArea(area) { const r = Perm.primeira(area); if (!r) { toast('Você não tem acesso a esta área', 'warn'); return; } currentArea = area; renderSidebar(area); navTo(r, area); }
@@ -7443,6 +7546,7 @@
 
   // atualiza só os números da Home (selos nos botões e índice lateral), sem refazer a roda
   function homeRefreshStats() {
+    try { campusBuild(); } catch (e) {}
     const mount = $('#wheelMount'); if (!mount || !mount.children.length) return;
     HX.stats = HOME_AREAS.map((a) => { try { return a.stat(); } catch (e) { return { v: '—', l: '', tone: '' }; } });
     HX.stats.forEach((st, i) => {
