@@ -1813,7 +1813,7 @@
         <g class="p3d-g"></g></svg>
       ${o.center ? `<div class="p3d-c" style="top:${((cy) / o.h) * 100}%"><b>${esc(String(o.center.v))}</b><span>${esc(o.center.l || '')}</span></div>` : ''}`;
     const g = $('.p3d-g', el);
-    const data = tot ? segs.filter((x) => x.n) : [{ k: '_', l: '', n: 1, c: 'color-mix(in srgb, var(--text) 16%, transparent)' }];
+    const data = tot ? segs.filter((x) => x.n) : [{ k: '_', l: '', n: 1, c: 'color-mix(in srgb, var(--text) 14%, var(--bg-2))' }];
     const T = tot || 1;
     const TAU = Math.PI * 2;
     const P = (rad, a, dy) => `${(cx + rad * Math.cos(a)).toFixed(2)},${(cy + rad * o.k * Math.sin(a) + (dy || 0)).toFixed(2)}`;
