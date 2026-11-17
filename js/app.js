@@ -1303,7 +1303,7 @@
   let pvNovoDraft = null; // edição da abertura (reaproveita o formulário de novo chamado)
   let pvNovoPreCli = null; // novo chamado aberto a partir do perfil do cliente
 
-  function pvMe() { try { return localStorage.getItem('pv_me') || ''; } catch (e) { return ''; } }
+  function pvMe() { if (window.CCAuth && CCAuth.perfil && CCAuth.perfil.nome) return CCAuth.perfil.nome; try { return localStorage.getItem('pv_me') || ''; } catch (e) { return ''; } }
   function setPvMe(n) { try { localStorage.setItem('pv_me', n || ''); } catch (e) {} }
   const pvNow = () => new Date().toISOString();
   const pvFmtDT = (iso) => { if (!iso) return '—'; const d = new Date(iso); if (isNaN(d)) return fmtDate(iso); return d.toLocaleDateString('pt-BR') + ' ' + d.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }); };
@@ -2033,12 +2033,13 @@
   function rhSetores() {
     const cad = rhList('rhSetores');
     const names = new Set(cad.map((s) => s.nome));
-    rhList('team').forEach((u) => { if (u.sector && !names.has(u.sector)) { names.add(u.sector); Store.add('rhSetores', { id: 'rs_' + rhSlug(u.sector), nome: u.sector }); } });
-    return rhList('rhSetores').slice().sort((a, b) => a.nome.localeCompare(b.nome));
+    const extra = [];
+    rhList('team').forEach((u) => { if (u.sector && !names.has(u.sector)) { names.add(u.sector); const o = { id: 'rs_' + rhSlug(u.sector), nome: u.sector }; if (Perm.podeGravar('rhSetores')) Store.add('rhSetores', o); else extra.push(o); } });
+    return rhList('rhSetores').concat(extra).slice().sort((a, b) => a.nome.localeCompare(b.nome));
   }
   // treinamentos de exemplo (ids fixos; só entram se o catálogo estiver vazio)
   function rhTreinos() {
-    if (!rhList('rhTreinos').length) {
+    if (!rhList('rhTreinos').length && Perm.podeGravar('rhTreinos')) {
       [['rt_integracao', 'Integração de novos colaboradores', 'Integração', 4, 0], ['rt_iatf', 'Conscientização IATF 16949 / ISO 9001', 'Qualidade (IATF / ISO)', 2, 12],
         ['rt_nr06', 'NR-06 · Uso de EPI', 'Norma Regulamentadora (NR)', 2, 12], ['rt_nr10', 'NR-10 · Segurança em eletricidade', 'Norma Regulamentadora (NR)', 40, 24],
         ['rt_nr12', 'NR-12 · Máquinas e equipamentos', 'Norma Regulamentadora (NR)', 8, 24], ['rt_nr35', 'NR-35 · Trabalho em altura', 'Norma Regulamentadora (NR)', 8, 24],
@@ -2987,6 +2988,183 @@
     const tabsEl = $('#rvTabs', tb);
     $$('button', tabsEl).forEach((b) => (b.onclick = () => { rhVeicTab = b.dataset.s; $$('button', tabsEl).forEach((x) => x.classList.toggle('on', x === b)); tabsThumb(tabsEl); render(); }));
     render(); tabsThumbInit(tabsEl, 'rhv');
+  };
+
+  /* =========================== USUÁRIOS & PERMISSÕES (admin) =========================== */
+  // menu da conta (topo)
+  function userChip() {
+    const b = $('#tbUser'); if (!b) return;
+    if (!Perm.on()) { b.hidden = true; return; }
+    const p = CCAuth.perfil; b.hidden = false;
+    b.innerHTML = `<span class="tb-uav" style="--h:${pvHue(p.nome || p.email || '?')}">${esc(pvInitials(p.nome || p.email || '?'))}</span>`;
+    b.title = `${p.nome || ''} — minha conta`;
+    b.onclick = (e) => { e.stopPropagation(); userMenu(); };
+  }
+  function userMenu() {
+    if (!Perm.on()) return;
+    const old = $('.um-pop'); if (old) { old.remove(); return; }
+    const p = CCAuth.perfil;
+    const pop = document.createElement('div'); pop.className = 'um-pop';
+    pop.innerHTML = `<div class="um-h"><span class="tb-uav lg" style="--h:${pvHue(p.nome || '?')}">${esc(pvInitials(p.nome || '?'))}</span><span><b>${esc(p.nome || '')}</b><small>${esc(p.email || '')}</small>${p.admin ? '<em>Administrador</em>' : ''}</span></div>
+      ${p.admin ? `<button type="button" data-um="usuarios">${ic('key')}Usuários & permissões</button>` : ''}
+      <button type="button" data-um="senha">${ic('lock')}Trocar senha</button>
+      <button type="button" data-um="sair" class="danger">${ic('logOut')}Sair</button>`;
+    document.body.appendChild(pop); Icons.apply(pop);
+    const fechar = () => { pop.remove(); document.removeEventListener('click', fora, true); };
+    const fora = (e) => { if (!pop.contains(e.target) && !e.target.closest('#tbUser')) fechar(); };
+    setTimeout(() => document.addEventListener('click', fora, true), 0);
+    $$('[data-um]', pop).forEach((x) => (x.onclick = () => { const a = x.dataset.um; fechar(); if (a === 'usuarios') navTo('usuarios', 'ti'); if (a === 'senha') CCAuth.trocarSenha(); if (a === 'sair') confirmDialog('Sair do Control Center neste aparelho?', () => CCAuth.sair(), 'primary'); }));
+  }
+
+  // áreas e abas que entram na tela de permissões (na ordem da Home)
+  const permAreas = () => {
+    const ord = ['qualidade', 'pos-vendas', 'manutencao', 'programacao', 'rh', 'ti', 'sistemas'];
+    return ord.filter((a) => NAV[a]).map((a) => {
+      const ha = (HOME_AREAS_ALL.find((x) => x.area === a) || {});
+      const abas = []; NAV[a].groups.forEach((g) => g.items.forEach((it) => { if (it.r !== 'usuarios') abas.push({ r: it.r, t: it.t, i: it.i, g: g.label }); }));
+      return { area: a, label: NAV[a].label, color: ha.color || '#5CE1E6', icon: ha.icon || 'grid', abas };
+    });
+  };
+  const NIV_TXT = { editar: 'Editar', ver: 'Visualizar', nenhum: 'Sem acesso' };
+  async function usrApi(body) {
+    const tok = await CCAuth.token();
+    try {
+      const r = await fetch('/api/usuarios', { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${tok}` }, body: JSON.stringify(body) });
+      const j = await r.json().catch(() => ({}));
+      return r.ok ? j : { ok: false, erro: j.erro || 'Não foi possível concluir.' };
+    } catch (e) { return { ok: false, erro: 'Sem conexão com o servidor.' }; }
+  }
+  // resumo de acesso por área, a partir das abas
+  function permResumo(perm) {
+    const abas = (perm && perm.abas) || {};
+    return permAreas().map((A) => { const n = { editar: 0, ver: 0 }; A.abas.forEach((x) => { if (abas[x.r]) n[abas[x.r]]++; }); return { ...A, n, nivel: n.editar ? 'editar' : n.ver ? 'ver' : 'nenhum' }; });
+  }
+  function usrSenhaModal(nome, email, senha, nova) {
+    const msg = `Olá, ${nome.split(' ')[0]}! Seu acesso ao Control Center: ${location.origin}\nE-mail: ${email}\nSenha temporária: ${senha}\nNo primeiro acesso o sistema pede para você criar a sua própria senha.`;
+    const card = modal({
+      title: nova ? 'Nova senha gerada' : 'Usuário criado', sub: nome, dialog: true,
+      body: `<div class="sv-done"><span class="sv-done-ic">${ic('check')}</span><div><b>${nova ? 'Senha temporária gerada' : 'Conta criada'}</b><span>Passe a senha abaixo para ${esc(nome.split(' ')[0])}. No 1º acesso ele(a) cria a própria senha.</span></div></div>
+        <div class="sv-link"><input readonly value="${esc(senha)}" class="us-pass"><button class="btn primary" id="usCp">${ic('copy')}Copiar senha</button></div>
+        <div class="sv-msg"><span class="sv-msg-h">Mensagem pronta</span><p>${esc(msg).replace(/\n/g, '<br>')}</p></div>
+        <div class="sv-share"><button class="btn" id="usCpMsg">${ic('copy')}Copiar mensagem</button></div>
+        <p class="sv-note">${ic('shield')}<span>Esta senha não aparece de novo. Se perder, gere outra no cadastro do usuário.</span></p>`,
+      footer: `<button class="btn primary" data-close>Pronto</button>`,
+    });
+    $('#usCp', card).onclick = () => copy(senha, 'Senha copiada');
+    $('#usCpMsg', card).onclick = () => copy(msg, 'Mensagem copiada');
+  }
+
+  function usrForm(u, done) {
+    const editing = !!(u && u.id); u = u || { permissoes: { abas: {} }, ativo: true };
+    const abas = Object.assign({}, (u.permissoes && u.permissoes.abas) || {});
+    let isAdmin = !!u.admin, ativo = u.ativo !== false;
+    const me = CCAuth.perfil || {};
+    const pessoas = Store.get('team').filter((p) => p.situacao !== 'desligado').slice().sort((a, b) => (a.name || '').localeCompare(b.name || ''));
+    const seg = (key, val, area) => `<div class="us-seg" data-${area ? 'area' : 'aba'}="${key}">${['nenhum', 'ver', 'editar'].map((n) => `<button type="button" data-n="${n}" class="${val === n ? 'on' : ''}">${n === 'nenhum' ? ic('x') : n === 'ver' ? ic('eye') : ic('edit')}<span>${NIV_TXT[n]}</span></button>`).join('')}</div>`;
+    const areaNiv = (A) => { const vs = A.abas.map((x) => abas[x.r] || 'nenhum'); return vs.every((v) => v === vs[0]) ? vs[0] : 'misto'; };
+    const card = modal({
+      title: editing ? 'Editar usuário' : 'Novo usuário', sub: editing ? u.email : 'Login e permissões por aba', wide: true,
+      body: `<div class="form-sec">${ic('users')}Pessoa</div>
+        <div class="form-grid">
+          <div class="field full"><label>Colaborador (cadastro do RH)</label><select name="teamId"><option value="">Não vincular</option>${pessoas.map((p) => `<option value="${p.id}" ${u.team_id === p.id ? 'selected' : ''}>${esc(p.name)}${p.sector ? ' · ' + esc(p.sector) : ''}</option>`).join('')}</select><span class="hint">Vincular preenche nome e e-mail e faz o sistema saber quem é a pessoa (ex.: "Aberto por").</span></div>
+          ${field('Nome', 'nome', u.nome, 'text', { ph: 'Nome e sobrenome' })}
+          ${field('E-mail de login', 'email', u.email, 'email', { ph: 'nome@convergas.com.br', hint: editing ? 'O e-mail de login não muda.' : '' })}
+        </div>
+        <div class="us-tg">
+          <label class="wz-toggle${isAdmin ? ' on' : ''}" id="usAdm"><span class="wz-toggle-ic">${ic('key')}</span><span class="wz-toggle-tx"><b>Administrador</b><small>Acesso total a todas as áreas e pode criar e editar usuários.</small></span><span class="switch"><input type="checkbox" ${isAdmin ? 'checked' : ''} ${editing && u.id === me.id ? 'disabled' : ''}><span class="sl"></span></span></label>
+          ${editing ? `<label class="wz-toggle${ativo ? ' on' : ''}" id="usAtv"><span class="wz-toggle-ic">${ic('check')}</span><span class="wz-toggle-tx"><b>Acesso ativo</b><small>Desligue para bloquear o login sem apagar o usuário.</small></span><span class="switch"><input type="checkbox" ${ativo ? 'checked' : ''} ${u.id === me.id ? 'disabled' : ''}><span class="sl"></span></span></label>` : ''}
+        </div>
+        <div id="usPerms" ${isAdmin ? 'hidden' : ''}>
+          <div class="form-sec us-ph">${ic('shield')}Permissões por aba <small>toque na área para ver as abas</small></div>
+          <div class="us-legend"><span>${ic('x')}<b>Sem acesso</b> a aba nem aparece</span><span>${ic('eye')}<b>Visualizar</b> vê, mas não altera</span><span>${ic('edit')}<b>Editar</b> vê e altera</span></div>
+          <div class="us-areas">${permAreas().map((A) => `<section class="us-area" data-a="${A.area}" style="--c:${A.color}">
+            <header class="us-ah"><button type="button" class="us-at" data-tg="${A.area}"><span class="us-ai">${ic(A.icon)}</span><span><b>${esc(A.label)}</b><small class="us-sum"></small></span><span class="us-chev">${ic('chevron')}</span></button>${seg(A.area, areaNiv(A), true)}</header>
+            <div class="us-abas">${A.abas.map((x) => `<div class="us-aba"><span class="us-abt">${ic(x.i)}<span>${esc(x.t)}<small>${esc(x.g)}</small></span></span>${seg(x.r, abas[x.r] || 'nenhum')}</div>`).join('')}</div></section>`).join('')}</div>
+        </div>`,
+      footer: (editing ? `<button class="btn ghost" id="usDel" style="margin-right:auto">${ic('trash')}Excluir</button><button class="btn" id="usPw">${ic('lock')}Gerar nova senha</button>` : '') + `<button class="btn ghost" data-close>Cancelar</button><button class="btn primary" id="saveBtn">${ic('check')}${editing ? 'Salvar' : 'Criar usuário'}</button>`,
+    });
+    if (editing) $('[name="email"]', card).disabled = true;
+    ccSelect($('[name="teamId"]', card), { icon: 'users', search: true });
+    $('[name="teamId"]', card).addEventListener('change', (e) => { const p = Store.find('team', e.target.value); if (!p) return; const n = $('[name="nome"]', card), m = $('[name="email"]', card); n.value = p.name || n.value; if (!editing && p.email) m.value = p.email; });
+    const tg = (id, fn) => { const l = $(id, card); if (!l) return; const i = $('input', l); i.addEventListener('change', () => { l.classList.toggle('on', i.checked); fn(i.checked); }); };
+    tg('#usAdm', (v) => { isAdmin = v; $('#usPerms', card).hidden = v; });
+    tg('#usAtv', (v) => { ativo = v; });
+    const paint = () => permAreas().forEach((A) => {
+      const sec = $(`.us-area[data-a="${A.area}"]`, card); const n = { editar: 0, ver: 0 };
+      A.abas.forEach((x) => { const v = abas[x.r] || 'nenhum'; if (v !== 'nenhum') n[v]++; $$(`[data-aba="${x.r}"] button`, sec).forEach((b) => b.classList.toggle('on', b.dataset.n === v)); });
+      const an = areaNiv(A); $$(`[data-area="${A.area}"] button`, sec).forEach((b) => b.classList.toggle('on', b.dataset.n === an));
+      $('.us-sum', sec).textContent = !n.editar && !n.ver ? 'Sem acesso' : [n.editar ? `${n.editar} editar` : '', n.ver ? `${n.ver} visualizar` : ''].filter(Boolean).join(' · ') + ` · de ${A.abas.length} abas`;
+      sec.classList.toggle('has', !!(n.editar || n.ver));
+    });
+    $$('[data-aba] button', card).forEach((b) => (b.onclick = () => { abas[b.closest('[data-aba]').dataset.aba] = b.dataset.n; paint(); }));
+    $$('[data-area] button', card).forEach((b) => (b.onclick = () => { const A = permAreas().find((x) => x.area === b.closest('[data-area]').dataset.area); A.abas.forEach((x) => (abas[x.r] = b.dataset.n)); paint(); }));
+    $$('[data-tg]', card).forEach((b) => (b.onclick = () => b.closest('.us-area').classList.toggle('open')));
+    paint();
+    const permsOut = () => {
+      const out = { abas: {}, areas: {} };
+      permAreas().forEach((A) => A.abas.forEach((x) => { const v = abas[x.r]; if (v && v !== 'nenhum') { out.abas[x.r] = v; out.areas[A.area] = nivMax(out.areas[A.area] || 'nenhum', v); } }));
+      return out;
+    };
+    const busy = (b, on) => { b.disabled = on; b.classList.toggle('busy', on); };
+    $('#saveBtn', card).onclick = async (ev) => {
+      const d = readForm(card); const btn = ev.currentTarget;
+      if ((d.nome || '').length < 3) return toast('Informe o nome', 'warn');
+      if (!editing && !/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(d.email || '')) return toast('E-mail inválido', 'warn');
+      const perms = permsOut();
+      if (!isAdmin && !Object.keys(perms.abas).length) return toast('Libere pelo menos uma aba (ou marque como administrador)', 'warn');
+      busy(btn, true);
+      const r = await usrApi(editing ? { acao: 'editar', id: u.id, nome: d.nome, admin: isAdmin, ativo, permissoes: perms, teamId: d.teamId } : { acao: 'criar', email: d.email, nome: d.nome, admin: isAdmin, permissoes: perms, teamId: d.teamId });
+      busy(btn, false);
+      if (!r.ok) return toast(r.erro || 'Não foi possível salvar', 'warn');
+      closeModal(); if (done) done();
+      if (editing) toast('Usuário atualizado'); else usrSenhaModal(d.nome, d.email.toLowerCase(), r.senha, false);
+    };
+    const pw = $('#usPw', card);
+    if (pw) pw.onclick = () => confirmDialog(`Gerar uma nova senha temporária para ${u.nome}? A senha atual deixa de funcionar.`, async () => { const r = await usrApi({ acao: 'senha', id: u.id }); if (!r.ok) return toast(r.erro, 'warn'); if (done) done(); usrSenhaModal(u.nome, u.email, r.senha, true); }, 'primary');
+    const del = $('#usDel', card);
+    if (del) del.onclick = () => { if (u.id === me.id) return toast('Você não pode excluir a sua própria conta', 'warn'); confirmDialog(`Excluir o usuário ${u.nome}? Ele perde o acesso. (Para só bloquear, desligue "Acesso ativo".)`, async () => { const r = await usrApi({ acao: 'excluir', id: u.id }); if (!r.ok) return toast(r.erro, 'warn'); toast('Usuário excluído', 'info'); if (done) done(); }); };
+  }
+
+  let usrFilt = { q: '', st: 'todos' };
+  PAGES.usuarios = () => {
+    pageShell('T.I.', 'Usuários & permissões', 'Quem entra no Control Center e o que cada pessoa pode ver e editar, aba por aba.', Perm.on() ? `<button class="btn primary" id="usNovo">${ic('userPlus')}Novo usuário</button>` : '');
+    if (!Perm.on()) {
+      const el = document.createElement('section'); el.className = 'pvp-card us-setup';
+      el.innerHTML = `<div class="us-setup-h"><span class="rh-card-ic" style="--c:#5CE1E6">${ic('key')}</span><div><b>O login ainda não foi ativado</b><span>Hoje o sistema abre sem senha. Para ativar, faça uma vez os 3 passos abaixo (as instruções estão na conversa com o Claude).</span></div></div>
+        <ol class="us-steps"><li><b>Rodar o SQL do login</b> no Supabase (arquivo <code>supabase/login.sql</code>).</li><li><b>Guardar a chave do servidor</b> (service role) na Vercel, como <code>SUPABASE_SERVICE_ROLE_KEY</code>.</li><li><b>Criar o 1º administrador</b> (você) no Supabase.</li></ol>
+        <p class="sv-note">${ic('shield')}<span>Enquanto o SQL não for rodado, nada muda: o sistema continua abrindo como hoje.</span></p>`;
+      view.appendChild(el); Icons.apply(el); return;
+    }
+    $('#usNovo').onclick = () => usrForm(null, () => go('usuarios'));
+    const holder = document.createElement('div'); holder.innerHTML = `<div class="qf-empty us-load">${ic('refresh')}<span>Carregando usuários…</span></div>`; view.appendChild(holder); Icons.apply(holder);
+    usrApi({ acao: 'listar' }).then((r) => {
+      if (currentRoute !== 'usuarios') return;
+      if (!r.ok) { holder.innerHTML = `<div class="tbl-wrap">${emptyState('alert', 'Não foi possível carregar', r.erro || '')}</div>`; Icons.apply(holder); return; }
+      const all = r.usuarios || [];
+      const cnt = { todos: all.length, admin: all.filter((u) => u.admin).length, ativos: all.filter((u) => u.ativo).length, pend: all.filter((u) => u.trocar_senha).length, off: all.filter((u) => !u.ativo).length };
+      const tile = (cls, icn, v, l, sb) => `<div class="pvd-tile ${cls}"><span class="pvd-ti">${ic(icn)}</span><b>${v}</b><span>${esc(l)}</span><small>${esc(sb)}</small></div>`;
+      holder.innerHTML = `<section class="pc-tiles rh-aus-t">${tile('t-info', 'users', cnt.ativos, 'Usuários ativos', `${cnt.todos} no total`)}${tile('t-ok', 'key', cnt.admin, 'Administradores', 'acesso total')}${tile('t-warn', 'lock', cnt.pend, 'Aguardando 1º acesso', 'ainda com senha temporária')}${tile(cnt.off ? 't-danger' : '', 'x', cnt.off, 'Bloqueados', 'acesso desativado')}</section>
+        <div class="rh-mxf"><label class="rh-pk-q">${ic('search')}<input id="usQ" placeholder="Buscar nome ou e-mail…" value="${esc(usrFilt.q)}" autocomplete="off"></label>
+          <div class="rh-mxf-c">${[['todos', 'Todos'], ['admin', 'Administradores'], ['pend', 'Aguardando 1º acesso'], ['off', 'Bloqueados']].map(([k, l]) => `<button type="button" class="rh-fc${usrFilt.st === k ? ' on' : ''}" data-f="${k}">${l}<em>${cnt[k]}</em></button>`).join('')}</div></div>
+        <div id="usG"></div>`;
+      const paintG = () => {
+        let l = all.filter((u) => ({ todos: true, admin: u.admin, pend: u.trocar_senha, off: !u.ativo })[usrFilt.st]);
+        if (usrFilt.q) { const q = usrFilt.q.toLowerCase(); l = l.filter((u) => `${u.nome} ${u.email}`.toLowerCase().includes(q)); }
+        $('#usG', holder).innerHTML = l.length ? `<div class="rh-cards us-cards">${l.map((u, i) => { const res = permResumo(u.permissoes);
+          return `<button type="button" class="rh-card us-card${u.ativo ? '' : ' off'}" data-u="${u.id}" style="--d:${Math.min(i, 12) * 30}ms;--c:${u.admin ? '#5CE1E6' : u.ativo ? '#46D39A' : '#94A3B8'}">
+            <span class="rh-card-h">${rhAvatar(u.nome || u.email)}<span><b>${esc(u.nome || '—')}${u.id === (CCAuth.perfil || {}).id ? ' <small class="us-you">você</small>' : ''}</b><small>${esc(u.email || '')}</small></span></span>
+            <span class="us-badges">${u.admin ? `<span class="badge info plain">${ic('key')}Administrador</span>` : ''}${u.ativo ? '' : '<span class="badge danger plain">Bloqueado</span>'}${u.trocar_senha ? '<span class="badge warn plain">Aguardando 1º acesso</span>' : ''}</span>
+            <span class="us-access">${u.admin ? '<em class="us-ac all">Acesso total a todas as áreas</em>' : res.filter((A) => A.nivel !== 'nenhum').map((A) => `<em class="us-ac" style="--c:${A.color}">${ic(A.icon)}${esc(A.label)}<i>${A.n.editar ? 'edita' : 'vê'}${A.n.editar + A.n.ver < A.abas.length ? ` ${A.n.editar + A.n.ver}/${A.abas.length}` : ''}</i></em>`).join('') || '<em class="us-ac none">Nenhuma aba liberada</em>'}</span>
+            <span class="us-foot">${ic('clock')}${u.ultimoAcesso ? 'Último acesso ' + pvFmtDT(u.ultimoAcesso) : 'Nunca entrou'}</span></button>`; }).join('')}</div>`
+          : `<div class="tbl-wrap">${emptyState('users', 'Nenhum usuário aqui', 'Ajuste a busca ou o filtro.')}</div>`;
+        Icons.apply($('#usG', holder));
+        $$('[data-u]', holder).forEach((b) => (b.onclick = () => usrForm(all.find((x) => x.id === b.dataset.u), () => go('usuarios'))));
+      };
+      Icons.apply(holder);
+      $$('[data-f]', holder).forEach((b) => (b.onclick = () => { usrFilt.st = b.dataset.f; $$('[data-f]', holder).forEach((x) => x.classList.toggle('on', x === b)); paintG(); }));
+      $('#usQ', holder).oninput = (e) => { usrFilt.q = e.target.value; paintG(); };
+      paintG();
+    });
   };
 
   /* =========================== GRÁFICO DE ROSCA 3D ===========================
@@ -6839,7 +7017,7 @@
       { label: 'Conhecimento', items: [ { r: 'command', t: 'Command Center', s: 'Comandos', i: 'terminal' }, { r: 'runbooks', t: 'Runbooks', s: 'Runbooks', i: 'book' }, { r: 'sharepoint', t: 'SharePoint', s: 'Portais', i: 'globe' } ] },
       { label: 'Infraestrutura', items: [ { r: 'infra', t: 'Domínio & Infra', s: 'Infra', i: 'globe' }, { r: 'computadores', t: 'Computadores', s: 'PCs', i: 'monitor' }, { r: 'impressoras', t: 'Impressoras', s: 'Impr.', i: 'printer' }, { r: 'telefonia', t: 'Telefonia', s: 'Fones', i: 'phone' }, { r: 'inventario', t: 'Periféricos', s: 'Perif.', i: 'box' }, { r: 'licencas', t: 'Licenças', s: 'Licenças', i: 'key' } ] },
       { label: 'Segurança', items: [ { r: 'cofre', t: 'Cofre', s: 'Cofre', i: 'shield' }, { r: 'bitlocker', t: 'BitLocker', s: 'BitLock', i: 'lock' } ] },
-      { label: 'Sistema', items: [ { r: 'settings', t: 'Settings', s: 'Config', i: 'settings' } ] },
+      { label: 'Sistema', items: [ { r: 'usuarios', t: 'Usuários & permissões', s: 'Usuários', i: 'key' }, { r: 'settings', t: 'Settings', s: 'Config', i: 'settings' } ] },
     ] },
     qualidade: { label: 'Qualidade', groups: [
       { label: 'Visão geral', items: [ { r: 'qa-dashboard', t: 'Painel', s: 'Painel', i: 'grid' }, { r: 'pv-qualidade', t: 'Fila de RNC', s: 'RNC', i: 'upload' } ] },
@@ -6873,11 +7051,67 @@
   TITLES['pv-novo'] = 'Novo chamado'; TITLES['pv-detalhe'] = 'Chamado';
   ROUTE_AREA['rh-pessoa'] = 'rh'; TITLES['rh-pessoa'] = 'Perfil do colaborador'; ROUTE_AREA['rh-mov-novo'] = 'rh'; TITLES['rh-mov-novo'] = 'Admissão / Desligamento';
   const NAV_PARENT = { 'pv-cliente': 'pv-clientes', 'rh-pessoa': 'rh-colab', 'rh-mov-novo': 'rh-movs' };
+  /* =========================== PERMISSÕES (login) ===========================
+     Cada aba do menu tem um nível por usuário: editar | ver | nenhum.
+     Admin = tudo. Sem login configurado (modo aberto) = tudo, como antes.
+     As gravações também são barradas no banco (RLS por área — supabase/login.sql). */
+  const ROUTE_PARENT = { servidor: 'infra', 'pv-cliente': 'pv-clientes', 'pv-novo': 'pv-chamados', 'prog-pedido': 'prog-pedidos', 'rh-pessoa': 'rh-colab', 'rh-mov-novo': 'rh-movs' };
+  const NIV_ORD = { nenhum: 0, ver: 1, editar: 2 };
+  const nivMax = (a, b) => (NIV_ORD[a] >= NIV_ORD[b] ? a : b);
+  // mesma tabela do banco (cc_areas_da_colecao)
+  const COLL_AREAS = (c) => {
+    if (['printers', 'commands', 'runbooks', 'inventory', 'phones', 'sharepoint', 'webDomains', 'dnsRecords', 'computers', 'vault'].includes(c)) return ['ti'];
+    if (c === 'licenses') return ['ti', 'qualidade'];
+    if (['certificates', 'labs', 'epis', 'epiEntregas', 'epiFichas'].includes(c)) return ['qualidade'];
+    if (['equipments', 'serviceOrders', 'parts'].includes(c)) return ['manutencao'];
+    if (c === 'pvChamados') return ['pos-vendas', 'qualidade'];
+    if (c === 'pvClientes' || c === 'pvAvaliacoes') return ['pos-vendas'];
+    if (c === 'team') return ['rh', 'ti', 'programacao'];
+    if (/^rh/.test(c)) return ['rh'];
+    if (/^prog/.test(c)) return ['programacao'];
+    return ['*'];
+  };
+  const Perm = {
+    on: () => !!(window.CCAuth && CCAuth.modo === 'login' && CCAuth.perfil),
+    admin: () => !Perm.on() || !!CCAuth.perfil.admin,
+    abas: () => ((CCAuth.perfil && CCAuth.perfil.permissoes) || {}).abas || {},
+    aba(route) {
+      if (!Perm.on() || CCAuth.perfil.admin) return 'editar';
+      if (route === 'usuarios') return 'nenhum';
+      if (route === 'pv-detalhe') return nivMax(Perm.aba('pv-chamados'), Perm.aba('pv-qualidade'));
+      if (route === 'prog-form') return Perm.area('programacao');
+      const r = ROUTE_PARENT[route] || route;
+      return Perm.abas()[r] || 'nenhum';
+    },
+    area(area) {
+      if (!Perm.on() || CCAuth.perfil.admin) return 'editar';
+      let n = 'nenhum'; ((NAV[area] || {}).groups || []).forEach((g) => g.items.forEach((it) => { if (it.r !== 'settings' || area === 'ti') n = nivMax(n, Perm.abas()[it.r] || 'nenhum'); })); return n;
+    },
+    podeGravar(coll) {
+      if (!Perm.on() || CCAuth.perfil.admin) return true;
+      const ar = (CCAuth.perfil.permissoes || {}).areas || {};
+      return COLL_AREAS(coll).some((a) => a === '*' || ar[a] === 'editar');
+    },
+    primeira(area) { const it = []; navGroups(area).forEach((g) => g.items.forEach((x) => it.push(x.r))); return it.includes(AREA_HOME[area]) ? AREA_HOME[area] : it[0] || null; },
+  };
+  window.CCPerm = Perm;
+  const navGroups = (area) => ((NAV[area] || {}).groups || []).map((g) => ({ ...g, items: g.items.filter((it) => Perm.aba(it.r) !== 'nenhum') })).filter((g) => g.items.length);
+  // gravação sem permissão: não salva e avisa (uma vez a cada poucos segundos)
+  let semPermT = 0;
+  const semPerm = () => { if (Date.now() - semPermT > 2500) { semPermT = Date.now(); toast('Você só tem permissão para visualizar aqui', 'warn'); } };
+  ['add', 'update', 'remove'].forEach((m) => {
+    const orig = Store[m].bind(Store);
+    Store[m] = function (coll, ...a) {
+      if (!Perm.podeGravar(coll) || (Perm.on() && document.body.classList.contains('cc-ro'))) { semPerm(); return m === 'add' ? a[0] : m === 'update' ? Store.find(coll, a[0]) : undefined; }
+      return orig(coll, ...a);
+    };
+  });
+
   const AREA_HOME = { ti: 'dashboard', qualidade: 'qa-dashboard', sistemas: 'sistemas-home', 'pos-vendas': 'pv-painel', manutencao: 'manutencao-home', programacao: 'prog-atividades', rh: 'rh-painel' };
 
   function renderSidebar(area) {
     const cfg = NAV[area]; const nav = $('#nav');
-    nav.innerHTML = cfg.groups.map((g) => `<p class="nav-label">${esc(g.label)}</p>` +
+    nav.innerHTML = navGroups(area).map((g) => `<p class="nav-label">${esc(g.label)}</p>` +
       g.items.map((it) => `<a class="nav-item" data-route="${it.r}"><span class="ni-ico" data-icon="${it.i}"></span><span class="ni-tx">${esc(it.t)}</span></a>`).join('')).join('');
     $('#brandArea').textContent = cfg.label;
     Icons.apply(nav);
@@ -6890,7 +7124,7 @@
 
   function renderMobileNav(area, route) {
     const cfg = NAV[area]; if (!cfg) return;
-    const flat = []; cfg.groups.forEach((g) => g.items.forEach((it) => { if (it.r !== 'settings') flat.push(it); }));
+    const flat = []; navGroups(area).forEach((g) => g.items.forEach((it) => { if (it.r !== 'settings') flat.push(it); }));
     const tabs = flat.slice(0, 4);
     // tab bar: até 4 atalhos da área + botão Menu
     const mnav = $('#mnav');
@@ -6901,15 +7135,17 @@
     $('#mtabMenu').onclick = openSheet;
     // bottom sheet: navegação completa da área + trocar de área + tema
     const body = $('#msheetBody');
-    body.innerHTML = cfg.groups.map((g) => `<p class="ms-label">${esc(g.label)}</p>` +
+    body.innerHTML = navGroups(area).map((g) => `<p class="ms-label">${esc(g.label)}</p>` +
       g.items.map((it) => `<button class="ms-item${it.r === route ? ' on' : ''}" data-route="${it.r}"><span data-icon="${it.i}"></span><span>${esc(it.t)}</span></button>`).join('')).join('')
       + `<div class="ms-foot">
            <button id="msArea"><span data-icon="grid"></span>Trocar de área</button>
            <button id="msTheme"><span data-icon="moon"></span>Tema</button>
+           ${Perm.on() ? '<button id="msUser"><span data-icon="users"></span>Minha conta</button>' : ''}
          </div>`;
     Icons.apply(body);
     $$('.ms-item', body).forEach((b) => (b.onclick = () => { closeSheet(); navTo(b.dataset.route); }));
     $('#msArea').onclick = () => { closeSheet(); goHome(); };
+    const msu = $('#msUser'); if (msu) msu.onclick = () => { closeSheet(); userMenu(); };
     $('#msTheme').onclick = () => { setTheme(document.documentElement.getAttribute('data-theme') === 'dark' ? 'light' : 'dark'); };
   }
 
@@ -6921,10 +7157,18 @@
     $('.app-shell').style.display = 'none';
     if (location.hash !== '#home') history.replaceState(null, '', '#home');
   }
-  function enterArea(area) { currentArea = area; renderSidebar(area); navTo(AREA_HOME[area], area); }
+  function enterArea(area) { const r = Perm.primeira(area); if (!r) { toast('Você não tem acesso a esta área', 'warn'); return; } currentArea = area; renderSidebar(area); navTo(r, area); }
 
   function go(route) {
     if (!PAGES[route]) route = AREA_HOME[currentArea] || 'dashboard';
+    if (Perm.aba(route) === 'nenhum') {
+      const ar = ROUTE_AREA[route] || currentArea; const alt = Perm.primeira(ar);
+      if (alt && alt !== route) { toast('Você não tem acesso a essa aba', 'warn'); route = alt; }
+      else { toast('Você não tem acesso a essa área', 'warn'); goHome(); return; }
+    }
+    const ro = Perm.aba(route) === 'ver';
+    document.body.classList.toggle('cc-ro', ro);
+    const rb = $('#tbRo'); if (rb) rb.hidden = !ro;
     // um chamado aberto a partir da área Qualidade continua dentro dela
     const area = route === 'pv-detalhe' && currentArea === 'qualidade' ? 'qualidade' : ROUTE_AREA[route];
     if (area && area !== currentArea) { currentArea = area; renderSidebar(area); }
@@ -6973,6 +7217,7 @@
     { area: 'sistemas', label: 'Sistemas', icon: 'grid', color: '#3FA9F5', desc: 'Homologa, App de produção e painel da TV.',
       stat: () => ({ v: SISTEMAS.length, l: 'plataformas disponíveis', tone: 'info' }) },
   ];
+  const HOME_AREAS_ALL = HOME_AREAS.slice(); // a Home mostra só as áreas liberadas; a tela de permissões usa todas
   const GUIDELINE = { area: 'guideline', ext: true };
   const HX = { sel: -1, cur: 0, vel: 0, target: 0, raf: null, leaving: false, touch: false, stats: [] };
   // movimento controlado pela opção do app (Settings > Fundo animado). O "reduzir movimento" do
@@ -6981,6 +7226,8 @@
 
   function buildHome() {
     const mount = $('#wheelMount'); if (!mount) return;
+    for (let i = HOME_AREAS.length - 1; i >= 0; i--) if (Perm.area(HOME_AREAS[i].area) === 'nenhum') HOME_AREAS.splice(i, 1);
+    if (!HOME_AREAS.length) { mount.innerHTML = `<div class="hx-none"><b>Nenhuma área liberada</b><span>Peça ao administrador para liberar o seu acesso.</span></div>`; return; }
     const N = HOME_AREAS.length, step = 360 / N;
     HX.stats = HOME_AREAS.map((a) => { try { return a.stat(); } catch (e) { return { v: '—', l: '', tone: '' }; } });
     // marcações do anel (estilo mostrador de instrumento)
@@ -7381,7 +7628,7 @@ void main(){
   const PROG_PA_STATUS = { pendente: 'Pendente', em_andamento: 'Em andamento', concluida: 'Concluída' };
   const DIAS_SEMANA = ['Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb', 'Dom'];
 
-  function progMe() { try { return localStorage.getItem('prog_me') || ''; } catch (e) { return ''; } }
+  function progMe() { if (window.CCAuth && CCAuth.perfil && CCAuth.perfil.team_id) return CCAuth.perfil.team_id; try { return localStorage.getItem('prog_me') || ''; } catch (e) { return ''; } }
   function setProgMe(id) { try { localStorage.setItem('prog_me', id || ''); } catch (e) {} }
   function progSetorNome(id) { const s = Store.find('progSetores', id); return s ? s.nome : '—'; }
   // pessoas da Programação = cadastro único do RH (coleção "team"); setores do PCP ficam em team.progSetores
@@ -8115,6 +8362,7 @@ void main(){
     setTimeout(rlHide, 1450);
     // offline-first: já renderizou do cache local; agora sincroniza com a nuvem por cima
     syncCloud();
+    userChip();
   }
 
   // Puxa dados reais do Supabase e re-renderiza a tela atual quando algo muda.
@@ -8142,5 +8390,6 @@ void main(){
   }
   window.syncCloud = syncCloud;
 
-  boot();
+  // login primeiro (se configurado no banco); depois abre o sistema
+  if (window.CCAuth) CCAuth.start().then(boot); else boot();
 })();

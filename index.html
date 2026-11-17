@@ -52,7 +52,9 @@
       </div>
       <button class="tb-home" id="tbHome" aria-label="Voltar à Home" title="Voltar à Home" data-icon="home"></button>
       <button class="tb-mini tb-fs" id="fsToggle" aria-label="Tela cheia" title="Tela cheia" data-icon="maximize"></button>
+      <span class="tb-ro" id="tbRo" hidden title="Você pode ver, mas não alterar esta aba"><span data-icon="eye"></span>Somente leitura</span>
       <button class="tb-mini tb-theme" id="themeToggle" aria-label="Alternar tema" data-icon="moon"></button>
+      <button class="tb-mini tb-user" id="tbUser" aria-label="Minha conta" hidden></button>
     </header>
 
     <div class="view" id="view"><!-- pages render here --></div>
@@ -133,6 +135,7 @@
 <script src="js/supabase.js"></script>
 <script src="js/config.js"></script>
 <script src="js/cloud.js"></script>
+<script src="js/auth.js"></script>
 <script src="js/store.js"></script>
 <script src="js/app.js"></script>
 </body>

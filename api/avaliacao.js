@@ -33,6 +33,15 @@ async function sb(path, opts) {
   return { status: r.status, j };
 }
 const rowPath = (t) => `entities?entity=eq.pvAvaliacoes&id=eq.av_${t}`;
+// Com o login ativo as tabelas ficam fechadas: a leitura/gravação passa pelas funções
+// seguras cc_av_get / cc_av_responder (supabase/login.sql). Sem elas, usa a tabela direto.
+async function lerAvaliacao(t) {
+  const f = await sb('rpc/cc_av_get', { method: 'POST', body: JSON.stringify({ tok: t }) });
+  if (f.status === 200) return { ok: true, d: f.j && typeof f.j === 'object' ? f.j : null, rpc: true };
+  const { status, j } = await sb(`${rowPath(t)}&select=data`);
+  if (status !== 200) return { ok: false };
+  return { ok: true, d: Array.isArray(j) && j[0] ? j[0].data : null, rpc: false };
+}
 const estado = (d) => {
   if (!d) return 'invalido';
   if (d.status === 'respondida') return 'respondida';
@@ -48,9 +57,9 @@ module.exports = async (req, res) => {
     if (req.method === 'GET') {
       const t = String((req.query && req.query.t) || new URL(req.url, 'http://x').searchParams.get('t') || '');
       if (!TOKEN_RE.test(t)) return send(res, { ok: false, status: 'invalido' }, 404);
-      const { status, j } = await sb(`${rowPath(t)}&select=data`);
-      if (status !== 200) return send(res, { ok: false, status: 'erro' }, 502);
-      const d = Array.isArray(j) && j[0] ? j[0].data : null;
+      const L = await lerAvaliacao(t);
+      if (!L.ok) return send(res, { ok: false, status: 'erro' }, 502);
+      const d = L.d;
       const st = estado(d);
       if (st === 'invalido') return send(res, { ok: false, status: st }, 404);
       return send(res, { ok: true, status: st, cliente: d.clienteNome || '', contato: txt(d.contatoNome, 60).split(' ')[0] || '', chamado: d.chamadoNumero || '', expiraEm: d.expiraEm });
@@ -65,11 +74,16 @@ module.exports = async (req, res) => {
         recomenda: nota(r.recomenda, 0, 10), comentario: txt(r.comentario, 1500), nome: txt(r.nome, 80),
       };
       if (resposta.nota == null) return send(res, { ok: false, status: 'incompleta' }, 400);
-      const { status, j } = await sb(`${rowPath(t)}&select=data`);
-      if (status !== 200) return send(res, { ok: false, status: 'erro' }, 502);
-      const d = Array.isArray(j) && j[0] ? j[0].data : null;
+      const L = await lerAvaliacao(t);
+      if (!L.ok) return send(res, { ok: false, status: 'erro' }, 502);
+      const d = L.d;
       const st = estado(d);
       if (st !== 'aberta') return send(res, { ok: false, status: st }, 409);
+      if (L.rpc) {
+        const w = await sb('rpc/cc_av_responder', { method: 'POST', body: JSON.stringify({ tok: t, resposta }) });
+        if (w.status !== 200 || w.j !== true) return send(res, { ok: false, status: 'respondida' }, 409);
+        return send(res, { ok: true });
+      }
       const agora = new Date().toISOString();
       const novo = { ...d, status: 'respondida', respostaEm: agora, resposta };
       // grava só se ainda estiver "enviada" (evita duas respostas ao mesmo tempo)

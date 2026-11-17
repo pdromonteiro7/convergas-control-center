@@ -12,7 +12,7 @@
 (function () {
   const cfg = window.CC_CONFIG || {};
   const hasLib = !!(window.supabase && window.supabase.createClient && cfg.supabaseUrl && cfg.supabaseAnon);
-  const SB = hasLib ? window.supabase.createClient(cfg.supabaseUrl, cfg.supabaseAnon, { auth: { persistSession: false } }) : null;
+  const SB = hasLib ? window.supabase.createClient(cfg.supabaseUrl, cfg.supabaseAnon, { auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: false, storageKey: 'cc-auth' } }) : null;
 
   // Coleções sincronizadas (arrays de topo do Store). Ficam de fora:
   //  - vault (segredos: não expor em nuvem anônima)
