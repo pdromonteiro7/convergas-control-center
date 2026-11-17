@@ -2562,6 +2562,7 @@
     $$('select', w).forEach((s) => ccSelect(s, { search: s.options.length > 8, icon: { sector: 'grid', cargoId: 'briefcase', gestorId: 'users', contrato: 'file', motivo: 'list', aviso: 'clock' }[s.name] }));
     const ck = new Set(); $$('[data-ck]', w).forEach((b) => (b.onclick = () => { const i = +b.dataset.ck; ck.has(i) ? ck.delete(i) : ck.add(i); b.classList.toggle('on', ck.has(i)); }));
     let colab = dr.colabId || '';
+    let devItems = []; const devOk = new Set(); // itens com a pessoa que precisam voltar (desligamento)
     if (adm) {
       const cel = $('[name="celular"]', w); cel.addEventListener('input', () => { cel.value = pvMaskFone(cel.value); });
       const ani = $('[name="aniversario"]', w); ani.addEventListener('input', () => { const d = pvDig(ani.value).slice(0, 4); ani.value = d.length > 2 ? d.slice(0, 2) + '/' + d.slice(2) : d; });
@@ -2590,20 +2591,35 @@
           const epis = rhList('epiEntregas').filter((x) => x.funcionarioId === colab);
           const inv = (Store.itemsForUser ? Store.itemsForUser(colab) : []);
           const veic = rhList('rhVeiculos').filter((v) => v.responsavelId === colab);
-          const it = [].concat(u && u.machineId ? [['monitor', 'Computador ' + ((Store.find('computers', u.machineId) || {}).hostname || u.machineId)]] : [], inv.map((x) => ['box', x.name || 'Periférico']), epis.map((x) => ['shield', 'EPI · ' + (x.epiName || (Store.find('epis', x.epiId) || {}).name || 'EPI')]), veic.map((v) => ['car', 'Veículo ' + v.placa]));
-          $('#rmDev', w).innerHTML = it.length ? `<div class="wz-sub">${ic('box')}Itens com ${esc(u ? u.name.split(' ')[0] : 'a pessoa')} — recolher</div><div class="rh-dev">${it.map(([i2, t]) => `<span>${ic(i2)}${esc(t)}</span>`).join('')}</div>` : '';
-          Icons.apply($('#rmDev', w));
+          const comp = u && u.machineId ? Store.find('computers', u.machineId) : null;
+          devItems = [].concat(
+            u && u.machineId ? [{ k: 'pc_' + u.machineId, i: 'monitor', c: '#5CE1E6', tipo: 'Computador', nome: (comp && comp.hostname) || u.machineId, det: 'T.I.' }] : [],
+            inv.map((x) => ({ k: 'inv_' + x.id, i: 'box', c: '#3FA9F5', tipo: x.type || 'Periférico', nome: x.brandModel || x.name || x.type || 'Periférico', det: 'Periférico · T.I.' })),
+            epis.map((x) => ({ k: 'epi_' + x.id, i: 'shield', c: '#46D39A', tipo: 'EPI', nome: x.epiName || (Store.find('epis', x.epiId) || {}).name || 'EPI', det: `${x.ca ? 'CA ' + x.ca + ' · ' : ''}entregue ${fmtDate(x.deliveryDate) || '—'}` })),
+            veic.map((v) => ({ k: 'vei_' + v.id, i: 'car', c: '#FB923C', tipo: 'Veículo', nome: rhPlacaFmt(v.placa), det: v.modelo || 'Frota' })));
+          Array.from(devOk).forEach((k) => { if (!devItems.some((x) => x.k === k)) devOk.delete(k); });
+          const nome1 = esc(u ? u.name.split(' ')[0] : 'a pessoa');
+          const box = $('#rmDev', w);
+          const cnt = () => { const n = devOk.size, t = devItems.length; $('.rh-dev-n', box).innerHTML = `<b>${n}</b> de ${t} recolhido${t > 1 ? 's' : ''}`; $('.rh-dev-bar i', box).style.width = (t ? (100 * n) / t : 0) + '%'; box.classList.toggle('all', n === t); };
+          box.innerHTML = devItems.length ? `<div class="rh-dev">
+              <div class="rh-dev-h"><span class="rh-dev-hi">${ic('box')}</span><span class="rh-dev-ht"><b>Itens com ${nome1}</b><small>Toque em cada item quando ele for devolvido</small></span><span class="rh-dev-n"></span></div>
+              <div class="rh-dev-bar"><i></i></div>
+              <div class="rh-dev-l">${devItems.map((x) => `<button type="button" class="rh-dev-i${devOk.has(x.k) ? ' on' : ''}" data-dev="${esc(x.k)}" style="--c:${x.c}"><span class="rh-dev-ic">${ic(x.i)}</span><span class="rh-dev-t"><small>${esc(x.tipo)}</small><b>${esc(x.nome)}</b><em>${esc(x.det)}</em></span><span class="rh-dev-ck">${ic('check')}</span></button>`).join('')}</div></div>`
+            : `<div class="rh-dev rh-dev-none"><span class="rh-dev-hi">${ic('check')}</span><span class="rh-dev-ht"><b>Nada a recolher</b><small>Nenhum computador, periférico, EPI ou veículo registrado com ${nome1}.</small></span></div>`;
+          Icons.apply(box);
+          $$('[data-dev]', box).forEach((b) => (b.onclick = () => { const k = b.dataset.dev; devOk.has(k) ? devOk.delete(k) : devOk.add(k); b.classList.toggle('on', devOk.has(k)); cnt(); }));
+          if (devItems.length) cnt();
         }
         if (i === 3) {
           const list = adm ? RH_CK_ADM : RH_CK_DES;
           $('#rmRev', w).innerHTML = (adm ? rev([['Nome', d.name], ['E-mail', d.email], ['Celular', d.celular], ['Setor', d.sector], ['Cargo', (rhCargo(d.cargoId) || {}).nome], ['Gestor', d.gestorId ? rhNome(d.gestorId) : ''], ['Contrato', d.contrato], ['Admissão', fmtDate(d.admissao)]])
             : rev([['Colaborador', rhNome(colab)], ['Último dia', fmtDate(d.data)], ['Motivo', d.motivo], ['Aviso prévio', d.aviso], ['Observações', d.obs]]))
-            + `<div class="rh-rev-ck"><b>Checklist</b><span>${ck.size} de ${list.length} itens feitos</span><div class="qband-bar"><i style="--w:${(100 * ck.size) / list.length}%;--c:#46D39A;width:${(100 * ck.size) / list.length}%"></i></div></div>`;
+            + `<div class="rh-rev-ck"><b>Checklist</b><span>${ck.size + devOk.size} de ${list.length + devItems.length} itens feitos${devItems.length ? ` · ${devOk.size}/${devItems.length} itens recolhidos` : ''}</span><div class="qband-bar"><i style="--w:${(100 * (ck.size + devOk.size)) / (list.length + devItems.length)}%;--c:#46D39A;width:${(100 * (ck.size + devOk.size)) / (list.length + devItems.length)}%"></i></div></div>`;
         }
       },
       onFinish: () => {
         const d = readForm(w); const list = adm ? RH_CK_ADM : RH_CK_DES;
-        const checklist = list.map((t, i) => ({ t, done: ck.has(i) }));
+        const checklist = devItems.map((x) => ({ t: `Recolher ${x.tipo.toLowerCase()}: ${x.nome}`, done: devOk.has(x.k) })).concat(list.map((t, i) => ({ t, done: ck.has(i) })));
         const status = checklist.every((x) => x.done) ? 'concluido' : 'andamento';
         let pid = colab;
         if (adm) {
