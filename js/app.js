@@ -1798,72 +1798,6 @@
   };
 
   /* =========================== CLIENTES =========================== */
-  /* =========================== INTEGRAÇÃO LIFEGAS (clientes) ===========================
-     O banco do LifeGas envia cada cliente criado/editado/excluído para a coleção "lgClientes"
-     (gatilho em life-gas/supabase/sync-control-center.sql). Aqui essa cópia vira cliente do
-     Pós-Vendas: casa por vínculo → CNPJ → nome; cria o que falta com id fixo ("lg-…", então
-     dois navegadores nunca duplicam) e só atualiza os dados básicos quando eles mudam no LifeGas
-     — prazo de resposta, 8D, CSR e observações do Pós-Vendas nunca são tocados. */
-  const lgDig = (v) => String(v || '').replace(/\D/g, '');
-  const lgNorm = (v) => String(v || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/\b(ltda|me|epp|eireli|s\/?a)\b/g, '').replace(/[^a-z0-9]+/g, ' ').trim();
-  const lgBase = (r) => ({
-    nome: String(r.nome || '').trim(), cnpj: lgDig(r.cnpj).length === 14 ? pvMaskCnpj(r.cnpj) : String(r.cnpj || '').trim(),
-    cidade: pvTitle(String(r.municipio || '').trim()), uf: String(r.uf || '').toUpperCase().slice(0, 2),
-    contatoNome: String(r.contato || '').trim(), contatoEmail: String(r.email || '').trim(), contatoFone: String(r.telefone || '').trim(),
-    endereco: String(r.endereco || '').trim(), cep: String(r.cep || '').trim(),
-  });
-  function lgMerge() {
-    const rows = Store.get('lgClientes') || [];
-    if (!rows.length) return { novos: 0, atualizados: 0 };
-    let novos = 0, atualizados = 0;
-    rows.forEach((r) => {
-      if (!r || !r.id || !r.nome) return;
-      const clis = Store.get('pvClientes');
-      const base = lgBase(r); const sig = JSON.stringify(base);
-      let k = clis.find((x) => x.lifegasId === r.id)
-        || (lgDig(base.cnpj).length === 14 && clis.find((x) => !x.lifegasId && lgDig(x.cnpj) === lgDig(base.cnpj)))
-        || clis.find((x) => !x.lifegasId && lgNorm(x.nome) && lgNorm(x.nome) === lgNorm(base.nome));
-      if (r.removido) {
-        if (k && !k.lgRemovido) { Store.update('pvClientes', k.id, { lgRemovido: true }); atualizados++; }
-        return;
-      }
-      if (!k) {
-        Store.add('pvClientes', { id: 'lg-' + r.id, ...base, segmento: '', prazoRespostaDias: '', exige8D: false, csr: '', obs: '', origem: 'lifegas', lifegasId: r.id, lgSig: sig, lgSyncEm: r.syncEm || new Date().toISOString() });
-        novos++; return;
-      }
-      if (k.lifegasId !== r.id || k.lgSig !== sig || k.lgRemovido) {
-        // só preenche/atualiza campos que vieram com valor do LifeGas
-        const patch = { origem: 'lifegas', lifegasId: r.id, lgSig: sig, lgRemovido: false, lgSyncEm: r.syncEm || new Date().toISOString() };
-        Object.keys(base).forEach((f) => { if (base[f]) patch[f] = base[f]; });
-        Store.update('pvClientes', k.id, patch); atualizados++;
-      }
-    });
-    return { novos, atualizados };
-  }
-  async function lgSyncNow(btn) {
-    if (btn) { btn.disabled = true; btn.classList.add('spin'); }
-    // busca na nuvem (no máx. 5 s — sem internet, aplica o que já foi recebido)
-    try { if (Store.syncFromCloud) await Promise.race([Store.syncFromCloud(), new Promise((ok) => setTimeout(ok, 5000))]); } catch (e) {}
-    const r = lgMerge();
-    if (btn) { btn.disabled = false; btn.classList.remove('spin'); }
-    const n = (Store.get('lgClientes') || []).length;
-    if (!n) toast('Nenhum cliente do LifeGas recebido ainda — confira se a integração foi ativada', 'warn');
-    else toast(r.novos || r.atualizados ? `LifeGas: ${r.novos} novo(s), ${r.atualizados} atualizado(s)` : 'Tudo em dia com o LifeGas', r.novos || r.atualizados ? 'ok' : 'info');
-    if (currentRoute === 'pv-clientes') go('pv-clientes');
-  }
-  function lgHowTo() {
-    modal({
-      title: 'Ativar integração com o LifeGas', sub: 'Feito uma única vez, por quem administra o LifeGas',
-      body: `<ol class="lgx-steps">
-          <li><b>Abra o Supabase do LifeGas</b><span>supabase.com → projeto do LifeGas → <em>SQL Editor</em> → <em>New query</em>.</span></li>
-          <li><b>Cole o script da integração</b><span>Arquivo <code>supabase/sync-control-center.sql</code> do repositório <code>life-gas</code> no GitHub (botão <em>Copy raw file</em>).</span></li>
-          <li><b>Clique em Run</b><span>Os clientes que já existem são enviados na hora. A partir daí, todo cliente criado ou editado no LifeGas aparece aqui sozinho.</span></li>
-        </ol>
-        <div class="form-inline-note">${ic('shield')}<span>Os dados do Pós-Vendas (prazo de resposta, 8D, requisitos) nunca são sobrescritos — só nome, CNPJ, cidade e contato vêm do LifeGas.</span></div>`,
-      footer: `<button class="btn primary" data-close>Entendi</button>`,
-    });
-  }
-
   /* =========================== GRÁFICO DE ROSCA 3D ===========================
      Rosca em perspectiva (topo + paredes laterais) desenhada em SVG e girando devagar.
      segs: [{ k, l, n, c }]  ·  o: { center: { v, l }, w, h } — passar o mouse destaca a fatia. */
@@ -1972,7 +1906,7 @@
     const ativos = clis.filter((k) => (byCli[k.id] || []).some(pvAberto));
     const segs = [['Frotista', 'Frotista'], ['Montadora', 'Montadora'], ['Consumidor final', 'Consumidor final'], ['Outro', 'Outros'], ['', 'Sem segmento']]
       .map(([k, l]) => ({ k, l, n: clis.filter((x) => pvSegKey(x) === k).length, c: PV_SEG_COR[k] })).filter((x) => x.n);
-    const lgN = clis.filter((k) => k.origem === 'lifegas' && !k.lgRemovido).length;
+    const comAtraso = clis.filter((k) => (byCli[k.id] || []).some(pvAtrasado)).length;
 
     // painel
     const el = document.createElement('section'); el.className = 'pvd pvc';
@@ -1991,7 +1925,7 @@
         <div class="pvd-tiles">
           <div class="pvd-tile t-warn pvc-sat"><span class="pvd-ti">${ic('award')}</span><b>${sat.avg == null ? '—' : `<span data-count="${sat.avg.toFixed(1)}" data-dec="1">0</span><small class="pvc-of">/5</small>`}</b><span>Satisfação geral</span><small>${sat.avg == null ? 'sem avaliações ainda' : `${pvStars(sat.avg)} ${sat.n} ${sat.n === 1 ? 'avaliação' : 'avaliações'}`}</small></div>
           <button type="button" class="pvd-tile t-info" data-go="ativos"><span class="pvd-ti">${ic('activity')}</span><b data-count="${ativos.length}">0</b><span>Clientes ativos</span><small>com chamado em aberto</small></button>
-          <div class="pvd-tile t-ok"><span class="pvd-ti">${ic('refresh')}</span><b data-count="${lgN}">0</b><span>Vindos do LifeGas</span><small>sincronizados</small></div>
+          <div class="pvd-tile t-danger${comAtraso ? ' hot' : ''}"><span class="pvd-ti">${ic('clock')}</span><b data-count="${comAtraso}">0</b><span>Com atraso</span><small>${comAtraso ? 'chamado fora do prazo' : 'nenhum cliente'}</small></div>
           <div class="pvd-tile"><span class="pvd-ti">${ic('file')}</span><b data-count="${clis.filter((k) => k.exige8D).length}">0</b><span>Exigem 8D</span><small>resposta no método 8D</small></div>
         </div>
         <div class="pvd-trend pvc-3d">
@@ -2009,17 +1943,6 @@
     const host = $('#pvc3d', el); host.appendChild(chart);
     host.appendChild(pie3dLegend(chart, top, (k) => { if (k !== '_outros') pvOpenCli(k); }));
 
-    // integração LifeGas (faixa compacta)
-    const lgRows = (Store.get('lgClientes') || []).filter((r) => !r.removido);
-    const lgLast = (Store.get('lgClientes') || []).map((r) => r.syncEm || '').sort().pop();
-    const lg = document.createElement('section'); lg.className = 'lgx' + (lgRows.length ? ' on' : '');
-    lg.innerHTML = `<span class="lgx-mark"><span class="lgx-pulse"></span>${ic('refresh')}</span>
-      <div class="lgx-tx"><b>${lgRows.length ? 'Integrado ao LifeGas' : 'Integração com o LifeGas'}</b>
-        <span>${lgRows.length ? `${lgN} ${lgN === 1 ? 'cliente vem' : 'clientes vêm'} do LifeGas e são atualizados automaticamente${lgLast ? ` · último envio ${esc(pvFmtDT(lgLast))}` : ''}` : 'Clientes cadastrados no LifeGas aparecem aqui automaticamente depois que a integração é ativada.'}</span></div>
-      <div class="lgx-act">${lgRows.length ? '' : `<button class="btn" id="lgHow">${ic('book')}Como ativar</button>`}<button class="btn" id="lgSync">${ic('refresh')}Sincronizar agora</button></div>`;
-    view.appendChild(lg); Icons.apply(lg);
-    $('#lgSync', lg).onclick = (e) => lgSyncNow(e.currentTarget);
-    const how = $('#lgHow', lg); if (how) how.onclick = lgHowTo;
 
     // filtros + lista
     const tb = document.createElement('div'); tb.className = 'pvf';
@@ -2037,7 +1960,7 @@
       $('#pvCqx', tb).classList.toggle('show', !!q);
       holder.innerHTML = l.length ? `<div class="tbl-wrap"><table class="data pvc-table"><thead><tr><th>Cliente</th><th>Segmento</th><th>Contato</th><th>Chamados</th><th>Satisfação</th><th></th></tr></thead><tbody>${l.map((k) => {
         const mine = byCli[k.id] || []; const ab = mine.filter(pvAberto).length; const s = pvSatOf(mine);
-        return `<tr data-cli="${k.id}" class="pvx-tr"><td><div class="pvc-who"><span class="qf-av" style="--h:${pvHue(k.nome)}">${esc(pvInitials(k.nome))}</span><div><div class="cell-main">${esc(k.nome)}${k.origem === 'lifegas' ? (k.lgRemovido ? ' <span class="badge danger plain" title="Este cliente foi excluído no LifeGas">Excluído no LifeGas</span>' : ' <span class="badge info plain lgx-badge" title="Cadastro vindo do LifeGas">LifeGas</span>') : ''}</div><div class="cell-sub">${esc([k.cnpj, [k.cidade, k.uf].filter(Boolean).join(' / ')].filter(Boolean).join(' · ') || '—')}</div></div></div></td>
+        return `<tr data-cli="${k.id}" class="pvx-tr"><td><div class="pvc-who"><span class="qf-av" style="--h:${pvHue(k.nome)}">${esc(pvInitials(k.nome))}</span><div><div class="cell-main">${esc(k.nome)}</div><div class="cell-sub">${esc([k.cnpj, [k.cidade, k.uf].filter(Boolean).join(' / ')].filter(Boolean).join(' · ') || '—')}</div></div></div></td>
           <td>${k.segmento ? `<span class="wz-cli-seg">${esc(k.segmento)}</span>` : '<span class="pvx-muted">—</span>'}</td>
           <td><div class="cell-main">${esc(k.contatoNome || '—')}</div><div class="cell-sub">${esc(k.contatoEmail || k.contatoFone || '')}</div></td>
           <td><b>${mine.length}</b>${ab ? ` <span class="badge warn plain">${ab} em aberto</span>` : ''}</td>
@@ -2089,7 +2012,7 @@
       <div class="pc-id">
         <span class="pc-av">${esc(pvInitials(k.nome))}</span>
         <div class="pc-name"><b>${esc(k.nome)}</b>${k.fantasia ? `<span>${esc(k.fantasia)}</span>` : ''}
-          <div class="pc-chips">${k.segmento ? `<span class="wz-cli-seg">${esc(k.segmento)}</span>` : ''}${k.origem === 'lifegas' ? '<span class="badge info plain">LifeGas</span>' : ''}${k.exige8D ? '<span class="badge warn plain">Exige 8D</span>' : ''}${k.prazoRespostaDias ? `<span class="badge neutral plain">RNC em ${esc(k.prazoRespostaDias)} dias</span>` : ''}${ab.length ? `<span class="badge warn">${ab.length} em aberto</span>` : '<span class="badge ok plain">Nada em aberto</span>'}</div></div>
+          <div class="pc-chips">${k.segmento ? `<span class="wz-cli-seg">${esc(k.segmento)}</span>` : ''}${k.exige8D ? '<span class="badge warn plain">Exige 8D</span>' : ''}${k.prazoRespostaDias ? `<span class="badge neutral plain">RNC em ${esc(k.prazoRespostaDias)} dias</span>` : ''}${ab.length ? `<span class="badge warn">${ab.length} em aberto</span>` : '<span class="badge ok plain">Nada em aberto</span>'}</div></div>
       </div>
       <div class="pc-info">
         ${line('award', k.cnpj)}${line('pin', end)}
@@ -2308,7 +2231,7 @@
     return { goStep, get step() { return step; } };
   }
 
-  /* =========================== CLIENTE — cadastro (tela única, padrão LifeGas) ===========================
+  /* =========================== CLIENTE — cadastro (tela única) ===========================
      CNPJ completo → busca na Receita (BrasilAPI) e preenche o que estiver vazio.
      CEP completo → busca o endereço (BrasilAPI, reserva ViaCEP).
      Todos os campos com máscara/limite. Ficha do cliente ao lado, montada ao vivo. */
@@ -2376,7 +2299,6 @@
         ${o.hint ? `<small class="cf-h">${o.hint}</small>` : ''}</label>`;
     const body = `<div class="cf">
       <div class="cf-main">
-        ${k.origem === 'lifegas' ? `<div class="cf-note cf-wide">${ic('refresh')}<span><b>Cliente vindo do LifeGas.</b> Nome, CNPJ, endereço e contato são atualizados automaticamente quando mudam lá. Segmento e requisitos ficam só aqui.</span></div>` : ''}
         <div class="cf-col">
         <section class="cf-sec cf-o1" style="--d:0ms">
           <header><span class="cf-n">1</span><b>Empresa</b><small>O CNPJ preenche os dados sozinho</small></header>
@@ -6994,7 +6916,6 @@ void main(){
   function syncCloud() {
     if (!window.Store || !Store.syncFromCloud) return;
     Store.syncFromCloud((changed) => {
-      try { const r = lgMerge(); if (r.novos || r.atualizados) changed = true; } catch (e) {}
       if (!changed) return;
       // reflete os dados novos SEM redesenhar a tela (antes isso dava uma "piscada" segundos após abrir):
       // na Home só atualiza os números; numa página, re-renderiza em silêncio (sem animação de entrada,

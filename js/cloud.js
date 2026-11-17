@@ -17,7 +17,7 @@
   // Coleções sincronizadas (arrays de topo do Store). Ficam de fora:
   //  - vault (segredos: não expor em nuvem anônima)
   //  - infra/domains/dns (modelo aninhado; sync futuro)
-  const ENTITY_COLLECTIONS = ['certificates', 'labs', 'team', 'printers', 'commands', 'runbooks', 'inventory', 'licenses', 'phones', 'equipments', 'serviceOrders', 'sharepoint', 'webDomains', 'dnsRecords', 'history', 'parts', 'pvChamados', 'pvClientes', 'lgClientes'];
+  const ENTITY_COLLECTIONS = ['certificates', 'labs', 'team', 'printers', 'commands', 'runbooks', 'inventory', 'licenses', 'phones', 'equipments', 'serviceOrders', 'sharepoint', 'webDomains', 'dnsRecords', 'history', 'parts', 'pvChamados', 'pvClientes'];
   const SYNCED = ENTITY_COLLECTIONS.concat(['computers']);
   const SETTINGS_KEYS = ['prodDashboardUrl', 'guidelineUrl']; // do doc settings, só o que faz sentido compartilhar
 
@@ -54,6 +54,14 @@
       const { data, error } = await SB.from('entities').select('id,data').eq('entity', coll);
       if (error) throw error;
       return (data || []).map((r) => ({ id: r.id, ...mapIn(coll, r.data || {}) }));
+    },
+
+    // marcadores de manutenção (ex.: "meta/pvReset" = zerar clientes e chamados em todos os navegadores)
+    async pullMeta(id) {
+      if (!SB) return null;
+      const { data, error } = await SB.from('entities').select('data').eq('entity', 'meta').eq('id', id).maybeSingle();
+      if (error) throw error;
+      return data ? data.data : null;
     },
 
     async pullSettings() {
