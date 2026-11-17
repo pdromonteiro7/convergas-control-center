@@ -1856,7 +1856,7 @@ body:has(.modal-root.open .modal-card.cf-sheet) .app-shell, body:has(.modal-root
   .pvx-fsteps .pvx-st-tx small { display: none; }
   .pvx-fsteps .pvx-st-tx b { font-size: .7rem; }
   .pvx-fnav { padding: 8px; gap: 8px; }
-  .pvx-fnav #pvFPrev span { display: none; }
+  .pvx-fnav #pvFPrev span:not([data-icon]) { display: none; }
   .pvx-fnav #pvFPrev { width: 42px; padding: 0; justify-content: center; }
   .pvx-fpos { font-size: .74rem; }
   .pvx-fpos .badge { display: none; }
@@ -1865,3 +1865,5 @@ body:has(.modal-root.open .modal-card.cf-sheet) .app-shell, body:has(.modal-root
 @media (max-width: 760px) { .pvx-steps.pvx-fsteps { grid-template-columns: repeat(5, minmax(0, 1fr)); } }
 .pvx-fsteps li { padding: 0 !important; margin: 0 !important; background: none !important; border: 0 !important; }
 .pvx-fsteps { scroll-margin-top: 96px; }
+@media (max-width: 760px) { .pvx-fnav { position: sticky; bottom: calc(92px + env(safe-area-inset-bottom)); z-index: 6; background: color-mix(in srgb, var(--bg-2) 88%, transparent); backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px); } }
+#pvFPrev span[data-icon] { display: grid; place-items: center; width: 18px; height: 18px; } #pvFPrev span[data-icon] svg { width: 18px; height: 18px; }
