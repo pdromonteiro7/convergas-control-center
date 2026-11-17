@@ -1,0 +1,111 @@
+/* Avaliação de atendimento — página pública da Convergas (independente do sistema interno) */
+:root {
+  --navy: #1B2A47; --text: #24324D; --muted: #6B7A93; --line: #E3EAF3; --bg: #F4F8FC;
+  --blue: #1E7CC0; --teal: #1FA3A8; --grad: linear-gradient(135deg, #1E7CC0, #1FA3A8);
+  --star: #F5B840; --ok: #1FAF7A; --warn: #E3A008; --ease: cubic-bezier(.22, .8, .24, 1);
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; min-height: 100%; }
+body { font: 16px/1.5 ui-sans-serif, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; color: var(--text); background: var(--bg); -webkit-font-smoothing: antialiased; }
+button { font: inherit; cursor: pointer; }
+
+/* fundo suave e animado */
+.bg { position: fixed; inset: 0; overflow: hidden; z-index: 0; pointer-events: none; }
+.bg i { position: absolute; border-radius: 50%; filter: blur(70px); opacity: .55; animation: float 22s ease-in-out infinite alternate; }
+.bg .b1 { width: 520px; height: 520px; left: -140px; top: -160px; background: #B9DDF7; }
+.bg .b2 { width: 460px; height: 460px; right: -160px; top: 20%; background: #BDEDEA; animation-duration: 26s; }
+.bg .b3 { width: 420px; height: 420px; left: 30%; bottom: -220px; background: #D7E4FB; animation-duration: 30s; }
+@keyframes float { from { transform: translate(0, 0) scale(1); } to { transform: translate(40px, 30px) scale(1.08); } }
+@media (prefers-reduced-motion: reduce) { .bg i { animation: none; } }
+
+.wrap { position: relative; z-index: 1; min-height: 100vh; min-height: 100dvh; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 18px; padding: 28px 16px calc(24px + env(safe-area-inset-bottom)); }
+.brand img { display: block; width: 132px; height: auto; }
+.card { width: 100%; max-width: 560px; min-height: 380px; padding: 30px 32px; border-radius: 26px; background: rgba(255,255,255,.86); backdrop-filter: blur(18px) saturate(150%); -webkit-backdrop-filter: blur(18px) saturate(150%);
+  border: 1px solid rgba(255,255,255,.9); box-shadow: 0 1px 2px rgba(20,40,80,.05), 0 30px 70px -30px rgba(20,60,120,.35); overflow: hidden; }
+.foot { font-size: .78rem; color: var(--muted); text-align: center; max-width: 520px; }
+
+.pane { display: flex; flex-direction: column; }
+.in-r { animation: inR .5s var(--ease) both; } .in-l { animation: inL .5s var(--ease) both; }
+@keyframes inR { from { opacity: 0; transform: translateX(28px); } to { opacity: 1; transform: none; } }
+@keyframes inL { from { opacity: 0; transform: translateX(-28px); } to { opacity: 1; transform: none; } }
+
+.dots { display: flex; gap: 6px; margin-bottom: 18px; }
+.dots i { height: 5px; flex: 1; border-radius: 5px; background: var(--line); transition: background .5s var(--ease); }
+.dots i.done { background: var(--teal); }
+.dots i.on { background: var(--grad); }
+.kick { margin: 0 0 6px; font-size: .74rem; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; color: var(--teal); }
+h1 { margin: 0; font-size: 1.5rem; line-height: 1.25; letter-spacing: -.02em; color: var(--navy); }
+.sub { margin: 8px 0 0; color: var(--muted); font-size: .95rem; }
+.sub b { color: var(--text); }
+
+/* estrelas */
+.stars { display: flex; gap: 6px; }
+.stars button { border: 0; background: none; padding: 4px; border-radius: 12px; line-height: 0; transition: transform .25s var(--ease); }
+.stars svg { width: 100%; height: 100%; fill: #E6ECF4; stroke: #D3DCE8; stroke-width: 1; transition: fill .2s, stroke .2s; }
+.stars button.on svg, .stars button.hov svg { fill: var(--star); stroke: #E9A92C; }
+.stars button:hover { transform: translateY(-2px) scale(1.06); }
+.stars button:focus-visible { outline: 3px solid rgba(30,124,192,.35); }
+.stars.big { justify-content: center; margin: 30px 0 6px; gap: 4px; }
+.stars.big button { width: 64px; height: 64px; }
+.stars button.pop { animation: pop .45s var(--ease); }
+@keyframes pop { 40% { transform: scale(1.25); } }
+.lbl { text-align: center; margin: 6px 0 0; font-weight: 700; color: var(--navy); min-height: 1.5em; }
+.stars.sm button { width: 36px; height: 36px; padding: 3px; }
+.aspects { display: flex; flex-direction: column; gap: 10px; margin: 22px 0 6px; }
+.asp { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 10px 12px 10px 16px; border-radius: 16px; background: #F6F9FC; border: 1px solid var(--line); }
+.asp > span { font-weight: 600; color: var(--navy); font-size: .95rem; }
+.asp.err { border-color: #F2B8B5; background: #FFF6F5; animation: shake .4s; }
+@keyframes shake { 20%, 60% { transform: translateX(-5px); } 40%, 80% { transform: translateX(5px); } }
+
+/* NPS */
+.nps { display: grid; grid-template-columns: repeat(11, minmax(0, 1fr)); gap: 6px; margin: 26px 0 8px; }
+.nps button { aspect-ratio: 1; border-radius: 12px; border: 1px solid var(--line); background: #F6F9FC; font-weight: 700; color: var(--navy); transition: transform .2s var(--ease), background .2s, color .2s, border-color .2s; }
+.nps button:hover { transform: translateY(-2px); border-color: #B9CCE2; }
+.nps button.on.lo { background: #F26D6D; border-color: #F26D6D; color: #fff; }
+.nps button.on.mid { background: var(--warn); border-color: var(--warn); color: #fff; }
+.nps button.on.hi { background: var(--ok); border-color: var(--ok); color: #fff; }
+.nps-leg { display: flex; justify-content: space-between; font-size: .76rem; color: var(--muted); }
+
+/* campos */
+textarea, input { width: 100%; font: inherit; color: var(--text); background: #fff; border: 1px solid #D6E0EC; border-radius: 14px; padding: 12px 14px; outline: none; transition: border-color .2s, box-shadow .2s; }
+textarea { margin-top: 20px; resize: vertical; min-height: 110px; }
+textarea:focus, input:focus { border-color: var(--blue); box-shadow: 0 0 0 4px rgba(30,124,192,.12); }
+.fld { display: flex; flex-direction: column; gap: 6px; margin-top: 14px; }
+.fld span { font-size: .82rem; font-weight: 600; color: var(--muted); }
+
+/* botões */
+.nav { display: flex; justify-content: space-between; align-items: center; gap: 10px; margin-top: 24px; }
+.btn { display: inline-flex; align-items: center; justify-content: center; gap: 8px; height: 48px; padding: 0 22px; border-radius: 14px; border: 1px solid transparent; font-weight: 700; text-decoration: none; transition: transform .2s var(--ease), box-shadow .2s, opacity .2s; }
+.btn.primary { color: #fff; background: var(--grad); box-shadow: 0 12px 26px -12px rgba(30,124,192,.8); }
+.btn.primary:hover { transform: translateY(-1px); }
+.btn.primary:disabled { opacity: .7; cursor: default; }
+.btn.ghost { color: var(--muted); background: transparent; border-color: var(--line); }
+.btn.ghost:hover { color: var(--navy); border-color: #C9D6E5; }
+
+/* mensagens / agradecimento */
+.msg { display: flex; flex-direction: column; align-items: center; text-align: center; gap: 10px; padding: 16px 0 6px; }
+.msg h1 { margin-top: 6px; }
+.msg p { margin: 0 0 12px; color: var(--muted); max-width: 400px; }
+.msg-ic { width: 64px; height: 64px; border-radius: 50%; display: grid; place-items: center; background: #FFF4D9; }
+.msg-ic svg { width: 32px; height: 32px; fill: none; stroke: var(--warn); stroke-width: 2.2; stroke-linecap: round; stroke-linejoin: round; }
+.msg.ok .msg-ic { background: #DDF6EC; }
+.msg.ok .msg-ic svg { stroke: var(--ok); }
+.msg-ic.big { width: 86px; height: 86px; animation: pop .7s var(--ease); }
+.msg-ic.big svg { width: 42px; height: 42px; stroke-dasharray: 30; stroke-dashoffset: 30; animation: draw .6s .2s var(--ease) forwards; }
+@keyframes draw { to { stroke-dashoffset: 0; } }
+.small { font-size: .8rem; }
+
+.loading { min-height: 320px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px; color: var(--muted); }
+.spin { width: 30px; height: 30px; border-radius: 50%; border: 3px solid #D6E6F5; border-top-color: var(--blue); animation: rot .8s linear infinite; }
+.spin.sm { width: 16px; height: 16px; border-width: 2px; border-color: rgba(255,255,255,.4); border-top-color: #fff; }
+@keyframes rot { to { transform: rotate(360deg); } }
+
+@media (max-width: 520px) {
+  .card { padding: 22px 18px; border-radius: 22px; min-height: 0; }
+  h1 { font-size: 1.28rem; }
+  .stars.big button { width: 54px; height: 54px; }
+  .asp { flex-direction: column; align-items: flex-start; gap: 6px; }
+  .nps { grid-template-columns: repeat(6, minmax(0, 1fr)); }
+  .nav .btn { flex: 1; }
+  .brand img { width: 110px; }
+}

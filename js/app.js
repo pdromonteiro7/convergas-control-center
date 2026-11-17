@@ -1466,7 +1466,7 @@
     const tMedio = dias.length ? (dias.reduce((a, b) => a + b, 0) / dias.length) : null;
     const noPrazo = ano.length ? Math.round(100 * ano.filter((c) => !c.prazo || c.encerramento.data <= c.prazo).length / ano.length) : null;
     const custo = all.filter((c) => pvDay(c.criadoEm).slice(0, 4) === y).reduce((acc, c) => acc + (Number((c.atendimento || {}).custoTotal) || 0), 0);
-    const notas = all.map((c) => Number((c.encerramento || {}).satisfacao)).filter((n) => n > 0);
+    const notas = all.map((c) => Number((c.encerramento || {}).satisfacao)).filter((n) => n > 0).concat(pvAvResp().map((a) => Number(a.resposta.nota)).filter((n) => n > 0));
     const sat = notas.length ? (notas.reduce((a, b) => a + b, 0) / notas.length) : null;
     const MES = ['jan', 'fev', 'mar', 'abr', 'mai', 'jun', 'jul', 'ago', 'set', 'out', 'nov', 'dez'];
 
@@ -1798,6 +1798,187 @@
   };
 
   /* =========================== CLIENTES =========================== */
+  /* =========================== SATISFAÇÃO DO CLIENTE (links de avaliação) ===========================
+     Gera um link público /a/<token> (página separada, sem acesso ao sistema). Vale 3 dias e só
+     aceita uma resposta. As respostas voltam pela nuvem (coleção pvAvaliacoes). */
+  const PV_AV_DIAS = 3;
+  const pvAvStatus = (a) => a.status === 'respondida' ? 'respondida' : a.status === 'cancelada' ? 'cancelada' : (!a.expiraEm || Date.now() > Date.parse(a.expiraEm)) ? 'expirada' : 'aguardando';
+  const PV_AV_ST = { aguardando: { cls: 'info', label: 'Aguardando' }, respondida: { cls: 'ok', label: 'Respondida' }, expirada: { cls: 'neutral', label: 'Expirada' }, cancelada: { cls: 'neutral', label: 'Cancelada' } };
+  const pvAvLink = (a) => `${location.origin}/a/${a.token}`;
+  const pvAvResp = (cliId) => (Store.get('pvAvaliacoes') || []).filter((a) => a.status === 'respondida' && a.resposta && (!cliId || a.clienteId === cliId));
+  // satisfação = notas do encerramento dos chamados + notas das avaliações respondidas pelo cliente
+  function pvSatMix(chamados, avals) {
+    const n = chamados.map((c) => Number((c.encerramento || {}).satisfacao)).filter((x) => x > 0).concat((avals || []).map((a) => Number(a.resposta.nota)).filter((x) => x > 0));
+    return { avg: n.length ? n.reduce((a, b) => a + b, 0) / n.length : null, n: n.length };
+  }
+  const pvAvToken = () => { const abc = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789'; const a = new Uint32Array(24); crypto.getRandomValues(a); return Array.from(a, (x) => abc[x % abc.length]).join(''); };
+  const pvAvMsg = (a) => `Olá${a.contatoNome ? ', ' + a.contatoNome.split(' ')[0] : ''}! Aqui é da Convergas. Gostaríamos de saber como foi o nosso atendimento${a.chamadoNumero ? ' (chamado ' + a.chamadoNumero + ')' : ''}. Leva menos de 1 minuto:\n${pvAvLink(a)}\n\nO link vale até ${pvFmtDT(a.expiraEm)}. Obrigado!`;
+
+  function pvAvShare(a, root) {
+    const fone = pvDig(a.contatoFone);
+    root.innerHTML = `
+      <div class="sv-done"><span class="sv-done-ic">${ic('check')}</span><div><b>Link pronto para enviar</b><span>${esc(a.clienteNome)}${a.chamadoNumero ? ' · ' + esc(a.chamadoNumero) : ''} · vale até ${esc(pvFmtDT(a.expiraEm))}</span></div></div>
+      <div class="sv-link"><input readonly value="${esc(pvAvLink(a))}" aria-label="Link da avaliação"><button type="button" class="btn primary" data-sv="link">${ic('copy')}Copiar link</button></div>
+      <div class="sv-msg"><span class="sv-msg-h">Mensagem pronta</span><p>${esc(pvAvMsg(a)).replace(/\n/g, '<br>')}</p></div>
+      <div class="sv-share">
+        <button type="button" class="btn" data-sv="msg">${ic('copy')}Copiar mensagem</button>
+        ${fone.length >= 10 ? `<a class="btn" target="_blank" rel="noopener" href="https://wa.me/55${fone}?text=${encodeURIComponent(pvAvMsg(a))}">${ic('share')}Enviar no WhatsApp</a>` : ''}
+        ${a.contatoEmail ? `<a class="btn" href="mailto:${esc(a.contatoEmail)}?subject=${encodeURIComponent('Avaliação do atendimento — Convergas')}&body=${encodeURIComponent(pvAvMsg(a))}">${ic('mail')}Enviar por e-mail</a>` : ''}
+      </div>
+      <p class="sv-note">${ic('shield')}O cliente vê só a página de avaliação. Depois de responder, ele é levado ao site da Convergas — nunca ao Control Center.</p>`;
+    Icons.apply(root);
+    $('[data-sv="link"]', root).onclick = () => copy(pvAvLink(a), 'Link');
+    $('[data-sv="msg"]', root).onclick = () => copy(pvAvMsg(a), 'Mensagem');
+  }
+
+  function pvAvNovo(preCli, preCh) {
+    const clis = Store.get('pvClientes').slice().sort((a, b) => a.nome.localeCompare(b.nome));
+    if (!clis.length) { toast('Cadastre um cliente primeiro (Pós-Vendas → Clientes)', 'warn'); return; }
+    const card = modal({
+      title: 'Novo link de avaliação', sub: 'Satisfação do cliente · válido por 3 dias',
+      body: `<div class="sv-form" id="svForm">
+          <div class="form-sec">${ic('users')}Quem vai avaliar</div>
+          <div class="form-grid">
+            <div class="field full"><label>Cliente</label><select name="cli"><option value="">Selecione o cliente</option>${clis.map((k) => `<option value="${k.id}" ${preCli === k.id ? 'selected' : ''}>${esc(k.nome)}</option>`).join('')}</select></div>
+            <div class="field full"><label>Chamado avaliado <span class="pvx-muted">(opcional)</span></label><select name="ch"><option value="">Atendimento em geral</option></select></div>
+            ${field('Contato que vai responder', 'contato', '', 'text', { ph: 'Nome da pessoa' })}
+            ${field('WhatsApp / telefone', 'fone', '', 'tel', { ph: '(00) 00000-0000' })}
+            ${field('E-mail', 'email', '', 'email', { full: true, ph: 'nome@empresa.com.br' })}
+          </div>
+          <p class="sv-note">${ic('clock')}O link vale por <b>3 dias</b> e só pode ser respondido <b>uma vez</b>.</p>
+        </div>`,
+      footer: `<button class="btn ghost" data-close>Cancelar</button><button class="btn primary" id="svGo">${ic('share')}Gerar link</button>`,
+    });
+    const sel = $('[name="cli"]', card), chSel = $('[name="ch"]', card);
+    const fill = () => {
+      const k = pvCliente(sel.value);
+      const chs = Store.get('pvChamados').filter((c) => c.clienteId === sel.value && c.status !== 'cancelado').sort((a, b) => String(b.criadoEm).localeCompare(String(a.criadoEm)));
+      chSel.innerHTML = `<option value="">Atendimento em geral</option>` + chs.map((c) => `<option value="${c.id}" ${preCh === c.id ? 'selected' : ''}>${esc(c.numero)} · ${esc((PV_TIPOS[c.tipo] || {}).short || '')}${c.status === 'encerrado' ? ' · encerrado' : ''}</option>`).join('');
+      const w = chSel.closest('.ccs'); if (w && w.ccsRefresh) w.ccsRefresh();
+      if (k) { $('[name="contato"]', card).value = k.contatoNome || ''; $('[name="fone"]', card).value = k.contatoFone || ''; $('[name="email"]', card).value = k.contatoEmail || ''; }
+    };
+    sel.addEventListener('change', fill);
+    ccSelect(sel, { search: true, icon: 'users' }); ccSelect(chSel, { search: false, icon: 'list' });
+    if (preCli) fill();
+    const fone = $('[name="fone"]', card); fone.addEventListener('input', () => { fone.value = pvMaskFone(fone.value); });
+    $('#svGo', card).onclick = async () => {
+      const k = pvCliente(sel.value);
+      if (!k) { toast('Escolha o cliente', 'warn'); return; }
+      const ch = chSel.value ? Store.find('pvChamados', chSel.value) : null;
+      const token = pvAvToken(); const agora = new Date();
+      const a = {
+        id: 'av_' + token, token, clienteId: k.id, clienteNome: k.fantasia || k.nome, chamadoId: ch ? ch.id : '', chamadoNumero: ch ? ch.numero : '',
+        contatoNome: $('[name="contato"]', card).value.trim(), contatoFone: fone.value.trim(), contatoEmail: $('[name="email"]', card).value.trim().toLowerCase(),
+        criadoEm: agora.toISOString(), expiraEm: new Date(agora.getTime() + PV_AV_DIAS * 864e5).toISOString(), criadoPor: pvMe() || '', status: 'enviada',
+      };
+      const btn = $('#svGo', card); btn.disabled = true;
+      Store.add('pvAvaliacoes', a);
+      let ok = false; try { ok = !!(window.Cloud && window.Cloud.ok && await window.Cloud.pushItem('pvAvaliacoes', a)); } catch (e) { ok = false; }
+      if (ch) pvSave(ch, {}, 'Link de avaliação gerado', `Válido até ${pvFmtDT(a.expiraEm)}`);
+      pvAvShare(a, $('.modal-body', card));
+      $('.modal-foot', card).innerHTML = `<button class="btn primary" data-close>${ic('check')}Concluir</button>`; Icons.apply($('.modal-foot', card));
+      $$('[data-close]', card).forEach((b) => (b.onclick = () => { closeModal(); if (currentRoute === 'pv-satisfacao') go('pv-satisfacao'); }));
+      if (!ok) toast('Sem conexão com a nuvem agora — o link passa a funcionar assim que sincronizar', 'warn');
+    };
+  }
+
+  function pvAvVer(a) {
+    const r = a.resposta || {};
+    const row = (l, v) => `<div class="sv-asp"><span>${esc(l)}</span>${pvStars(v || 0)}<b>${v || '—'}</b></div>`;
+    const npsCls = r.recomenda == null ? '' : r.recomenda >= 9 ? 'hi' : r.recomenda >= 7 ? 'mid' : 'lo';
+    modal({
+      title: 'Avaliação recebida', sub: `${a.clienteNome}${a.chamadoNumero ? ' · ' + a.chamadoNumero : ''}`,
+      body: `<div class="sv-view">
+          <div class="sv-big"><b>${r.nota || '—'}</b>${pvStars(r.nota || 0)}<span>nota geral · respondida em ${esc(pvFmtDT(a.respostaEm))}</span></div>
+          <div class="sv-asps">${row('Rapidez no retorno', r.rapidez)}${row('Comunicação e cordialidade', r.comunicacao)}${row('Solução do problema', r.solucao)}</div>
+          <div class="sv-npsv ${npsCls}"><span>Recomendaria a Convergas</span><b>${r.recomenda == null ? '—' : r.recomenda + '/10'}</b><small>${r.recomenda == null ? '' : r.recomenda >= 9 ? 'Promotor' : r.recomenda >= 7 ? 'Neutro' : 'Detrator'}</small></div>
+          ${r.comentario ? `<blockquote class="sv-quote">“${esc(r.comentario)}”${r.nome ? `<cite>— ${esc(r.nome)}</cite>` : ''}</blockquote>` : `<p class="pvx-muted">Sem comentário.${r.nome ? ' Respondido por ' + esc(r.nome) + '.' : ''}</p>`}
+        </div>`,
+      footer: `<button class="btn primary" data-close>Fechar</button>`,
+    });
+  }
+
+  let pvAvFilt = 'todos';
+  PAGES['pv-satisfacao'] = () => {
+    pageShell('Pós-Vendas', 'Satisfação do cliente', 'Gere um link de avaliação, envie ao cliente e acompanhe as respostas. Cada link vale 3 dias e aceita uma resposta.',
+      `<button class="btn" id="svSync">${ic('refresh')}Atualizar</button><button class="btn primary" id="svNew">${ic('share')}Gerar link</button>`);
+    $('#svNew').onclick = () => pvAvNovo();
+    $('#svSync').onclick = async (e) => { const b = e.currentTarget; b.disabled = true; b.classList.add('spin'); try { await Promise.race([Store.syncFromCloud(), new Promise((ok) => setTimeout(ok, 6000))]); } catch (er) {} go('pv-satisfacao'); };
+    const all = (Store.get('pvAvaliacoes') || []).slice().sort((a, b) => String(b.criadoEm).localeCompare(String(a.criadoEm)));
+    const by = { aguardando: [], respondida: [], expirada: [], cancelada: [] }; all.forEach((a) => by[pvAvStatus(a)].push(a));
+    const resp = by.respondida.map((a) => a.resposta || {});
+    const avg = (k) => { const v = resp.map((r) => Number(r[k])).filter((x) => x > 0); return v.length ? v.reduce((a, b) => a + b, 0) / v.length : null; };
+    const nota = avg('nota');
+    const npsV = resp.map((r) => r.recomenda).filter((x) => x != null);
+    const nps = npsV.length ? Math.round((100 * (npsV.filter((x) => x >= 9).length - npsV.filter((x) => x <= 6).length)) / npsV.length) : null;
+    const enviados = all.filter((a) => a.status !== 'cancelada').length;
+    const taxa = enviados ? Math.round((100 * by.respondida.length) / enviados) : 0;
+    const segs = [{ k: 'respondida', l: 'Respondidas', n: by.respondida.length, c: '#46D39A' }, { k: 'aguardando', l: 'Aguardando', n: by.aguardando.length, c: '#3FA9F5' }, { k: 'expirada', l: 'Expiradas', n: by.expirada.length, c: '#94A3B8' }];
+    const el = document.createElement('section'); el.className = 'pvd svd';
+    const bar = (l, v) => `<div class="sv-bar"><span>${esc(l)}</span><span class="sv-bar-t"><i style="--w:${v ? (v / 5) * 100 : 0}%"></i></span><b>${v == null ? '—' : v.toFixed(1).replace('.', ',')}</b></div>`;
+    el.innerHTML = `
+      <div class="pvd-orbit">
+        <div class="pvd-dial">${qaDialSvg(segs, taxa)}
+          <div class="pvd-core">
+            <b>${nota == null ? '—' : `<em class="sv-core-n" data-count="${nota.toFixed(1)}" data-dec="1">0</em>`}</b>
+            <span>${nota == null ? 'sem respostas ainda' : 'nota média'}</span>
+            <small><i class="pvd-dot ok"></i><em data-count="${taxa}" data-suf="%">0%</em> respondem</small>
+          </div>
+        </div>
+        <div class="pvd-legend">${segs.map((x) => `<button type="button" data-f="${x.k}" style="--c:${x.c}"><i></i><span>${x.l}</span><b>${x.n}</b></button>`).join('')}</div>
+      </div>
+      <div class="pvd-side">
+        <div class="pvd-tiles">
+          <div class="pvd-tile t-warn"><span class="pvd-ti">${ic('award')}</span><b>${nota == null ? '—' : nota.toFixed(1).replace('.', ',')}<small class="pvc-of">/5</small></b><span>Nota média</span><small>${nota == null ? 'sem respostas' : pvStars(nota)}</small></div>
+          <div class="pvd-tile ${nps == null ? '' : nps >= 50 ? 't-ok' : nps >= 0 ? 't-info' : 't-danger'}"><span class="pvd-ti">${ic('activity')}</span><b>${nps == null ? '—' : (nps > 0 ? '+' : '') + nps}</b><span>NPS</span><small>${npsV.length ? `${npsV.filter((x) => x >= 9).length} promotores · ${npsV.filter((x) => x <= 6).length} detratores` : 'sem respostas'}</small></div>
+          <button type="button" class="pvd-tile t-info" data-f="aguardando"><span class="pvd-ti">${ic('clock')}</span><b data-count="${by.aguardando.length}">0</b><span>Aguardando</span><small>links dentro do prazo</small></button>
+          <div class="pvd-tile"><span class="pvd-ti">${ic('share')}</span><b data-count="${enviados}">0</b><span>Links enviados</span><small>${taxa}% de resposta</small></div>
+        </div>
+        <div class="pvd-trend sv-asp-card">
+          <div class="pvd-trend-h"><b>Avaliação por aspecto <small>média de 1 a 5</small></b></div>
+          ${bar('Rapidez no retorno', avg('rapidez'))}${bar('Comunicação e cordialidade', avg('comunicacao'))}${bar('Solução do problema', avg('solucao'))}
+          ${by.respondida.find((a) => (a.resposta || {}).comentario) ? `<div class="sv-last">${ic('mail')}<span>“${esc(by.respondida.find((a) => (a.resposta || {}).comentario).resposta.comentario.slice(0, 160))}”</span></div>` : ''}
+        </div>
+      </div>`;
+    view.appendChild(el); Icons.apply(el);
+
+    const tb = document.createElement('div'); tb.className = 'pvf';
+    const tabs = [['todos', 'Todos', all.length], ['aguardando', 'Aguardando', by.aguardando.length], ['respondida', 'Respondidas', by.respondida.length], ['expirada', 'Expiradas', by.expirada.length + by.cancelada.length]];
+    tb.innerHTML = `<div class="pvf-row"><div class="pvf-tabs" id="svTabs"><span class="pvf-thumb"></span>${tabs.map(([k, l, n]) => `<button data-s="${k}" class="${pvAvFilt === k ? 'on' : ''}">${l}<span class="pvf-n">${n}</span></button>`).join('')}</div></div>`;
+    view.appendChild(tb);
+    const holder = document.createElement('div'); view.appendChild(holder);
+    const render = () => {
+      const l = all.filter((a) => { const s = pvAvStatus(a); return pvAvFilt === 'todos' || s === pvAvFilt || (pvAvFilt === 'expirada' && s === 'cancelada'); });
+      holder.innerHTML = l.length ? `<div class="tbl-wrap"><table class="data sv-table"><thead><tr><th>Cliente</th><th>Chamado</th><th>Enviado em</th><th>Validade</th><th>Status</th><th>Nota</th><th></th></tr></thead><tbody>${l.map((a) => {
+        const s = pvAvStatus(a); const r = a.resposta || {};
+        const left = s === 'aguardando' ? Math.max(0, Date.parse(a.expiraEm) - Date.now()) : 0;
+        const leftTx = left ? (left > 864e5 ? `${Math.floor(left / 864e5)}d ${Math.floor((left % 864e5) / 36e5)}h` : `${Math.floor(left / 36e5)}h ${Math.floor((left % 36e5) / 6e4)}min`) : '';
+        return `<tr data-av="${a.id}" class="${s === 'respondida' ? 'pvx-tr' : ''}">
+          <td><div class="pvc-who"><span class="qf-av" style="--h:${pvHue(a.clienteNome)}">${esc(pvInitials(a.clienteNome))}</span><div><div class="cell-main">${esc(a.clienteNome)}</div><div class="cell-sub">${esc(a.contatoNome || '—')}</div></div></div></td>
+          <td>${a.chamadoNumero ? `<span class="mono">${esc(a.chamadoNumero)}</span>` : '<span class="pvx-muted">Geral</span>'}</td>
+          <td><div class="cell-main">${esc(pvFmtDT(a.criadoEm))}</div><div class="cell-sub">${esc(a.criadoPor || '')}</div></td>
+          <td>${s === 'aguardando' ? `<span class="badge info plain">${ic('clock')}expira em ${leftTx}</span>` : `<span class="pvx-muted">${esc(fmtDate(String(a.expiraEm || '').slice(0, 10)))}</span>`}</td>
+          <td>${pvBadge(PV_AV_ST, s)}</td>
+          <td>${s === 'respondida' ? `${pvStars(r.nota || 0)} <b>${r.nota || ''}</b>` : '<span class="pvx-muted">—</span>'}</td>
+          <td class="row-actions">${s === 'aguardando' ? `<button class="mini-btn" data-avcp="${a.id}" title="Copiar link">${ic('copy')}</button><button class="mini-btn" data-avsh="${a.id}" title="Enviar de novo">${ic('share')}</button><button class="mini-btn danger" data-avx="${a.id}" title="Cancelar link">${ic('x')}</button>` : s === 'respondida' ? `<button class="mini-btn" data-avv="${a.id}" title="Ver resposta">${ic('eye')}</button>` : ''}</td></tr>`;
+      }).join('')}</tbody></table></div>`
+        : `<div class="tbl-wrap">${emptyState('share', all.length ? 'Nada neste filtro' : 'Nenhum link gerado ainda', all.length ? 'Escolha outro filtro.' : 'Clique em "Gerar link", escolha o cliente e envie o link por WhatsApp ou e-mail.')}</div>`;
+      Icons.apply(holder);
+      const find = (id) => Store.find('pvAvaliacoes', id);
+      $$('[data-avcp]', holder).forEach((b) => (b.onclick = (e) => { e.stopPropagation(); copy(pvAvLink(find(b.dataset.avcp)), 'Link'); }));
+      $$('[data-avsh]', holder).forEach((b) => (b.onclick = (e) => { e.stopPropagation(); const a = find(b.dataset.avsh); const card = modal({ title: 'Enviar link de avaliação', sub: a.clienteNome, body: '<div></div>', footer: `<button class="btn primary" data-close>${ic('check')}Concluir</button>` }); pvAvShare(a, $('.modal-body', card)); }));
+      $$('[data-avx]', holder).forEach((b) => (b.onclick = (e) => { e.stopPropagation(); const a = find(b.dataset.avx); confirmDialog(`Cancelar o link de avaliação de ${esc(a.clienteNome)}? O cliente não conseguirá mais responder.`, () => { Store.update('pvAvaliacoes', a.id, { status: 'cancelada', canceladaEm: new Date().toISOString() }); toast('Link cancelado', 'info'); go('pv-satisfacao'); }); }));
+      $$('[data-avv]', holder).forEach((b) => (b.onclick = (e) => { e.stopPropagation(); pvAvVer(find(b.dataset.avv)); }));
+      $$('tr[data-av].pvx-tr', holder).forEach((tr) => (tr.onclick = () => pvAvVer(find(tr.dataset.av))));
+    };
+    const tabsEl = $('#svTabs', tb);
+    const setF = (k) => { pvAvFilt = k; $$('button', tabsEl).forEach((x) => x.classList.toggle('on', x.dataset.s === k)); tabsThumb(tabsEl); render(); };
+    $$('button', tabsEl).forEach((b) => (b.onclick = () => setF(b.dataset.s)));
+    $$('[data-f]', el).forEach((b) => (b.onclick = () => { setF(b.dataset.f); tb.scrollIntoView({ behavior: 'smooth', block: 'start' }); }));
+    render(); tabsThumbInit(tabsEl, 'sv');
+    requestAnimationFrame(() => requestAnimationFrame(() => { el.classList.add('in'); pvCountUp(el); }));
+  };
+
   /* =========================== GRÁFICO DE ROSCA 3D ===========================
      Rosca em perspectiva (topo + paredes laterais) desenhada em SVG e girando devagar.
      segs: [{ k, l, n, c }]  ·  o: { center: { v, l }, w, h } — passar o mouse destaca a fatia. */
@@ -1902,7 +2083,7 @@
     const clis = Store.get('pvClientes').slice().sort((a, b) => a.nome.localeCompare(b.nome));
     const ch = Store.get('pvChamados').filter((c) => c.status !== 'cancelado');
     const byCli = {}; ch.forEach((c) => { (byCli[c.clienteId] = byCli[c.clienteId] || []).push(c); });
-    const sat = pvSatOf(ch);
+    const sat = pvSatMix(ch, pvAvResp());
     const ativos = clis.filter((k) => (byCli[k.id] || []).some(pvAberto));
     const segs = [['Frotista', 'Frotista'], ['Montadora', 'Montadora'], ['Consumidor final', 'Consumidor final'], ['Outro', 'Outros'], ['', 'Sem segmento']]
       .map(([k, l]) => ({ k, l, n: clis.filter((x) => pvSegKey(x) === k).length, c: PV_SEG_COR[k] })).filter((x) => x.n);
@@ -1959,7 +2140,7 @@
       if (q) l = l.filter((k) => JSON.stringify(k).toLowerCase().includes(q.toLowerCase()));
       $('#pvCqx', tb).classList.toggle('show', !!q);
       holder.innerHTML = l.length ? `<div class="tbl-wrap"><table class="data pvc-table"><thead><tr><th>Cliente</th><th>Segmento</th><th>Contato</th><th>Chamados</th><th>Satisfação</th><th></th></tr></thead><tbody>${l.map((k) => {
-        const mine = byCli[k.id] || []; const ab = mine.filter(pvAberto).length; const s = pvSatOf(mine);
+        const mine = byCli[k.id] || []; const ab = mine.filter(pvAberto).length; const s = pvSatMix(mine, pvAvResp(k.id));
         return `<tr data-cli="${k.id}" class="pvx-tr"><td><div class="pvc-who"><span class="qf-av" style="--h:${pvHue(k.nome)}">${esc(pvInitials(k.nome))}</span><div><div class="cell-main">${esc(k.nome)}</div><div class="cell-sub">${esc([k.cnpj, [k.cidade, k.uf].filter(Boolean).join(' / ')].filter(Boolean).join(' · ') || '—')}</div></div></div></td>
           <td>${k.segmento ? `<span class="wz-cli-seg">${esc(k.segmento)}</span>` : '<span class="pvx-muted">—</span>'}</td>
           <td><div class="cell-main">${esc(k.contatoNome || '—')}</div><div class="cell-sub">${esc(k.contatoEmail || k.contatoFone || '')}</div></td>
@@ -1991,7 +2172,7 @@
     const ch = all.filter((c) => c.status !== 'cancelado');
     const ab = ch.filter(pvAberto), atr = ch.filter(pvAtrasado);
     const enc = ch.filter((c) => c.status === 'encerrado' && (c.encerramento || {}).data);
-    const sat = pvSatOf(ch);
+    const sat = pvSatMix(ch, pvAvResp(k.id));
     const dias = enc.map((c) => Math.max(0, daysBetween(pvDay(c.criadoEm), c.encerramento.data)));
     const tMed = dias.length ? dias.reduce((a, b) => a + b, 0) / dias.length : null;
     const noPrazo = enc.length ? Math.round((100 * enc.filter((c) => !c.prazo || c.encerramento.data <= c.prazo).length) / enc.length) : null;
@@ -5661,7 +5842,7 @@
       { label: 'Sistemas', items: [ { r: 'sistemas-home', t: 'Visão geral', s: 'Geral', i: 'grid' } ] },
     ] },
     'pos-vendas': { label: 'Pós-Vendas', groups: [
-      { label: 'Atendimento', items: [ { r: 'pv-painel', t: 'Painel', s: 'Painel', i: 'grid' }, { r: 'pv-chamados', t: 'Chamados', s: 'Chamados', i: 'list' } ] },
+      { label: 'Atendimento', items: [ { r: 'pv-painel', t: 'Painel', s: 'Painel', i: 'grid' }, { r: 'pv-chamados', t: 'Chamados', s: 'Chamados', i: 'list' }, { r: 'pv-satisfacao', t: 'Satisfação do cliente', s: 'Satisfação', i: 'award' } ] },
       { label: 'Cadastros & normas', items: [ { r: 'pv-clientes', t: 'Clientes', s: 'Clientes', i: 'users' }, { r: 'pv-guia', t: 'Fluxo & Normas', s: 'Normas', i: 'book' } ] },
     ] },
     manutencao: { label: 'Manutenção', groups: [
