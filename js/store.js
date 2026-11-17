@@ -863,6 +863,16 @@
         data.pvChamados = []; data.pvClientes = []; data._pvResetEpoch = m.epoch; changed = true; persist();
       }
     } catch (e) {}
+    // "meta/reset2": recomeço do cadastro de pessoas (RH) e do levantamento da T.I. — zera também neste navegador
+    try {
+      const m2 = window.Cloud.pullMeta ? await window.Cloud.pullMeta('reset2') : null;
+      if (m2 && m2.epoch && m2.epoch !== data._reset2Epoch) {
+        (m2.colls || []).forEach((k) => { if (Array.isArray(data[k])) data[k] = []; });
+        (data.rhVeiculos || []).forEach((v) => { v.responsavelId = ''; });
+        (data.phones || []).forEach((f) => { if (f.userId) f.userId = ''; });
+        data._reset2Epoch = m2.epoch; changed = true; persist();
+      }
+    } catch (e) {}
     for (const coll of window.Cloud.SYNCED) {
       try {
         const rows = await window.Cloud.pullCollection(coll);
