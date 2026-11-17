@@ -2045,7 +2045,7 @@
   }
   // situação de um treinamento para uma pessoa: ok | vencendo | vencido | faltando
   function rhTreinoSt(colabId, treinoId) {
-    const regs = rhList('rhTreinoReg').filter((r) => r.colaboradorId === colabId && r.treinoId === treinoId).sort((a, b) => String(b.data).localeCompare(String(a.data)));
+    const regs = rhList('rhTreinoReg').filter((r) => r.colaboradorId === colabId && r.treinoId === treinoId && !r.anulado).sort((a, b) => String(b.data).localeCompare(String(a.data)));
     const r = regs[0]; if (!r) return { st: 'faltando', r: null };
     if (!r.validade) return { st: 'ok', r };
     const d = rhDias(rhHoje(), r.validade);
@@ -2062,6 +2062,21 @@
   const rhSitBadge = (u) => { const s = RH_SIT[rhSit(u)]; return `<span class="badge ${s.cls}">${esc(s.label)}</span>`; };
   // veículos
   const rhVeicEmUso = (vid) => rhList('rhVeicUso').find((x) => x.veiculoId === vid && !x.retorno);
+  // números inteiros com separador de milhar (10.000) e limite máximo
+  const rhNum = (v) => Number(String(v == null ? '' : v).replace(/\D/g, '')) || 0;
+  const rhFmtNum = (n) => (n === '' || n == null || isNaN(n) || Number(n) === 0 && n !== 0) ? '' : Number(n).toLocaleString('pt-BR');
+  function rhMaskNum(el, max) {
+    if (!el) return; el.type = 'text'; el.setAttribute('inputmode', 'numeric'); el.autocomplete = 'off';
+    const f = () => { const d = String(el.value).replace(/\D/g, '').replace(/^0+(?=\d)/, '').slice(0, String(max).length); let n = d ? Number(d) : null; if (n != null && n > max) n = max; el.value = n == null ? '' : n.toLocaleString('pt-BR'); };
+    el.addEventListener('input', f); f();
+  }
+  function rhMaskDig(el, len) { if (!el) return; el.setAttribute('inputmode', 'numeric'); el.maxLength = len; el.addEventListener('input', () => { el.value = el.value.replace(/\D/g, '').slice(0, len); }); }
+  // limites de data (min/max no calendário + mensagem na validação)
+  const rhAnos = (n) => rhAddMeses(rhHoje(), 12 * n);
+  function rhLimDates(root, map) { Object.entries(map).forEach(([n, [min, max]]) => { const el = $(`[name="${n}"]`, root); if (!el) return; if (min) el.min = el.type === 'datetime-local' ? min + 'T00:00' : min; if (max) el.max = el.type === 'datetime-local' ? max + 'T23:59' : max; }); }
+  const rhDateErr = (v, label, min, max) => { if (!v) return ''; const x = String(v).slice(0, 10); if (!/^\d{4}-\d{2}-\d{2}$/.test(x)) return `${label}: data inválida`; if (min && x < min) return `${label} não pode ser antes de ${fmtDate(min)}`; if (max && x > max) return `${label} não pode ser depois de ${fmtDate(max)}`; return ''; };
+  const rhEmailOk = (e) => !e || /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(e);
+  const RH_KM_MAX = 1500000;
   const rhVenc = (iso) => { if (!iso) return null; const d = rhDias(rhHoje(), iso); return { d, st: d < 0 ? 'vencido' : d <= 30 ? 'vencendo' : 'ok' }; };
 
   /* ---------- formulário do colaborador (cadastro rápido / edição) ---------- */
@@ -2095,9 +2110,14 @@
     ['sector', 'cargoId', 'gestorId', 'contrato'].forEach((n) => ccSelect($(`[name="${n}"]`, card), { search: n !== 'contrato', icon: { sector: 'grid', cargoId: 'briefcase', gestorId: 'users', contrato: 'file' }[n] }));
     const cel = $('[name="celular"]', card); cel.addEventListener('input', () => { cel.value = pvMaskFone(cel.value); });
     const ani = $('[name="aniversario"]', card); ani.addEventListener('input', () => { const d = pvDig(ani.value).slice(0, 4); ani.value = d.length > 2 ? d.slice(0, 2) + '/' + d.slice(2) : d; });
+    rhMaskDig($('[name="ramal"]', card), 6);
+    rhLimDates(card, { admissao: [rhAnos(-60), rhAnos(1)], cnhValidade: [rhAnos(-10), rhAnos(15)] });
     $('#saveBtn', card).onclick = () => {
       const d = readForm(card);
-      if (!d.name) return toast('Informe o nome', 'warn');
+      if (d.name.length < 3) return toast('Informe o nome completo', 'warn');
+      if (!rhEmailOk(d.email)) return toast('E-mail inválido', 'warn');
+      if (d.celular && pvDig(d.celular).length < 10) return toast('Celular incompleto', 'warn');
+      const de = rhDateErr(d.admissao, 'Admissão', rhAnos(-60), rhAnos(1)) || rhDateErr(d.cnhValidade, 'Validade da CNH', rhAnos(-10), rhAnos(15)); if (de) return toast(de, 'warn');
       if (d.aniversario && !/^(0[1-9]|[12]\d|3[01])\/(0[1-9]|1[0-2])$/.test(d.aniversario)) return toast('Aniversário no formato dd/mm', 'warn');
       const c = rhCargo(d.cargoId);
       const obj = { name: d.name, email: (d.email || '').toLowerCase(), celular: d.celular, ramal: d.ramal, aniversario: d.aniversario, sector: d.sector || (c && c.setor) || '', cargoId: d.cargoId, role: c ? c.nome : (u.role || ''), gestorId: d.gestorId, contrato: d.contrato || 'CLT', admissao: d.admissao, cnhValidade: d.cnhValidade };
@@ -2284,7 +2304,7 @@
     ].join('');
     view.appendChild(tiles); Icons.apply(tiles);
     // treinamentos exigidos + realizados
-    const regs = rhList('rhTreinoReg').filter((r) => r.colaboradorId === u.id);
+    const regs = rhList('rhTreinoReg').filter((r) => r.colaboradorId === u.id && !r.anulado);
     const ids = Array.from(new Set(rhExigidos(u).concat(regs.map((r) => r.treinoId))));
     const grid = document.createElement('section'); grid.className = 'rh-pgrid';
     grid.innerHTML = `
@@ -2314,14 +2334,16 @@
   function rhPickPeople(host, sel) {
     const set = new Set(sel || []);
     const ppl = rhAtivos();
-    host.innerHTML = `<div class="rh-pk"><label class="pvf-search rh-pk-q">${ic('search')}<input placeholder="Buscar pessoa…" autocomplete="off"></label>
-      <div class="rh-pk-acts"><button type="button" class="btn sm ghost" data-all>Todos</button><button type="button" class="btn sm ghost" data-none>Limpar</button><span class="rh-pk-n"></span></div>
-      <div class="rh-pk-l">${ppl.map((u) => `<button type="button" class="rh-pk-p${set.has(u.id) ? ' on' : ''}" data-id="${u.id}">${rhAvatar(u.name)}<span><b>${esc(u.name)}</b><small>${esc(u.sector || u.role || '')}</small></span><i>${ic('check')}</i></button>`).join('')}</div></div>`;
+    host.innerHTML = `<div class="rh-pk">
+      <div class="rh-pk-top"><label class="rh-pk-q">${ic('search')}<input placeholder="Buscar por nome ou setor…" autocomplete="off"></label>
+        <button type="button" class="btn sm" data-all>${ic('check')}Todos</button><button type="button" class="btn sm ghost" data-none>Limpar</button></div>
+      <div class="rh-pk-l">${ppl.map((u) => `<button type="button" class="rh-pk-p${set.has(u.id) ? ' on' : ''}" data-id="${u.id}">${rhAvatar(u.name)}<span><b>${esc(u.name)}</b><small>${esc(u.sector || u.role || 'Sem setor')}</small></span><i>${ic('check')}</i></button>`).join('')}<p class="rh-pk-none" hidden>Ninguém encontrado.</p></div>
+      <div class="rh-pk-n"></div></div>`;
     Icons.apply(host);
-    const n = () => { $('.rh-pk-n', host).textContent = set.size ? `${set.size} selecionada${set.size > 1 ? 's' : ''}` : 'ninguém selecionado'; };
+    const n = () => { $('.rh-pk-n', host).innerHTML = set.size ? `<b>${set.size}</b> ${set.size > 1 ? 'participantes selecionados' : 'participante selecionado'}` : 'Toque nas pessoas que participaram'; host.classList.toggle('has', set.size > 0); };
     $$('.rh-pk-p', host).forEach((b) => (b.onclick = () => { const id = b.dataset.id; set.has(id) ? set.delete(id) : set.add(id); b.classList.toggle('on', set.has(id)); n(); }));
-    $('input', host).oninput = (e) => { const q = e.target.value.toLowerCase(); $$('.rh-pk-p', host).forEach((b) => (b.hidden = q && !b.textContent.toLowerCase().includes(q))); };
-    $('[data-all]', host).onclick = () => $$('.rh-pk-p', host).forEach((b) => { if (!b.hidden) { set.add(b.dataset.id); b.classList.add('on'); } n(); });
+    $('input', host).oninput = (e) => { const q = e.target.value.toLowerCase(); let vis = 0; $$('.rh-pk-p', host).forEach((b) => { b.hidden = !!q && !b.textContent.toLowerCase().includes(q); if (!b.hidden) vis++; }); $('.rh-pk-none', host).hidden = vis > 0; };
+    $('[data-all]', host).onclick = () => { $$('.rh-pk-p', host).forEach((b) => { if (!b.hidden) { set.add(b.dataset.id); b.classList.add('on'); } }); n(); };
     $('[data-none]', host).onclick = () => { set.clear(); $$('.rh-pk-p', host).forEach((b) => b.classList.remove('on')); n(); };
     n();
     return () => Array.from(set);
@@ -2424,23 +2446,26 @@
   };
 
   /* =========================== TREINAMENTOS & COMPETÊNCIAS =========================== */
-  let rhTreinoTab = 'matriz';
+  let rhTreinoTab = 'matriz'; const rhMxF = { q: '', f: 'todos' };
   function rhFormTreino(t) {
     const editing = !!(t && t.id); t = t || {};
     const card = modal({
       title: editing ? 'Editar treinamento' : 'Novo treinamento', sub: 'Catálogo de treinamentos',
       body: `<div class="form-grid">${field('Nome', 'nome', t.nome, 'text', { full: true, ph: 'Ex.: NR-35 · Trabalho em altura' })}
         <div class="field"><label>Tipo</label><select name="tipo">${RH_TIPOS_TREINO.map((x) => `<option ${t.tipo === x ? 'selected' : ''}>${esc(x)}</option>`).join('')}</select></div>
-        ${field('Carga horária (h)', 'cargaHoras', t.cargaHoras, 'number', { ph: '8' })}
+        ${field('Carga horária (horas)', 'cargaHoras', t.cargaHoras || '', 'text', { ph: 'Ex.: 8' })}
         <div class="field full"><label>Reciclagem</label><select name="validadeMeses">${[['0', 'Não vence'], ['6', 'A cada 6 meses'], ['12', 'A cada 12 meses'], ['24', 'A cada 24 meses'], ['36', 'A cada 36 meses']].map(([v, l]) => `<option value="${v}" ${String(t.validadeMeses || 0) === v ? 'selected' : ''}>${l}</option>`).join('')}</select><span class="hint">Define a validade de cada registro e os avisos de vencimento.</span></div></div>`,
       footer: (editing ? `<button class="btn danger ghost" id="delBtn" style="margin-right:auto">${ic('trash')}Excluir</button>` : '') + submitFooter(editing),
     });
     ccSelect($('[name="tipo"]', card), { icon: 'award' }); ccSelect($('[name="validadeMeses"]', card), { icon: 'refresh' });
+    rhMaskNum($('[name="cargaHoras"]', card), 400);
     const del = $('#delBtn', card);
-    if (del) del.onclick = () => confirmDialog(`Excluir "${t.nome}" do catálogo? Os registros já feitos continuam no histórico.`, () => { Store.remove('rhTreinos', t.id); rhList('rhCargos').filter((c) => (c.treinos || []).includes(t.id)).forEach((c) => Store.update('rhCargos', c.id, { treinos: c.treinos.filter((x) => x !== t.id) })); toast('Treinamento excluído', 'info'); go(currentRoute); });
+    if (del) del.onclick = () => rhList('rhTreinoReg').some((r) => r.treinoId === t.id) ? toast('Este treinamento já tem registros — fica no catálogo para manter o histórico', 'warn') : confirmDialog(`Excluir "${t.nome}" do catálogo?`, () => { Store.remove('rhTreinos', t.id); rhList('rhCargos').filter((c) => (c.treinos || []).includes(t.id)).forEach((c) => Store.update('rhCargos', c.id, { treinos: c.treinos.filter((x) => x !== t.id) })); toast('Treinamento excluído', 'info'); go(currentRoute); });
     $('#saveBtn', card).onclick = () => {
-      const d = readForm(card); if (!d.nome) return toast('Informe o nome', 'warn');
-      const obj = { nome: d.nome, tipo: d.tipo, cargaHoras: Number(d.cargaHoras) || 0, validadeMeses: Number(d.validadeMeses) || 0 };
+      const d = readForm(card); if (d.nome.length < 3) return toast('Informe o nome do treinamento', 'warn');
+      const ch = rhNum(d.cargaHoras); if (!ch) return toast('Informe a carga horária', 'warn');
+      if (rhList('rhTreinos').some((x) => x.id !== t.id && x.nome.trim().toLowerCase() === d.nome.trim().toLowerCase())) return toast('Já existe um treinamento com esse nome', 'warn');
+      const obj = { nome: d.nome, tipo: d.tipo, cargaHoras: ch, validadeMeses: Number(d.validadeMeses) || 0 };
       if (editing) Store.update('rhTreinos', t.id, obj); else Store.add('rhTreinos', obj);
       toast(editing ? 'Treinamento atualizado' : 'Treinamento criado'); closeModal(); go(currentRoute);
     };
@@ -2461,6 +2486,7 @@
       footer: submitFooter(false), wide: true,
     });
     ccSelect($('[name="treinoId"]', card), { icon: 'award', search: true }); ccSelect($('[name="eficacia"]', card), { icon: 'check' });
+    rhLimDates(card, { data: [rhAnos(-30), rhHoje()] });
     const pick = rhPickPeople($('#rtPk', card), pre.colabs);
     const val = () => { const t = Store.find('rhTreinos', $('[name="treinoId"]', card).value); const d = $('[name="data"]', card).value; $('#rtVal', card).innerHTML = `${ic('clock')}<span>${t && t.validadeMeses && d ? `Válido até <b>${fmtDate(rhAddMeses(d, t.validadeMeses))}</b> (reciclagem a cada ${t.validadeMeses} meses).` : 'Este treinamento não vence.'}</span>`; Icons.apply($('#rtVal', card)); };
     $('[name="treinoId"]', card).addEventListener('change', val); $('[name="data"]', card).addEventListener('change', val); val();
@@ -2468,10 +2494,36 @@
     $('#saveBtn', card).onclick = () => {
       const d = readForm(card); const ids = pick(); const t = Store.find('rhTreinos', d.treinoId);
       if (!t) return toast('Escolha o treinamento', 'warn'); if (!d.data) return toast('Informe a data', 'warn'); if (!ids.length) return toast('Selecione ao menos um participante', 'warn');
+      const de = rhDateErr(d.data, 'Data de realização', rhAnos(-30), rhHoje()); if (de) return toast(de, 'warn');
+      const dup = ids.filter((id) => rhList('rhTreinoReg').some((r) => !r.anulado && r.treinoId === t.id && r.colaboradorId === id && r.data === d.data));
+      if (dup.length) return toast(`${rhNome(dup[0])}${dup.length > 1 ? ` e mais ${dup.length - 1}` : ''} já tem este treinamento registrado nessa data`, 'warn');
       const turma = 'tu_' + Date.now().toString(36);
       ids.forEach((id) => Store.add('rhTreinoReg', { treinoId: t.id, colaboradorId: id, data: d.data, validade: t.validadeMeses ? rhAddMeses(d.data, t.validadeMeses) : '', instrutor: d.instrutor, cargaHoras: t.cargaHoras, eficacia: d.eficacia, obs: d.obs, turmaId: turma }));
       toast(`${ids.length} registro(s) de "${t.nome}" salvos`); closeModal(); if (onDone) onDone(); else go(currentRoute);
     };
+  }
+  function rhEficacia(r, done) {
+    const T = Store.find('rhTreinos', r.treinoId) || { nome: 'Treinamento' };
+    const card = modal({
+      title: 'Avaliação de eficácia', sub: `${T.nome} · ${rhNome(r.colaboradorId)} · ${fmtDate(r.data)}`, dialog: true,
+      body: `<div class="rh-tipos">${[['eficaz', 'Eficaz', '#46D39A', 'check'], ['nao', 'Não eficaz — reciclar', '#FF7A7A', 'x'], ['pendente', 'A avaliar', '#94A3B8', 'clock']].map(([k, l, c, i]) => `<button type="button" class="rh-tp${(r.eficacia || 'pendente') === k ? ' on' : ''}" data-v="${k}" style="--c:${c}">${ic(i)}<span>${l}</span></button>`).join('')}</div>
+        <div class="field full" style="margin-top:14px"><label>Como foi avaliado</label><input name="evid" value="${esc(r.eficaciaEvid || '')}" placeholder="Ex.: prova prática, observação do gestor em 30 dias"></div>`,
+      footer: `<button class="btn ghost" data-close>Cancelar</button><button class="btn primary" id="efOk">${ic('check')}Salvar</button>`,
+    });
+    let v = r.eficacia || 'pendente';
+    $$('.rh-tp', card).forEach((b) => (b.onclick = () => { v = b.dataset.v; $$('.rh-tp', card).forEach((x) => x.classList.toggle('on', x === b)); }));
+    $('#efOk', card).onclick = () => { const ev = $('[name="evid"]', card).value.trim(); if (v !== 'pendente' && ev.length < 5) return toast('Descreva como a eficácia foi avaliada', 'warn'); Store.update('rhTreinoReg', r.id, { eficacia: v, eficaciaEvid: ev, eficaciaEm: new Date().toISOString() }); toast('Avaliação salva'); closeModal(); done(); };
+  }
+  function rhAnularReg(r) {
+    const T = Store.find('rhTreinos', r.treinoId) || { nome: 'Treinamento' };
+    const card = modal({
+      title: 'Anular registro', sub: `${T.nome} · ${rhNome(r.colaboradorId)} · ${fmtDate(r.data)}`, dialog: true,
+      body: `<p class="sv-note" style="margin:0 0 14px">${ic('shield')}<span>O registro <b>não é apagado</b>: fica riscado no histórico, com o motivo, e deixa de contar na matriz.</span></p>
+        <div class="field full"><label>Motivo da anulação</label><textarea name="motivo" rows="3" placeholder="Ex.: lançado na pessoa errada; data digitada errada"></textarea></div>`,
+      footer: `<button class="btn ghost" data-close>Cancelar</button><button class="btn danger" id="anOk">${ic('x')}Anular registro</button>`,
+    });
+    Icons.apply(card);
+    $('#anOk', card).onclick = () => { const m = $('[name="motivo"]', card).value.trim(); if (m.length < 10) return toast('Explique o motivo (mín. 10 caracteres)', 'warn'); const me = typeof pvMe === 'function' ? pvMe() : ''; Store.update('rhTreinoReg', r.id, { anulado: true, motivoAnulacao: m, anuladoEm: new Date().toISOString(), anuladoPor: (me && (me.name || me)) || 'RH' }); toast('Registro anulado', 'info'); closeModal(); go(currentRoute); };
   }
   PAGES['rh-treinos'] = () => {
     pageShell('RH', 'Treinamentos & competências', 'Matriz de competências por pessoa, catálogo e histórico — evidência para a IATF 16949 (7.2).',
@@ -2479,36 +2531,60 @@
     $('#rtNovo').onclick = () => rhFormTreino(null);
     $('#rtReg').onclick = () => rhFormTreinoReg({});
     const tr = rhTreinos(), ativos = rhAtivos(), regs = rhList('rhTreinoReg').slice().sort((a, b) => String(b.data).localeCompare(String(a.data)));
-    const tabs = [['matriz', 'Matriz', ativos.length], ['catalogo', 'Catálogo', tr.length], ['registros', 'Registros', regs.length]];
+    const tabs = [['matriz', 'Matriz', ativos.length], ['catalogo', 'Catálogo', tr.length], ['registros', 'Registros', regs.filter((r) => !r.anulado).length]];
     const tb = document.createElement('div'); tb.className = 'pvf';
     tb.innerHTML = `<div class="pvf-tabs" id="rtTabs"><span class="pvf-thumb"></span>${tabs.map(([k, l, n]) => `<button data-s="${k}" class="${rhTreinoTab === k ? 'on' : ''}">${l}<span class="pvf-n">${n}</span></button>`).join('')}</div>`;
     view.appendChild(tb);
     const holder = document.createElement('div'); view.appendChild(holder);
     const render = () => {
       if (rhTreinoTab === 'matriz') {
-        const cols = tr.filter((t) => ativos.some((u) => rhExigidos(u).includes(t.id)) || regs.some((r) => r.treinoId === t.id));
-        holder.innerHTML = cols.length && ativos.length ? `<div class="rh-mx-leg">${['ok', 'vencendo', 'vencido', 'faltando'].map((k) => `<span style="--c:${RH_TST[k].c}"><i></i>${RH_TST[k].l}</span>`).join('')}<span class="x"><i></i>Não exigido</span></div>
-          <div class="tbl-wrap rh-mx-w"><table class="data rh-mx"><thead><tr><th>Colaborador</th>${cols.map((t) => `<th title="${esc(t.nome)}"><span>${esc(t.nome.split(' · ')[0])}</span></th>`).join('')}<th>Em dia</th></tr></thead><tbody>${ativos.map((u) => { const ex = rhExigidos(u); const r = rhTreinoResumo(u);
-            return `<tr><td><button type="button" class="pvc-who rh-mx-who" data-p="${u.id}">${rhAvatar(u.name)}<div><div class="cell-main">${esc(u.name)}</div><div class="cell-sub">${esc((rhCargo(u.cargoId) || {}).nome || u.role || '—')}</div></div></button></td>${cols.map((t) => { const st = rhTreinoSt(u.id, t.id); const req = ex.includes(t.id); const k = req ? st.st : st.r ? st.st : 'x';
-              return `<td><span class="rh-mx-c ${k === 'x' ? 'x' : ''}" style="--c:${k === 'x' ? 'transparent' : RH_TST[k].c}" title="${esc(t.nome)} — ${k === 'x' ? 'não exigido' : RH_TST[k].l}${st.r && st.r.validade ? ' · até ' + fmtDate(st.r.validade) : ''}">${k === 'ok' ? ic('check') : k === 'x' ? '' : k === 'vencendo' ? ic('clock') : ic('x')}</span></td>`; }).join('')}
-              <td>${r.total ? `<b class="rh-mx-p" style="--c:${r.vencido + r.faltando ? '#FF7A7A' : '#46D39A'}">${Math.round((100 * (r.ok + r.vencendo)) / r.total)}%</b>` : '<span class="pvx-muted">—</span>'}</td></tr>`; }).join('')}</tbody></table></div>`
-          : `<div class="tbl-wrap">${emptyState('award', 'Matriz vazia', 'Em Cargos & setores, marque os treinamentos que cada cargo exige e vincule as pessoas aos cargos.')}</div>`;
+        const pessoas = ativos.map((u) => ({ u, r: rhTreinoResumo(u), ex: rhExigidos(u) }));
+        const cnt = { todos: pessoas.length, pend: pessoas.filter((p) => p.r.vencido + p.r.faltando).length, venc: pessoas.filter((p) => p.r.vencendo).length, ok: pessoas.filter((p) => p.r.total && !(p.r.vencido + p.r.faltando + p.r.vencendo)).length, sem: pessoas.filter((p) => !p.r.total).length };
+        const FL = [['todos', 'Todos'], ['pend', 'Com pendência'], ['venc', 'Vencendo'], ['ok', 'Tudo em dia'], ['sem', 'Sem exigência']];
+        holder.innerHTML = `<div class="rh-mxf"><label class="rh-pk-q">${ic('search')}<input id="mxQ" placeholder="Buscar colaborador…" value="${esc(rhMxF.q)}" autocomplete="off"></label>
+          <div class="rh-mxf-c">${FL.map(([k, l]) => `<button type="button" class="rh-fc${rhMxF.f === k ? ' on' : ''}" data-f="${k}">${l}<em>${cnt[k]}</em></button>`).join('')}</div></div>
+          <div class="rh-mx-leg">${['ok', 'vencendo', 'vencido', 'faltando'].map((k) => `<span style="--c:${RH_TST[k].c}"><i></i>${RH_TST[k].l}</span>`).join('')}</div><div id="mxG"></div>`;
+        const paintG = () => {
+          let l = pessoas.filter((p) => ({ todos: true, pend: !!(p.r.vencido + p.r.faltando), venc: !!p.r.vencendo, ok: p.r.total && !(p.r.vencido + p.r.faltando + p.r.vencendo), sem: !p.r.total })[rhMxF.f]);
+          if (rhMxF.q) { const q = rhMxF.q.toLowerCase(); l = l.filter((p) => [p.u.name, p.u.sector, (rhCargo(p.u.cargoId) || {}).nome].join(' ').toLowerCase().includes(q)); }
+          l.sort((a, b) => (b.r.vencido + b.r.faltando) - (a.r.vencido + a.r.faltando) || b.r.vencendo - a.r.vencendo || a.u.name.localeCompare(b.u.name));
+          $('#mxG', holder).innerHTML = l.length ? `<div class="rh-cards rh-mcs">${l.map(({ u, r, ex }, i) => {
+            const pend = r.vencido + r.faltando; const pct = r.total ? Math.round((100 * (r.ok + r.vencendo)) / r.total) : 0;
+            const col = !r.total ? '#94A3B8' : pend ? '#FF7A7A' : r.vencendo ? '#F5B840' : '#46D39A';
+            const extras = Array.from(new Set(rhList('rhTreinoReg').filter((x) => x.colaboradorId === u.id && !x.anulado && !ex.includes(x.treinoId)).map((x) => x.treinoId)));
+            const chip = (tid, extra) => { const T = Store.find('rhTreinos', tid); if (!T) return ''; const st = rhTreinoSt(u.id, tid); const S = RH_TST[st.st]; return `<em class="rh-mc-t${extra ? ' extra' : ''}" style="--c:${S.c}" title="${esc(T.nome)} — ${extra ? 'extra' : S.l}${st.r && st.r.validade ? ' · até ' + fmtDate(st.r.validade) : ''}">${st.st === 'ok' ? ic('check') : st.st === 'vencendo' ? ic('clock') : ic('x')}${esc(T.nome.split(' · ')[0])}</em>`; };
+            return `<button type="button" class="rh-card rh-mc" data-p="${u.id}" style="--d:${Math.min(i, 12) * 30}ms;--c:${col}">
+              <span class="rh-card-h">${rhAvatar(u.name)}<span><b>${esc(u.name)}</b><small>${esc([(rhCargo(u.cargoId) || {}).nome || 'Sem cargo', u.sector].filter(Boolean).join(' · '))}</small></span>
+                ${r.total ? `<span class="rh-mc-pct"><b>${pct}%</b><small>${r.ok + r.vencendo}/${r.total}</small></span>` : ''}</span>
+              ${r.total ? `<span class="rh-mc-bar"><i style="width:${pct}%"></i></span>` : ''}
+              <span class="rh-mc-l">${ex.length || extras.length ? ex.map((t) => chip(t)).join('') + extras.map((t) => chip(t, true)).join('') : `<small class="rh-mc-none">${u.cargoId ? 'O cargo desta pessoa não exige treinamentos — defina em Cargos & setores.' : 'Sem cargo definido — escolha o cargo em Colaboradores → Editar.'}</small>`}</span></button>`; }).join('')}</div>`
+            : `<div class="tbl-wrap">${emptyState('users', 'Ninguém neste filtro', 'Ajuste a busca ou o filtro.')}</div>`;
+          Icons.apply($('#mxG', holder));
+          $$('#mxG [data-p]', holder).forEach((b) => (b.onclick = () => rhOpenPessoa(b.dataset.p)));
+        };
+        $$('[data-f]', holder).forEach((b) => (b.onclick = () => { rhMxF.f = b.dataset.f; $$('[data-f]', holder).forEach((x) => x.classList.toggle('on', x === b)); paintG(); }));
+        $('#mxQ', holder).oninput = (e) => { rhMxF.q = e.target.value; paintG(); };
+        paintG();
       } else if (rhTreinoTab === 'catalogo') {
-        holder.innerHTML = `<div class="rh-cards">${tr.map((t, i) => { const quem = new Set(regs.filter((r) => r.treinoId === t.id).map((r) => r.colaboradorId)).size; const exige = rhList('rhCargos').filter((c) => (c.treinos || []).includes(t.id)).length;
-          return `<button type="button" class="rh-card" data-t="${t.id}" style="--d:${i * 40}ms;--c:${RH_PAL[RH_TIPOS_TREINO.indexOf(t.tipo) % RH_PAL.length] || RH_COR}">
+        const valTx = (m) => !m ? 'não vence' : m % 12 ? `${m} meses` : `${m / 12} ano${m > 12 ? 's' : ''}`;
+        holder.innerHTML = `<div class="rh-cards">${tr.map((t, i) => { const quem = new Set(regs.filter((r) => r.treinoId === t.id && !r.anulado).map((r) => r.colaboradorId)).size; const exige = rhList('rhCargos').filter((c) => (c.treinos || []).includes(t.id)).length;
+          return `<button type="button" class="rh-card rh-tc" data-t="${t.id}" style="--d:${i * 40}ms;--c:${RH_PAL[RH_TIPOS_TREINO.indexOf(t.tipo) % RH_PAL.length] || RH_COR}">
             <span class="rh-card-h"><span class="rh-card-ic">${ic('award')}</span><span><b>${esc(t.nome)}</b><small>${esc(t.tipo || '')}</small></span></span>
-            <span class="rh-card-kpis"><span><b>${t.cargaHoras || 0}h</b><small>carga</small></span><span><b>${t.validadeMeses ? t.validadeMeses + 'm' : '—'}</b><small>reciclagem</small></span><span><b>${quem}</b><small>treinados</small></span><span><b>${exige}</b><small>cargos</small></span></span></button>`; }).join('')}</div>`;
+            <span class="rh-tc-k"><span>${ic('clock')}<b>${t.cargaHoras || 0} h</b><small>carga horária</small></span><span>${ic('refresh')}<b>${valTx(t.validadeMeses)}</b><small>reciclagem</small></span><span>${ic('users')}<b>${quem}</b><small>${quem === 1 ? 'pessoa treinada' : 'pessoas treinadas'}</small></span><span>${ic('briefcase')}<b>${exige}</b><small>${exige === 1 ? 'cargo exige' : 'cargos exigem'}</small></span></span></button>`; }).join('')}</div>`;
         $$('[data-t]', holder).forEach((b) => (b.onclick = () => rhFormTreino(Store.find('rhTreinos', b.dataset.t))));
       } else {
         const EF = { eficaz: ['ok', 'Eficaz'], nao: ['danger', 'Não eficaz'], pendente: ['neutral', 'A avaliar'] };
-        holder.innerHTML = regs.length ? `<div class="tbl-wrap"><table class="data"><thead><tr><th>Treinamento</th><th>Colaborador</th><th>Realizado</th><th>Validade</th><th>Eficácia</th><th></th></tr></thead><tbody>${regs.map((r) => { const t = Store.find('rhTreinos', r.treinoId) || { nome: 'Treinamento removido' }; const v = rhVenc(r.validade); const ef = EF[r.eficacia] || EF.pendente;
+        const l = regs.slice().sort((a, b) => (a.anulado ? 1 : 0) - (b.anulado ? 1 : 0));
+        holder.innerHTML = l.length ? `<div class="tbl-wrap"><table class="data rh-regs"><thead><tr><th>Treinamento</th><th>Colaborador</th><th>Realizado</th><th>Validade</th><th>Eficácia</th><th></th></tr></thead><tbody>${l.map((r) => { const t = Store.find('rhTreinos', r.treinoId) || { nome: 'Treinamento removido' }; const v = rhVenc(r.validade); const ef = EF[r.eficacia] || EF.pendente;
+          if (r.anulado) return `<tr class="rh-anul"><td><div class="cell-main">${esc(t.nome)}</div><div class="cell-sub">Anulado por ${esc(r.anuladoPor || '—')} em ${fmtDate(String(r.anuladoEm || '').slice(0, 10))} · ${esc(r.motivoAnulacao || '')}</div></td><td>${esc(rhNome(r.colaboradorId))}</td><td>${fmtDate(r.data)}</td><td>—</td><td><span class="badge neutral plain">Anulado</span></td><td></td></tr>`;
           return `<tr><td><div class="cell-main">${esc(t.nome)}</div><div class="cell-sub">${esc(r.instrutor || 'Instrutor não informado')}${r.cargaHoras ? ' · ' + r.cargaHoras + 'h' : ''}</div></td><td>${esc(rhNome(r.colaboradorId))}</td><td>${fmtDate(r.data)}</td>
             <td>${r.validade ? `<span class="badge ${v.st === 'vencido' ? 'danger' : v.st === 'vencendo' ? 'warn' : 'ok'} plain">${fmtDate(r.validade)}</span>` : '<span class="pvx-muted">não vence</span>'}</td>
-            <td><button type="button" class="badge ${ef[0]} plain rh-ef" data-ef="${r.id}" title="Alterar avaliação">${ef[1]}</button></td>
-            <td class="row-actions"><button class="icon-btn" data-del="${r.id}" title="Excluir">${ic('trash')}</button></td></tr>`; }).join('')}</tbody></table></div>`
+            <td><button type="button" class="badge ${ef[0]} plain rh-ef" data-ef="${r.id}" title="Registrar a avaliação de eficácia">${ef[1]}</button></td>
+            <td class="row-actions"><button class="btn sm ghost" data-anul="${r.id}" title="Lançado por engano? Anule com o motivo — o registro continua no histórico">${ic('x')}Anular</button></td></tr>`; }).join('')}</tbody></table></div>
+          <p class="sv-note">${ic('shield')}Registros de treinamento não são apagados: são evidência para auditoria (IATF 16949 · 7.2). Se algo foi lançado por engano, use <b>Anular</b> com o motivo — ele sai da matriz e fica riscado no histórico.</p>`
           : `<div class="tbl-wrap">${emptyState('award', 'Nenhum treinamento registrado', 'Use "Registrar treinamento" para lançar uma turma.')}</div>`;
-        $$('[data-ef]', holder).forEach((b) => (b.onclick = () => { const r = Store.find('rhTreinoReg', b.dataset.ef); const nx = { pendente: 'eficaz', eficaz: 'nao', nao: 'pendente' }[r.eficacia || 'pendente']; Store.update('rhTreinoReg', r.id, { eficacia: nx }); render(); }));
-        $$('[data-del]', holder).forEach((b) => (b.onclick = () => confirmDialog('Excluir este registro de treinamento?', () => { Store.remove('rhTreinoReg', b.dataset.del); toast('Registro excluído', 'info'); go(currentRoute); })));
+        $$('[data-ef]', holder).forEach((b) => (b.onclick = () => rhEficacia(Store.find('rhTreinoReg', b.dataset.ef), render)));
+        $$('[data-anul]', holder).forEach((b) => (b.onclick = () => rhAnularReg(Store.find('rhTreinoReg', b.dataset.anul))));
       }
       Icons.apply(holder);
       $$('[data-p]', holder).forEach((b) => (b.onclick = () => rhOpenPessoa(b.dataset.p)));
@@ -2565,6 +2641,8 @@
     let devItems = []; const devOk = new Set(); // itens com a pessoa que precisam voltar (desligamento)
     if (adm) {
       const cel = $('[name="celular"]', w); cel.addEventListener('input', () => { cel.value = pvMaskFone(cel.value); });
+      rhMaskDig($('[name="ramal"]', w), 6);
+      rhLimDates(w, { admissao: [rhAnos(-60), rhAnos(1)], cnhValidade: [rhAnos(-10), rhAnos(15)] });
       const ani = $('[name="aniversario"]', w); ani.addEventListener('input', () => { const d = pvDig(ani.value).slice(0, 4); ani.value = d.length > 2 ? d.slice(0, 2) + '/' + d.slice(2) : d; });
       const cg = $('[name="cargoId"]', w); cg.addEventListener('change', () => { const c = rhCargo(cg.value); const st = $('[name="sector"]', w); if (c && c.setor && !st.value) { st.value = c.setor; st.dispatchEvent(new Event('change')); } });
       const expTip = () => { const d = $('[name="admissao"]', w).value, ct = $('[name="contrato"]', w).value; $('#rmExp span', w).innerHTML = ct === 'CLT' && d ? `Experiência: 1º período até <b>${fmtDate(addDays(d, 44))}</b> e 2º até <b>${fmtDate(addDays(d, 89))}</b>. O painel avisa antes de cada data.` : 'Sem contrato de experiência para este tipo de contrato.'; };
@@ -2577,11 +2655,15 @@
     wzRun(w, {
       steps, finalLabel: adm ? 'Concluir admissão' : 'Concluir desligamento',
       check: (i, shake) => {
-        if (adm && i === 0 && !$('[name="name"]', w).value.trim()) { shake($('[name="name"]', w)); toast('Informe o nome', 'warn'); return false; }
+        if (adm && i === 0 && $('[name="name"]', w).value.trim().length < 3) { shake($('[name="name"]', w)); toast('Informe o nome completo', 'warn'); return false; }
+        if (adm && i === 0 && !rhEmailOk($('[name="email"]', w).value.trim())) { shake($('[name="email"]', w)); toast('E-mail inválido', 'warn'); return false; }
+        if (adm && i === 0) { const c = pvDig($('[name="celular"]', w).value); if (c && c.length < 10) { shake($('[name="celular"]', w)); toast('Celular incompleto', 'warn'); return false; } }
         if (adm && i === 0) { const a = $('[name="aniversario"]', w).value; if (a && !/^(0[1-9]|[12]\d|3[01])\/(0[1-9]|1[0-2])$/.test(a)) { shake($('[name="aniversario"]', w)); toast('Aniversário no formato dd/mm', 'warn'); return false; } }
         if (adm && i === 1 && !$('[name="admissao"]', w).value) { toast('Informe a data de admissão', 'warn'); return false; }
+        if (adm && i === 1) { const e = rhDateErr($('[name="admissao"]', w).value, 'Admissão', rhAnos(-60), rhAnos(1)) || rhDateErr($('[name="cnhValidade"]', w).value, 'Validade da CNH', rhAnos(-10), rhAnos(15)); if (e) { toast(e, 'warn'); return false; } }
         if (!adm && i === 0 && !colab) { shake($('#rmPpl', w)); toast('Escolha o colaborador', 'warn'); return false; }
         if (!adm && i === 1 && !$('[name="data"]', w).value) { toast('Informe a data', 'warn'); return false; }
+        if (!adm && i === 1) { const u = rhPessoa(colab); const e = rhDateErr($('[name="data"]', w).value, 'Último dia', (u && u.admissao) || rhAnos(-60), rhAnos(1)); if (e) { toast(e, 'warn'); return false; } }
         return true;
       },
       onEnter: (i) => {
@@ -2702,6 +2784,9 @@
       const d = readForm(card);
       if (!d.colaboradorId) return toast('Escolha o colaborador', 'warn'); if (!d.inicio) return toast('Informe o início', 'warn');
       if (d.fim && d.fim < d.inicio) return toast('O fim precisa ser depois do início', 'warn');
+      const de = rhDateErr(d.inicio, 'Início', rhAnos(-3), rhAnos(2)) || rhDateErr(d.fim, 'Fim', rhAnos(-3), rhAnos(3)); if (de) return toast(de, 'warn');
+      if (rhDias(d.inicio, d.fim || d.inicio) > 730) return toast('Período acima de 2 anos — confira as datas', 'warn');
+      if (rhList('rhAusencias').some((x) => x.id !== a.id && x.colaboradorId === d.colaboradorId && x.inicio <= (d.fim || d.inicio) && (x.fim || x.inicio) >= d.inicio)) return toast('Já existe uma ausência dessa pessoa nesse período', 'warn');
       const obj = { colaboradorId: d.colaboradorId, tipo: d.tipo, inicio: d.inicio, fim: d.fim || d.inicio, obs: d.obs };
       if (editing) Store.update('rhAusencias', a.id, obj); else Store.add('rhAusencias', obj);
       toast('Registro salvo'); closeModal(); if (onDone) onDone(); else go(currentRoute);
@@ -2780,22 +2865,32 @@
       title: editing ? 'Editar veículo' : 'Novo veículo', sub: 'Frota da empresa', wide: true,
       body: `<div class="form-sec">${ic('car')}Veículo</div><div class="form-grid">
           ${field('Placa', 'placa', rhPlacaFmt(v.placa), 'text', { ph: 'ABC1D23' })}${field('Modelo', 'modelo', v.modelo, 'text', { ph: 'Ex.: Fiat Strada 1.3' })}
-          ${field('Ano', 'ano', v.ano, 'text', { ph: '2024' })}<div class="field"><label>Combustível</label><select name="combustivel">${['Flex', 'GNV', 'Dual-fuel (GNV + diesel)', 'Diesel', 'Gasolina', 'Elétrico'].map((x) => `<option ${v.combustivel === x ? 'selected' : ''}>${esc(x)}</option>`).join('')}</select></div>
-          ${field('Quilometragem atual', 'km', v.km, 'number', { ph: '0' })}<div class="field"><label>Responsável fixo</label><select name="responsavelId"><option value="">Uso compartilhado</option>${rhAtivos().map((u) => `<option value="${u.id}" ${v.responsavelId === u.id ? 'selected' : ''}>${esc(u.name)}</option>`).join('')}</select></div></div>
+          ${field('Ano do modelo', 'ano', v.ano, 'text', { ph: 'Ex.: 2024' })}<div class="field"><label>Combustível</label><select name="combustivel">${['Flex', 'GNV', 'Dual-fuel (GNV + diesel)', 'Diesel', 'Gasolina', 'Elétrico'].map((x) => `<option ${v.combustivel === x ? 'selected' : ''}>${esc(x)}</option>`).join('')}</select></div>
+          ${field('Quilometragem atual', 'km', rhFmtNum(v.km), 'text', { ph: 'Ex.: 45.000', hint: 'Até 1.500.000 km.' })}<div class="field"><label>Responsável fixo</label><select name="responsavelId"><option value="">Uso compartilhado</option>${rhAtivos().map((u) => `<option value="${u.id}" ${v.responsavelId === u.id ? 'selected' : ''}>${esc(u.name)}</option>`).join('')}</select></div></div>
         <div class="form-sec">${ic('calendar')}Vencimentos</div><div class="form-grid">
           ${field('Licenciamento (CRLV) até', 'licenciamento', v.licenciamento, 'date')}${field('Seguro até', 'seguro', v.seguro, 'date')}
-          ${field('Próxima revisão (data)', 'revisaoData', v.revisaoData, 'date')}${field('Próxima revisão (km)', 'revisaoKm', v.revisaoKm, 'number', { ph: 'Ex.: 40000' })}</div>`,
+          ${field('Próxima revisão (data)', 'revisaoData', v.revisaoData, 'date')}${field('Próxima revisão (km)', 'revisaoKm', rhFmtNum(v.revisaoKm), 'text', { ph: 'Ex.: 50.000' })}</div>`,
       footer: (editing ? `<button class="btn danger ghost" id="delBtn" style="margin-right:auto">${ic('trash')}Excluir</button>` : '') + submitFooter(editing),
     });
     ccSelect($('[name="combustivel"]', card), { icon: 'activity' }); ccSelect($('[name="responsavelId"]', card), { icon: 'users', search: true });
-    const pl = $('[name="placa"]', card); pl.addEventListener('input', () => { pl.value = rhPlaca(pl.value); });
+    const pl = $('[name="placa"]', card); pl.addEventListener('input', () => { pl.value = rhPlaca(pl.value); }); pl.maxLength = 8;
+    rhMaskDig($('[name="ano"]', card), 4); rhMaskNum($('[name="km"]', card), 9999999); rhMaskNum($('[name="revisaoKm"]', card), 9999999);
+    rhLimDates(card, { licenciamento: [rhAnos(-3), rhAnos(3)], seguro: [rhAnos(-3), rhAnos(3)], revisaoData: [rhAnos(-3), rhAnos(3)] });
     const del = $('#delBtn', card);
     if (del) del.onclick = () => confirmDialog(`Excluir o veículo ${rhPlacaFmt(v.placa)}? O histórico de uso também sai.`, () => { rhList('rhVeicUso').filter((x) => x.veiculoId === v.id).forEach((x) => Store.remove('rhVeicUso', x.id)); Store.remove('rhVeiculos', v.id); toast('Veículo excluído', 'info'); go(currentRoute); });
     $('#saveBtn', card).onclick = () => {
       const d = readForm(card); const placa = rhPlaca(d.placa);
       if (!/^[A-Z]{3}\d[A-Z0-9]\d{2}$/.test(placa)) return toast('Placa inválida (ABC1234 ou ABC1D23)', 'warn');
       if (rhList('rhVeiculos').some((x) => x.placa === placa && x.id !== v.id)) return toast('Já existe um veículo com essa placa', 'warn');
-      const obj = { placa, modelo: d.modelo, ano: d.ano, combustivel: d.combustivel, km: Number(d.km) || 0, responsavelId: d.responsavelId, licenciamento: d.licenciamento, seguro: d.seguro, revisaoData: d.revisaoData, revisaoKm: Number(d.revisaoKm) || 0 };
+      if (!d.modelo) return toast('Informe o modelo', 'warn');
+      const ano = rhNum(d.ano), anoMax = new Date().getFullYear() + 1; if (d.ano && (ano < 1980 || ano > anoMax)) return toast(`Ano entre 1980 e ${anoMax}`, 'warn');
+      const km = rhNum(d.km), rkm = rhNum(d.revisaoKm);
+      if (km > RH_KM_MAX) return toast('Quilometragem acima de 1.500.000 km — confira o número', 'warn');
+      if (editing && km < (v.km || 0) && !confirm(`A quilometragem está menor que a registrada (${rhFmtNum(v.km)} km). Corrigir mesmo assim?`)) return;
+      if (rkm && rkm <= km) return toast('A próxima revisão precisa ser depois da quilometragem atual', 'warn');
+      if (rkm && rkm - km > 100000) return toast('Próxima revisão mais de 100.000 km à frente — confira', 'warn');
+      const de = rhDateErr(d.licenciamento, 'Licenciamento', rhAnos(-3), rhAnos(3)) || rhDateErr(d.seguro, 'Seguro', rhAnos(-3), rhAnos(3)) || rhDateErr(d.revisaoData, 'Revisão', rhAnos(-3), rhAnos(3)); if (de) return toast(de, 'warn');
+      const obj = { placa, modelo: d.modelo, ano: d.ano ? String(ano) : '', combustivel: d.combustivel, km, responsavelId: d.responsavelId, licenciamento: d.licenciamento, seguro: d.seguro, revisaoData: d.revisaoData, revisaoKm: rkm };
       if (editing) Store.update('rhVeiculos', v.id, obj); else Store.add('rhVeiculos', obj);
       toast(editing ? 'Veículo atualizado' : 'Veículo cadastrado'); closeModal(); go(currentRoute);
     };
@@ -2804,32 +2899,41 @@
     const card = modal({
       title: `Saída · ${rhPlacaFmt(v.placa)}`, sub: v.modelo || 'Registrar quem levou o veículo',
       body: `<div class="form-grid"><div class="field full"><label>Motorista</label><select name="colaboradorId"><option value="">Selecione</option>${rhAtivos().map((u) => `<option value="${u.id}" ${v.responsavelId === u.id ? 'selected' : ''}>${esc(u.name)}</option>`).join('')}</select></div>
-        ${field('Destino / finalidade', 'destino', '', 'text', { full: true, ph: 'Ex.: Instalação no cliente X — Campinas' })}${field('Km na saída', 'kmSaida', v.km || '', 'number')}${field('Data e hora', 'saida', new Date(Date.now() - new Date().getTimezoneOffset() * 6e4).toISOString().slice(0, 16), 'datetime-local')}</div><p class="sv-note" id="vsCnh"></p>`,
+        ${field('Destino / finalidade', 'destino', '', 'text', { full: true, ph: 'Ex.: Instalação no cliente X — Campinas' })}${field('Km na saída', 'kmSaida', rhFmtNum(v.km), 'text', { hint: v.km ? `Último registrado: ${rhFmtNum(v.km)} km` : '' })}${field('Data e hora', 'saida', new Date(Date.now() - new Date().getTimezoneOffset() * 6e4).toISOString().slice(0, 16), 'datetime-local')}</div><p class="sv-note" id="vsCnh"></p>`,
       footer: `<button class="btn ghost" data-close>Cancelar</button><button class="btn primary" id="saveBtn">${ic('arrowUpRight')}Registrar saída</button>`,
     });
     ccSelect($('[name="colaboradorId"]', card), { icon: 'users', search: true });
     const cnh = () => { const u = rhPessoa($('[name="colaboradorId"]', card).value); const x = u && rhVenc(u.cnhValidade); $('#vsCnh', card).innerHTML = !u ? '' : !u.cnhValidade ? `${ic('alert')}<span>Validade da CNH de ${esc(u.name.split(' ')[0])} não cadastrada.</span>` : x.st === 'vencido' ? `${ic('alert')}<span><b>CNH vencida</b> desde ${fmtDate(u.cnhValidade)}.</span>` : `${ic('check')}<span>CNH válida até ${fmtDate(u.cnhValidade)}.</span>`; Icons.apply($('#vsCnh', card)); };
     $('[name="colaboradorId"]', card).addEventListener('change', cnh); cnh();
+    rhMaskNum($('[name="kmSaida"]', card), 9999999); rhLimDates(card, { saida: [addDays(rhHoje(), -7), addDays(rhHoje(), 1)] });
     $('#saveBtn', card).onclick = () => {
       const d = readForm(card); if (!d.colaboradorId) return toast('Escolha o motorista', 'warn');
+      const ks = rhNum(d.kmSaida); if (!ks) return toast('Informe o km na saída', 'warn');
+      if (ks < (v.km || 0)) return toast(`O km de saída não pode ser menor que o último registrado (${rhFmtNum(v.km)} km)`, 'warn');
+      if (ks > RH_KM_MAX || ks - (v.km || 0) > 20000) return toast('Km de saída muito acima do último registrado — confira', 'warn');
+      if (!d.saida) return toast('Informe a data e hora da saída', 'warn');
+      const de = rhDateErr(d.saida, 'Saída', addDays(rhHoje(), -7), addDays(rhHoje(), 1)); if (de) return toast(de, 'warn');
       const u = rhPessoa(d.colaboradorId); if (u && u.cnhValidade && rhVenc(u.cnhValidade).st === 'vencido') return toast('CNH vencida — não é possível liberar o veículo', 'warn');
-      Store.add('rhVeicUso', { veiculoId: v.id, colaboradorId: d.colaboradorId, destino: d.destino, kmSaida: Number(d.kmSaida) || 0, saida: d.saida, retorno: '', kmRetorno: 0 });
+      Store.add('rhVeicUso', { veiculoId: v.id, colaboradorId: d.colaboradorId, destino: d.destino, kmSaida: ks, saida: d.saida, retorno: '', kmRetorno: 0 });
       toast('Saída registrada'); closeModal(); go(currentRoute);
     };
   }
   function rhVeicRetorno(v, uso) {
     const card = modal({
       title: `Retorno · ${rhPlacaFmt(v.placa)}`, sub: `${rhNome(uso.colaboradorId)} · saiu ${pvFmtDT(uso.saida)}`,
-      body: `<div class="form-grid">${field('Km no retorno', 'kmRetorno', '', 'number', { ph: String(uso.kmSaida || '') })}${field('Data e hora', 'retorno', new Date(Date.now() - new Date().getTimezoneOffset() * 6e4).toISOString().slice(0, 16), 'datetime-local')}
+      body: `<div class="form-grid">${field('Km no retorno', 'kmRetorno', '', 'text', { ph: rhFmtNum(uso.kmSaida), hint: `Saiu com ${rhFmtNum(uso.kmSaida)} km` })}${field('Data e hora', 'retorno', new Date(Date.now() - new Date().getTimezoneOffset() * 6e4).toISOString().slice(0, 16), 'datetime-local')}
         ${field('Ocorrências', 'obs', '', 'textarea', { full: true, ph: 'Avaria, multa, abastecimento… (opcional)' })}</div>`,
       footer: `<button class="btn ghost" data-close>Cancelar</button><button class="btn primary" id="saveBtn">${ic('check')}Registrar retorno</button>`,
     });
+    rhMaskNum($('[name="kmRetorno"]', card), 9999999); rhLimDates(card, { retorno: [String(uso.saida).slice(0, 10), addDays(rhHoje(), 1)] });
     $('#saveBtn', card).onclick = () => {
-      const d = readForm(card); const km = Number(d.kmRetorno) || 0;
+      const d = readForm(card); const km = rhNum(d.kmRetorno);
       if (!km) return toast('Informe o km no retorno', 'warn'); if (km < (uso.kmSaida || 0)) return toast('O km de retorno é menor que o de saída', 'warn');
+      if (km - (uso.kmSaida || 0) > 5000) return toast(`Mais de 5.000 km numa saída (${rhFmtNum(km - uso.kmSaida)} km) — confira o número`, 'warn');
+      if (d.retorno && d.retorno < String(uso.saida).slice(0, 16)) return toast('O retorno não pode ser antes da saída', 'warn');
       Store.update('rhVeicUso', uso.id, { retorno: d.retorno || new Date().toISOString(), kmRetorno: km, obs: d.obs });
       Store.update('rhVeiculos', v.id, { km: Math.max(km, v.km || 0) });
-      toast(`Retorno registrado · ${km - (uso.kmSaida || 0)} km rodados`); closeModal(); go(currentRoute);
+      toast(`Retorno registrado · ${rhFmtNum(km - (uso.kmSaida || 0)) || 0} km rodados`); closeModal(); go(currentRoute);
     };
   }
   let rhVeicTab = 'frota';

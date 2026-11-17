@@ -2316,3 +2316,69 @@ button.rh-card:hover { transform: translateY(-2px); border-color: color-mix(in s
 .rhd .pvd-core b { font-size: 3rem; }
 .rhd .pvd-core small.rh-core-t { margin-top: 6px; padding-top: 6px; width: 46%; }
 @media (max-width: 760px) { .rhd .pvd-core b { font-size: 2.6rem; } }
+
+/* ---- RH: seletor de participantes ---- */
+.rh-pk { display: flex; flex-direction: column; gap: 10px; }
+.rh-pk-top { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.rh-pk-q { flex: 1 1 220px; display: flex; align-items: center; gap: 10px; height: 42px; padding: 0 14px; border-radius: 12px; background: var(--field); border: 1px solid var(--line-2); text-transform: none; letter-spacing: 0; margin: 0; transition: border-color .2s, box-shadow .2s; }
+.rh-pk-q:focus-within { border-color: color-mix(in srgb, var(--accent) 55%, transparent); box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 14%, transparent); }
+.rh-pk-q > span[data-icon] { display: grid; place-items: center; line-height: 0; color: var(--text-3); }
+.rh-pk-q svg { width: 16px; height: 16px; display: block; }
+.rh-pk-q input { flex: 1; min-width: 0; height: 100%; border: 0 !important; background: transparent !important; box-shadow: none !important; padding: 0 !important; color: var(--text); font: inherit; font-size: .9rem; outline: none; }
+.rh-pk-top .btn { height: 42px; }
+.rh-pk .rh-pk-l { flex: none; display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 8px; max-height: 300px; overflow: auto; padding: 2px; align-content: start; }
+.rh-pk-none { grid-column: 1 / -1; margin: 6px 0; text-align: center; font-size: .84rem; color: var(--text-3); }
+.rh-pk-n { font-size: .82rem; color: var(--text-3); }
+.rh-pk-n b { color: var(--accent); }
+.rh-pk-acts { display: none; }
+@media (max-width: 760px) { .rh-pk .rh-pk-l { grid-template-columns: 1fr; max-height: 46vh; } .rh-pk-top .btn { flex: 1; justify-content: center; } }
+
+/* ---- RH: matriz em cards ---- */
+.rh-mxf { display: flex; flex-direction: column; align-items: center; gap: 12px; margin-bottom: 14px; }
+.rh-mxf .rh-pk-q { width: 100%; max-width: 520px; flex: none; }
+.rh-mxf-c { display: flex; flex-wrap: wrap; justify-content: center; gap: 6px; }
+.rh-fc { display: inline-flex; align-items: center; gap: 7px; height: 34px; padding: 0 12px; border-radius: 999px; border: 1px solid var(--line); background: color-mix(in srgb, var(--text) 3%, transparent); color: var(--text-2); font: inherit; font-size: .82rem; cursor: pointer; transition: all .2s; }
+.rh-fc em { font-style: normal; font-size: .72rem; font-weight: 600; padding: 1px 7px; border-radius: 999px; background: color-mix(in srgb, var(--text) 8%, transparent); }
+.rh-fc.on { color: var(--text); border-color: color-mix(in srgb, var(--accent) 50%, transparent); background: color-mix(in srgb, var(--accent) 12%, transparent); }
+.rh-fc.on em { background: var(--accent); color: #031219; }
+.rh-mcs { grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); }
+.rh-mc { gap: 12px; padding: 16px; }
+.rh-mc .rh-card-h .qf-av { width: 40px; height: 40px; border-radius: 12px; font-size: .8rem; }
+.rh-mc-pct { flex: none; display: flex; flex-direction: column; align-items: flex-end; line-height: 1.1; }
+.rh-mc-pct b { font-size: 1.15rem; font-weight: 600; color: var(--c); font-variant-numeric: tabular-nums; }
+.rh-mc-pct small { font-size: .7rem; color: var(--text-3); }
+.rh-mc-bar { height: 5px; border-radius: 5px; background: color-mix(in srgb, var(--text) 8%, transparent); overflow: hidden; }
+.rh-mc-bar i { display: block; height: 100%; border-radius: 5px; background: var(--c); }
+.rh-mc-l { display: flex; flex-wrap: wrap; gap: 6px; }
+.rh-mc-t { --c: var(--accent); display: inline-flex; align-items: center; gap: 5px; padding: 4px 9px 4px 6px; border-radius: 8px; font-style: normal; font-size: .74rem; font-weight: 500; color: var(--text); background: color-mix(in srgb, var(--c) 12%, transparent); border: 1px solid color-mix(in srgb, var(--c) 32%, transparent); }
+.rh-mc-t > span[data-icon] { display: grid; place-items: center; line-height: 0; color: var(--c); }
+.rh-mc-t svg { width: 12px; height: 12px; stroke-width: 2.8; display: block; }
+.rh-mc-t.extra { border-style: dashed; }
+.rh-mc-none { font-size: .78rem; color: var(--text-3); }
+
+/* ---- RH: catálogo ---- */
+.rh-tc .rh-card-h b { white-space: normal; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; line-height: 1.3; }
+.rh-tc-k { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.rh-tc-k > span { display: grid; grid-template-columns: 18px minmax(0, 1fr); grid-template-rows: auto auto; column-gap: 8px; align-items: center; padding: 9px 11px; border-radius: 12px; background: color-mix(in srgb, var(--text) 4%, transparent); min-width: 0; }
+.rh-tc-k > span > span[data-icon] { grid-row: 1 / 3; display: grid; place-items: center; line-height: 0; color: var(--c); }
+.rh-tc-k svg { width: 15px; height: 15px; display: block; }
+.rh-tc-k b { font-size: .92rem; font-weight: 600; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.rh-tc-k small { font-size: .7rem; color: var(--text-3); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+/* ---- RH: registros anulados ---- */
+.rh-anul td { opacity: .55; }
+.rh-anul .cell-main { text-decoration: line-through; }
+.rh-regs .row-actions .btn { white-space: nowrap; }
+.rh-regs .row-actions .btn svg { width: 13px; height: 13px; }
+.rh-mc .rh-card-h b { white-space: normal; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; line-height: 1.25; }
+.rh-mc-t { max-width: 100%; }
+.rh-mc-t > :not(span[data-icon]), .rh-mc-t { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.rh-mc-t { max-width: 190px; }
+.rh-regs .row-actions .btn { display: inline-flex; align-items: center; gap: 6px; } .rh-regs .row-actions .btn > span[data-icon] { display: grid; place-items: center; line-height: 0; } .rh-regs .row-actions .btn svg { display: block; }
+@media (max-width: 760px) {
+  .rh-pk-top { display: grid; grid-template-columns: 1fr 1fr; }
+  .rh-pk-top .rh-pk-q { grid-column: 1 / -1; }
+  .rh-mxf-c { flex-wrap: nowrap; justify-content: flex-start; overflow-x: auto; width: 100%; padding-bottom: 4px; scrollbar-width: none; }
+  .rh-mxf-c::-webkit-scrollbar { display: none; }
+  .rh-fc { flex: none; }
+}
