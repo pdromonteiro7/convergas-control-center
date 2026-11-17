@@ -1814,3 +1814,54 @@ body:has(.modal-root.open .modal-card.cf-sheet) .app-shell, body:has(.modal-root
 
 /* botões de voltar: seta para a esquerda */
 #pcBack svg, #pvBack svg, #qfBack svg { transform: scaleX(-1); }
+
+/* =====================================================================
+   CHAMADO — etapas 1 a 5 como fluxo guiado (uma etapa por vez)
+   ===================================================================== */
+.pvx-fsteps { position: relative; padding: 16px 12px 14px; margin-bottom: 16px; align-items: start; }
+.pvx-fsteps li { display: block; }
+.pvx-fsteps li::after { display: none !important; }
+.pvx-fline { position: absolute; left: 10%; right: 10%; top: 32px; height: 2px; border-radius: 2px; background: var(--line-2); pointer-events: none; }
+.pvx-fline i { position: absolute; left: 0; top: 0; bottom: 0; width: 0; border-radius: 2px; background: linear-gradient(90deg, #3FA9F5, #5CE1E6); box-shadow: 0 0 10px rgba(92,225,230,.55); transition: width .7s cubic-bezier(.22,.8,.24,1); }
+.pvx-fsteps button { position: relative; z-index: 1; width: 100%; display: flex; flex-direction: column; align-items: center; gap: 7px; padding: 0 4px; border: 0; background: none; font: inherit; color: inherit; text-align: center; }
+.pvx-fsteps .pvx-st-dot { width: 34px; height: 34px; transition: transform .45s var(--ease-spring), box-shadow .45s var(--ease), background .45s var(--ease); }
+.pvx-fsteps .pvx-st-tx { align-items: center; max-width: 100%; }
+.pvx-fsteps .pvx-st-tx b { font-size: .84rem; }
+.pvx-fsteps button:hover .pvx-st-dot { transform: scale(1.06); }
+.pvx-fsteps li.view .pvx-st-dot { transform: scale(1.12); box-shadow: 0 0 0 5px rgba(92,225,230,.16), 0 8px 22px -8px rgba(63,169,245,.9); }
+.pvx-fsteps li.view:not(.st-cur):not(.st-done) .pvx-st-dot { color: var(--text); border-color: var(--accent); }
+.pvx-fsteps li.st-done.view .pvx-st-dot { box-shadow: 0 0 0 5px rgba(70,211,154,.16); }
+.pvx-fsteps li.view .pvx-st-tx b { color: var(--text); }
+.pvx-fsteps li.view::before { content: ""; position: absolute; left: 50%; bottom: -14px; width: 26px; height: 3px; margin-left: -13px; border-radius: 3px; background: var(--accent); box-shadow: 0 0 10px var(--accent); }
+.pvx-fsteps li { position: relative; }
+/* só a etapa escolhida aparece */
+.pvx-gflow > .pvx-sec { display: none; }
+.pvx-gflow > .pvx-sec.cur-step { display: block; }
+.pvx-gflow > .pvx-sec.cur-step { border-color: color-mix(in srgb, var(--accent) 35%, transparent); box-shadow: 0 0 0 4px rgba(92,225,230,.06), 0 30px 60px -36px rgba(63,169,245,.6), var(--shadow-card); }
+.pvx-gflow > .pvx-sec.in-r { animation: cfInR .5s var(--ease) both; }
+.pvx-gflow > .pvx-sec.in-l { animation: cfInL .5s var(--ease) both; }
+.pvx-gflow .pvx-sec-b { min-height: 220px; }
+/* navegação entre etapas */
+.pvx-fnav { display: flex; align-items: center; gap: 12px; margin-top: 14px; padding: 10px 12px; border-radius: 16px; background: var(--card); border: 1px solid var(--line); box-shadow: var(--shadow-card); }
+.pvx-fnav .btn { height: 42px; border-radius: 12px; }
+.pvx-fnav #pvFPrev svg { transform: scaleX(-1); }
+.pvx-fnav #pvFNext svg { width: 15px; height: 15px; transition: transform .35s var(--ease-spring); }
+.pvx-fnav #pvFNext:hover svg { transform: translate(2px, -2px); }
+.pvx-fpos { flex: 1; text-align: center; font-size: .84rem; color: var(--text-3); display: flex; align-items: center; justify-content: center; gap: 8px; flex-wrap: wrap; }
+.pvx-fpos b { color: var(--text); }
+@media (max-width: 760px) {
+  .pvx-fsteps { padding: 12px 6px 16px; gap: 2px; }
+  .pvx-fline { top: 27px; }
+  .pvx-fsteps .pvx-st-dot { width: 30px; height: 30px; }
+  .pvx-fsteps .pvx-st-tx small { display: none; }
+  .pvx-fsteps .pvx-st-tx b { font-size: .7rem; }
+  .pvx-fnav { padding: 8px; gap: 8px; }
+  .pvx-fnav #pvFPrev span { display: none; }
+  .pvx-fnav #pvFPrev { width: 42px; padding: 0; justify-content: center; }
+  .pvx-fpos { font-size: .74rem; }
+  .pvx-fpos .badge { display: none; }
+  .pvx-gflow .pvx-sec-b { min-height: 0; }
+}
+@media (max-width: 760px) { .pvx-steps.pvx-fsteps { grid-template-columns: repeat(5, minmax(0, 1fr)); } }
+.pvx-fsteps li { padding: 0 !important; margin: 0 !important; background: none !important; border: 0 !important; }
+.pvx-fsteps { scroll-margin-top: 96px; }

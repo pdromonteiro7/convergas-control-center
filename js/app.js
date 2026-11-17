@@ -1592,6 +1592,7 @@
   }
   function pvBindRows(root) { $$('[data-pvid]', root).forEach((b) => (b.onclick = () => pvOpen(b.dataset.pvid))); }
   let pvBackRoute = 'pv-chamados';
+  let pvDetStep = null; // etapa aberta no fluxo do chamado ({ id, n, state })
   function pvOpen(id) {
     pvCurrentId = id; try { sessionStorage.setItem('pv_current', id); } catch (e) {}
     if (currentRoute !== 'pv-detalhe') pvBackRoute = /^(pv-|qa-)/.test(currentRoute) && currentRoute !== 'pv-novo' ? currentRoute : 'pv-chamados';
@@ -3059,11 +3060,11 @@
         <div class="pvx-head-badges">${pvBadge(PV_STATUS, c.status)}${pvBadge(PV_PRIO, c.prioridade || 'media')}${c.seguranca ? '<span class="badge danger">Segurança / legal</span>' : ''}<span class="pvx-tipo">${ic(t.icon)}${esc(t.short)}</span></div>
         <div class="pvx-head-meta"><span>Prazo</span>${pvPrazoBadge(c)}<span>RNC</span>${pvRncBadge(c)}</div>
       </div>
-      <ol class="pvx-steps">${steps.map((s) => `<li class="st-${s.state}"><span class="pvx-st-dot">${s.state === 'done' ? ic('check') : s.state === 'na' ? '–' : s.n}</span><span class="pvx-st-tx"><b>${esc(s.t)}</b><small>${esc(s.s)}</small></span></li>`).join('')}</ol>
+      <ol class="pvx-steps pvx-fsteps" id="pvFSteps"><span class="pvx-fline"><i></i></span>${steps.map((s) => `<li class="st-${s.state}"><button type="button" data-fstep="${s.n}" title="Etapa ${s.n}: ${esc(s.t)}"><span class="pvx-st-dot">${s.state === 'done' ? ic('check') : s.state === 'na' ? '–' : s.n}</span><span class="pvx-st-tx"><b>${esc(s.t)}</b><small>${esc(s.s)}</small></span></button></li>`).join('')}</ol>
       ${c.status === 'cancelado' ? `<div class="pvx-banner neutral">${ic('x')}<div><b>Chamado cancelado</b><span>${esc(c.cancelamento ? c.cancelamento.motivo : '')}</span></div><button class="btn sm" id="pvReopen">${ic('refresh')}Reabrir</button></div>` : ''}
       ${c.status === 'encerrado' ? `<div class="pvx-banner ok">${ic('check')}<div><b>Chamado encerrado em ${fmtDate(en.data)}</b><span>por ${esc(en.por || '—')} · aceite do cliente: ${esc(en.aceite || '—')}</span></div><button class="btn sm" id="pvReopen">${ic('refresh')}Reabrir</button></div>` : ''}
       <div class="pvx-cols2">
-        <div class="pvx-main">
+        <div class="pvx-main pvx-gflow" id="pvFlow">
           ${sec(1, 'file', 'Abertura — Comercial', 'done', `
             <p class="pvx-desc">${esc(c.descricao || '')}</p>
             <div class="pvx-kvs">
@@ -3112,6 +3113,11 @@
             ${en.aceite ? `<div class="pvx-kvs">${kvt('Aceite do cliente', en.aceite)}${kv('Satisfação', en.satisfacao ? '★'.repeat(en.satisfacao) + '<span class="pvx-off">' + '★'.repeat(5 - en.satisfacao) + '</span>' : '')}${kvt('Comentário', en.comentario)}</div>` : '<span class="pvx-muted">Registrado ao encerrar.</span>'}
             ${pvAberto(c) ? `<div class="pvx-close">${pend.length ? `<div class="pvx-close-p">${ic('alert')}<span>Faltam ${pend.length} item(ns) para encerrar — veja em Pendências.</span></div>` : `<div class="pvx-close-p ok">${ic('check')}<span>Tudo pronto. Registre o retorno do cliente e encerre.</span></div>`}<button class="btn primary" id="pvClose">${ic('check')}Encerrar chamado</button></div>` : ''}`,
             precisa && vf.data ? btn('pvVerif', 'edit', 'Eficácia', 'ghost') : '')}
+          <nav class="pvx-fnav" aria-label="Navegar entre etapas">
+            <button type="button" class="btn ghost" id="pvFPrev">${ic('chevron')}<span>Etapa anterior</span></button>
+            <span class="pvx-fpos" id="pvFPos"></span>
+            <button type="button" class="btn" id="pvFNext"></button>
+          </nav>
         </div>
 
         <aside class="pvx-side">
@@ -3149,7 +3155,37 @@
     }));
     const nb = $('#pvNoteBtn', w);
     if (nb) nb.onclick = () => { const v = $('#pvNote', w).value.trim(); if (!v) return; pvSave(c, {}, 'Comentário', v); rerender(); };
-    $$('[data-pvjump]', w).forEach((b) => (b.onclick = () => { const el = $('#pvSec' + b.dataset.pvjump); if (el) { el.scrollIntoView({ behavior: 'smooth', block: 'start' }); el.classList.add('flash'); setTimeout(() => el.classList.remove('flash'), 1200); } }));
+    // ---------- fluxo guiado: uma etapa por vez, seguindo a linha do tempo ----------
+    const stOf = (n) => (steps.find((x) => x.n === n) || {}).state;
+    const curN = (steps.find((x) => x.state === 'cur') || {}).n || (c.status === 'encerrado' ? 5 : 1);
+    let fn = curN, dirIn = 1;
+    if (pvDetStep && pvDetStep.id === c.id) {
+      // se a etapa que estava aberta acabou de ser concluída, avança para a próxima pendente
+      fn = pvDetStep.state !== 'done' && stOf(pvDetStep.n) === 'done' && curN > pvDetStep.n ? curN : pvDetStep.n;
+    }
+    const flow = $('#pvFlow', w), fsteps = $('#pvFSteps', w);
+    const showStep = (n, anim) => {
+      const dir = n >= fn ? 1 : -1; fn = n; pvDetStep = { id: c.id, n, state: stOf(n) };
+      $$('.pvx-sec', flow).forEach((sec) => {
+        const on = sec.id === 'pvSec' + n; sec.classList.toggle('cur-step', on); sec.classList.remove('in-r', 'in-l');
+        if (on && anim) { void sec.offsetWidth; sec.classList.add(dir > 0 ? 'in-r' : 'in-l'); }
+      });
+      $$('[data-fstep]', fsteps).forEach((b) => b.parentNode.classList.toggle('view', +b.dataset.fstep === n));
+      $('.pvx-fline i', fsteps).style.width = ((n - 1) / 4) * 100 + '%';
+      const S = steps.find((x) => x.n === n), N = steps.find((x) => x.n === n + 1);
+      $('#pvFPos', w).innerHTML = `Etapa <b>${n}</b> de 5 · ${esc(S.t)}${S.state === 'done' ? ' <span class="badge ok plain">concluída</span>' : S.state === 'na' ? ' <span class="badge neutral plain">não aplicável</span>' : S.state === 'cur' ? ' <span class="badge info plain">etapa atual</span>' : ''}`;
+      const prev = $('#pvFPrev', w); prev.style.visibility = n > 1 ? 'visible' : 'hidden';
+      const nx = $('#pvFNext', w);
+      if (N) { nx.style.visibility = 'visible'; nx.innerHTML = `<span>Próxima: ${esc(N.t)}</span>${ic('arrowUpRight')}`; nx.classList.toggle('primary', S.state === 'done' || S.state === 'na'); }
+      else nx.style.visibility = 'hidden';
+      Icons.apply(nx); Icons.apply(prev);
+      if (anim) { const top = fsteps.getBoundingClientRect().top; if (top < 70 || top > innerHeight * 0.6) fsteps.scrollIntoView({ behavior: 'smooth', block: 'start' }); }
+    };
+    $$('[data-fstep]', fsteps).forEach((b) => (b.onclick = () => showStep(+b.dataset.fstep, true)));
+    $('#pvFPrev', w).onclick = () => { if (fn > 1) showStep(fn - 1, true); };
+    $('#pvFNext', w).onclick = () => { if (fn < 5) showStep(fn + 1, true); };
+    showStep(fn, pvDetStep && pvDetStep.id === c.id && pvDetStep.n !== fn);
+    $$('[data-pvjump]', w).forEach((b) => (b.onclick = () => showStep(+b.dataset.pvjump, true)));
   };
 
   // ---- formulários de cada etapa (abrem como página/sheet, padrão do app) ----
