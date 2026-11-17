@@ -73,9 +73,9 @@
       const gr = g.createLinearGradient(0, 0, 0, h); gr.addColorStop(0, '#13233C'); gr.addColorStop(1, '#0A1528'); g.fillStyle = gr; g.fill();
       g.lineWidth = 10; g.strokeStyle = cor; g.stroke();
       g.fillStyle = cor; g.shadowColor = cor; g.shadowBlur = 24; g.beginPath(); g.arc(92, h / 2, 26, 0, Math.PI * 2); g.fill(); g.shadowBlur = 0;
-      let fs = 104; g.font = `700 ${fs}px "DM Sans", "Segoe UI", sans-serif`; const max = w - 360;
+      let fs = 150; g.font = `700 ${fs}px "DM Sans", "Segoe UI", sans-serif`; const max = w - 330;
       while (g.measureText(nome).width > max && fs > 46) { fs -= 4; g.font = `700 ${fs}px "DM Sans", "Segoe UI", sans-serif`; }
-      g.fillStyle = '#FFFFFF'; g.textBaseline = 'middle'; g.textAlign = 'left'; g.fillText(nome, 150, h / 2 + 4);
+      g.fillStyle = '#FFFFFF'; g.textBaseline = 'middle'; g.textAlign = 'left'; g.fillText(nome, 140, h / 2 + 6);
       const tx = String(n); g.font = '700 70px "DM Sans", sans-serif'; const pw = Math.max(100, g.measureText(tx).width + 60);
       g.fillStyle = 'rgba(255,255,255,.12)'; g.beginPath(); g.roundRect ? g.roundRect(w - pw - 50, h / 2 - 50, pw, 100, 50) : g.rect(w - pw - 50, h / 2 - 50, pw, 100); g.fill();
       g.fillStyle = '#FFFFFF'; g.textAlign = 'center'; g.fillText(tx, w - 50 - pw / 2, h / 2 + 4);
@@ -347,7 +347,7 @@
       box(1.2, .9, .45, M.cabinet, x0 + .55 + .6 + 4.2, .55, z0 + .38, g); grid.block(x0 + 4.6, z0, x0 + 6.1, z0 + .9);
       rooms.push({ nome: s.nome, floor, x0, z0 });
       // placa presa na parede do fundo, no esquadro da sala (de frente para quem olha)
-      const pl = new G.Group(); pl.position.set(x0 + RW / 2, WH + .1 + .6 - 1.6 * 1.7, z0 + WT / 2); pl.scale.setScalar(1.7); scene.add(pl);
+      const pl = new G.Group(); pl.position.set(x0 + RW / 2, WH + .1 + .92 - 1.6 * 2.7, z0 + WT / 2); pl.scale.setScalar(2.7); scene.add(pl);
       box(2.34, .66, .08, M.dark, 0, 1.6, -.02, pl);
       const accentP = new G.MeshStandardMaterial({ color: s.cor, emissive: s.cor, emissiveIntensity: 1.4 }); box(2.34, .04, .1, accentP, 0, 1.25, -.02, pl, false);
       const face = new G.Mesh(new G.PlaneGeometry(2.3, 2.3 * 300 / 1024), new G.MeshBasicMaterial({ map: plaqueTex(s.nome, s.cor, s.people.length), transparent: true, toneMapped: false }));
@@ -435,7 +435,7 @@
       const hr = pid ? null : ray.intersectObjects(plaqueHits, false)[0]; const rn = hr ? hr.object.userData.room : null;
       if (pid !== hovP) { hovP = pid; const a = actors.find((x) => x.it.p.id === pid); tip.innerHTML = a ? `<b>${esc(a.it.p.name)}</b><small>${esc(a.it.p.cargo || 'Sem cargo')}</small>` : ''; tip.classList.toggle('on', !!a); }
       if (hovP) tip.style.transform = `translate(${e.clientX - r.left}px, ${e.clientY - r.top - 18}px) translate(-50%, -100%)`;
-      if (rn !== hovR) { hovR = rn; plaques.forEach((p) => { const on = p.nome === rn; p.g.scale.setScalar(on ? 1.78 : 1.7); p.floor.material.emissiveIntensity = on ? .2 : 0; }); }
+      if (rn !== hovR) { hovR = rn; plaques.forEach((p) => { const on = p.nome === rn; p.g.scale.setScalar(2.7); p.floor.material.emissiveIntensity = on ? .2 : 0; }); }
       cv.style.cursor = hovP || (hovR && data.onRoom) ? 'pointer' : 'default';
     }
     function onClick() {
