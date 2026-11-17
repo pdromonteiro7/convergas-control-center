@@ -1867,3 +1867,44 @@ body:has(.modal-root.open .modal-card.cf-sheet) .app-shell, body:has(.modal-root
 .pvx-fsteps { scroll-margin-top: 96px; }
 @media (max-width: 760px) { .pvx-fnav { position: sticky; bottom: calc(92px + env(safe-area-inset-bottom)); z-index: 6; background: color-mix(in srgb, var(--bg-2) 88%, transparent); backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px); } }
 #pvFPrev span[data-icon] { display: grid; place-items: center; width: 18px; height: 18px; } #pvFPrev span[data-icon] svg { width: 18px; height: 18px; }
+
+/* ---------- linha do tempo do chamado: trechos entre os círculos (sem cruzar o ✓) ---------- */
+.pvx-fsteps .pvx-fline { display: none; }
+.pvx-fsteps li:not(:last-child)::after { content: "" !important; display: block !important; position: absolute; top: 16px; left: calc(50% + 26px); right: calc(-50% + 26px); height: 2px; min-width: 0; flex: none; border-radius: 2px;
+  background: color-mix(in srgb, var(--text) 12%, transparent); transition: background .6s var(--ease), box-shadow .6s var(--ease); }
+.pvx-fsteps li.st-done:not(:last-child)::after, .pvx-fsteps li.st-na:not(:last-child)::after { background: linear-gradient(90deg, #46D39A, #5CE1E6); box-shadow: 0 0 8px rgba(70,211,154,.45); }
+.pvx-fsteps .pvx-st-dot { position: relative; z-index: 1; background: var(--bg-2); border: 1.5px solid var(--line-2); font-family: inherit; font-weight: 700; font-size: .84rem; }
+.pvx-fsteps .pvx-st-dot svg { width: 16px; height: 16px; stroke-width: 2.4; display: block; }
+.pvx-fsteps li.st-done .pvx-st-dot { color: #031219; background: #46D39A; border-color: #46D39A; box-shadow: 0 0 0 4px rgba(70,211,154,.14); }
+.pvx-fsteps li.st-cur .pvx-st-dot { color: #031219; background: var(--grad-accent); border-color: transparent; box-shadow: 0 0 0 5px rgba(92,225,230,.14), 0 8px 22px -8px rgba(63,169,245,.9); }
+.pvx-fsteps li.st-na .pvx-st-dot { color: var(--text-3); background: var(--bg-2); border-style: dashed; }
+.pvx-fsteps li.view .pvx-st-dot { transform: scale(1.1); }
+.pvx-fsteps li.st-done.view .pvx-st-dot { box-shadow: 0 0 0 5px rgba(70,211,154,.2), 0 8px 22px -8px rgba(70,211,154,.8); }
+@media (max-width: 760px) {
+  .pvx-fsteps li:not(:last-child)::after { top: 14px; left: calc(50% + 21px); right: calc(-50% + 21px); }
+}
+
+/* ---------- telas de formulário (sheets): fundo animado do sistema + cartão de vidro ---------- */
+.modal-root.open:has(.modal-card.sheet) { background: transparent; backdrop-filter: none; -webkit-backdrop-filter: none; }
+body:has(.modal-root.open .modal-card.sheet) .app-shell, body:has(.modal-root.open .modal-card.sheet) .mnav { visibility: hidden; }
+.modal-card.sheet { background: transparent !important; box-shadow: none; }
+.modal-card.sheet .modal-head { background: color-mix(in srgb, var(--bg) 55%, transparent); backdrop-filter: blur(16px) saturate(140%); -webkit-backdrop-filter: blur(16px) saturate(140%); border-bottom: 1px solid var(--line); }
+.modal-card.sheet:not(.cf-sheet) .modal-body { width: min(calc(100% - 32px), 880px); max-width: none; margin: 24px auto 0; padding: 26px 30px 28px; border-radius: 22px;
+  background: radial-gradient(120% 60% at 0% 0%, color-mix(in srgb, var(--accent) 7%, transparent), transparent 55%), var(--card); border: 1px solid var(--line); box-shadow: var(--shadow-card); animation: riseIn .5s var(--ease) both; }
+.modal-card.sheet.wide:not(.cf-sheet) .modal-body { width: min(calc(100% - 32px), 1180px); }
+.modal-card.sheet:not(.cf-sheet) .modal-foot { position: sticky; bottom: 14px; z-index: 3; width: min(calc(100% - 32px), 880px); max-width: none; margin: 14px auto 18px; padding: 12px 14px; border: 1px solid var(--line); border-radius: 16px;
+  background: color-mix(in srgb, var(--bg-2) 72%, transparent); backdrop-filter: blur(16px) saturate(140%); -webkit-backdrop-filter: blur(16px) saturate(140%); box-shadow: 0 20px 40px -24px rgba(0,0,0,.7); animation: riseIn .5s .08s var(--ease) both; }
+.modal-card.sheet.wide:not(.cf-sheet) .modal-foot { width: min(calc(100% - 32px), 1180px); }
+.modal-card.sheet:not(.cf-sheet) .modal-foot .btn { height: 42px; border-radius: 12px; }
+.modal-card.sheet .form-sec { margin-top: 6px; }
+@media (max-width: 760px) {
+  .modal-card.sheet:not(.cf-sheet) .modal-body { width: calc(100% - 20px); margin-top: 12px; padding: 18px 16px 20px; border-radius: 18px; }
+  .modal-card.sheet:not(.cf-sheet) .modal-foot { width: calc(100% - 20px); bottom: calc(10px + env(safe-area-inset-bottom)); margin: 10px auto 12px; }
+}
+/* o app por trás some de vez enquanto um formulário está aberto (mesmo elementos com visibilidade própria) */
+body:has(.modal-root.open .modal-card.sheet) .app-shell, body:has(.modal-root.open .modal-card.sheet) .mnav { opacity: 0 !important; pointer-events: none !important; }
+body:has(.modal-root.open .modal-card.sheet) .app-shell * { visibility: hidden !important; }
+/* opções de decisão (triagem etc.) sem caixa alta */
+.pvx-rd, .pvx-rd b, .pvx-rd small { text-transform: none !important; letter-spacing: 0 !important; }
+.pvx-rd b { font-size: .92rem; }
+.pvx-rd small { font-size: .78rem; }
