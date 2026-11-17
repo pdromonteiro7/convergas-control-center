@@ -1590,11 +1590,13 @@
       <span class="pvx-row-tags">${extra || ''}${pvPrazoBadge(c)}</span>
     </button>`;
   }
-  function pvBindRows(root) { $$('[data-pvid]', root).forEach((b) => (b.onclick = () => pvOpen(b.dataset.pvid))); }
+  let pvOpenStep = null; // etapa em que o chamado deve abrir (ex.: Fila de RNC → etapa 4)
+  function pvBindRows(root) { $$('[data-pvid]', root).forEach((b) => (b.onclick = () => { pvOpenStep = +b.dataset.pvstep || null; pvOpen(b.dataset.pvid); })); }
   let pvBackRoute = 'pv-chamados';
   let pvDetStep = null; // etapa aberta no fluxo do chamado ({ id, n, state })
   function pvOpen(id) {
     pvCurrentId = id; try { sessionStorage.setItem('pv_current', id); } catch (e) {}
+    pvDetStep = null; // cada abertura começa na etapa certa (a memória vale só dentro do chamado)
     if (currentRoute !== 'pv-detalhe') pvBackRoute = /^(pv-|qa-)/.test(currentRoute) && currentRoute !== 'pv-novo' ? currentRoute : 'pv-chamados';
     go('pv-detalhe');
   }
@@ -1760,7 +1762,7 @@
     const board = $('#qfBoard', w), tabs = $('#qfTabs', w);
     const card = (c, x) => {
       const t = PV_TIPOS[c.tipo] || PV_TIPOS.reclamacao; const nm = pvClienteNome(c); const age = pvAge(c);
-      return `<button type="button" class="qf-card" data-pvid="${c.id}" style="--c:${x.c}">
+      return `<button type="button" class="qf-card" data-pvid="${c.id}" data-pvstep="${x.k === 'eficacia' ? 5 : 4}" style="--c:${x.c}">
         <span class="qf-card-top"><b class="mono">${esc(c.numero)}</b><span class="qf-age">${age ? `há ${age} ${age === 1 ? 'dia' : 'dias'}` : 'hoje'}</span></span>
         <span class="qf-card-cli"><span class="qf-av" style="--h:${pvHue(nm)}">${esc(pvInitials(nm))}</span><span>${esc(nm)}</span></span>
         <span class="qf-card-sub">${ic(t.icon)}<span>${esc(t.short)}${(c.produto || {}).descricao ? ' · ' + esc(c.produto.descricao) : ''}</span></span>
@@ -3184,6 +3186,7 @@
     $$('[data-fstep]', fsteps).forEach((b) => (b.onclick = () => showStep(+b.dataset.fstep, true)));
     $('#pvFPrev', w).onclick = () => { if (fn > 1) showStep(fn - 1, true); };
     $('#pvFNext', w).onclick = () => { if (fn < 5) showStep(fn + 1, true); };
+    if (pvOpenStep) { fn = pvOpenStep; pvOpenStep = null; }
     showStep(fn, pvDetStep && pvDetStep.id === c.id && pvDetStep.n !== fn);
     $$('[data-pvjump]', w).forEach((b) => (b.onclick = () => showStep(+b.dataset.pvjump, true)));
   };
