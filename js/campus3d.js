@@ -346,8 +346,8 @@
       plant(M, x0 + RW - .55, z0 + .55, g, 1); grid.block(x0 + RW - 1, z0, x0 + RW, z0 + 1);
       box(1.2, .9, .45, M.cabinet, x0 + .55 + .6 + 4.2, .55, z0 + .38, g); grid.block(x0 + 4.6, z0, x0 + 6.1, z0 + .9);
       rooms.push({ nome: s.nome, floor, x0, z0 });
-      const pl = new G.Group(); pl.position.set(x0 + 2.4, 0, z0 + RD + 1.05); pl.rotation.y = Math.PI / 4; pl.scale.setScalar(1.9); scene.add(pl);
-      [-1, 1].forEach((sd) => cyl(.045, .05, 1.35, M.lampPole, sd * .95, .68, 0, pl, 8));
+      // placa presa na parede do fundo, no esquadro da sala (de frente para quem olha)
+      const pl = new G.Group(); pl.position.set(x0 + RW / 2, WH + .1 + .6 - 1.6 * 1.7, z0 + WT / 2); pl.scale.setScalar(1.7); scene.add(pl);
       box(2.34, .66, .08, M.dark, 0, 1.6, -.02, pl);
       const accentP = new G.MeshStandardMaterial({ color: s.cor, emissive: s.cor, emissiveIntensity: 1.4 }); box(2.34, .04, .1, accentP, 0, 1.25, -.02, pl, false);
       const face = new G.Mesh(new G.PlaneGeometry(2.3, 2.3 * 300 / 1024), new G.MeshBasicMaterial({ map: plaqueTex(s.nome, s.cor, s.people.length), transparent: true, toneMapped: false }));
@@ -435,7 +435,7 @@
       const hr = pid ? null : ray.intersectObjects(plaqueHits, false)[0]; const rn = hr ? hr.object.userData.room : null;
       if (pid !== hovP) { hovP = pid; const a = actors.find((x) => x.it.p.id === pid); tip.innerHTML = a ? `<b>${esc(a.it.p.name)}</b><small>${esc(a.it.p.cargo || 'Sem cargo')}</small>` : ''; tip.classList.toggle('on', !!a); }
       if (hovP) tip.style.transform = `translate(${e.clientX - r.left}px, ${e.clientY - r.top - 18}px) translate(-50%, -100%)`;
-      if (rn !== hovR) { hovR = rn; plaques.forEach((p) => { const on = p.nome === rn; p.g.scale.setScalar(on ? 1.08 : 1); p.floor.material.emissiveIntensity = on ? .2 : 0; }); }
+      if (rn !== hovR) { hovR = rn; plaques.forEach((p) => { const on = p.nome === rn; p.g.scale.setScalar(on ? 1.78 : 1.7); p.floor.material.emissiveIntensity = on ? .2 : 0; }); }
       cv.style.cursor = hovP || (hovR && data.onRoom) ? 'pointer' : 'default';
     }
     function onClick() {
@@ -494,18 +494,21 @@
         }
       }
     }
+    let fitted = false; cv.style.opacity = '0';
+    const ro = window.ResizeObserver ? new ResizeObserver(() => { if (fit()) { fitted = true; cv.style.opacity = ''; } }) : null; if (ro) ro.observe(host);
     function loop() {
       if (!alive) return; raf = requestAnimationFrame(loop);
       if (!host.isConnected || host.offsetParent === null || document.hidden) return;
+      if (!fitted) { if (!fit()) return; fitted = true; cv.style.opacity = ''; }
       const dt = Math.min(.05, clock.getDelta()), t = clock.elapsedTime;
       actors.forEach((a) => step(a, dt, t));
       renderer.render(scene, cam);
     }
-    fit(); loop();
+    if (fit()) { fitted = true; cv.style.opacity = ''; } loop();
     return {
       zoom(f, x, z) { cam.zoom = f || 1; if (x != null) { const c = new G.Vector3(x, 0, z); cam.position.copy(c).addScaledVector(dir, 120); cam.lookAt(c); } cam.updateProjectionMatrix(); },
       resize: () => { fit(); },
-      stop() { alive = false; cancelAnimationFrame(raf); cv.removeEventListener('pointermove', onMove); scene.traverse((o) => { if (o.geometry) o.geometry.dispose(); if (o.material) [].concat(o.material).forEach((m) => { if (m.map) m.map.dispose(); m.dispose(); }); }); renderer.dispose(); renderer.forceContextLoss && renderer.forceContextLoss(); cv.remove(); overlay.remove(); },
+      stop() { alive = false; if (ro) ro.disconnect(); cancelAnimationFrame(raf); cv.removeEventListener('pointermove', onMove); scene.traverse((o) => { if (o.geometry) o.geometry.dispose(); if (o.material) [].concat(o.material).forEach((m) => { if (m.map) m.map.dispose(); m.dispose(); }); }); renderer.dispose(); renderer.forceContextLoss && renderer.forceContextLoss(); cv.remove(); overlay.remove(); },
     };
   }
 
