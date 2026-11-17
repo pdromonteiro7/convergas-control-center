@@ -2783,3 +2783,28 @@ body.cc-ro #rpBoneco { display: none !important; }
 .na-box > div { display: flex; flex-direction: column; gap: 6px; }
 .na-box b { font-size: .95rem; color: var(--text); }
 .na-box span { font-size: .86rem; color: var(--text-2); line-height: 1.5; }
+
+/* ---- popup de acesso restrito ---- */
+.na-pop { position: fixed; inset: 0; z-index: 500; display: grid; place-items: center; padding: 20px; background: rgba(4, 9, 18, .55); backdrop-filter: blur(10px) saturate(1.2); -webkit-backdrop-filter: blur(10px) saturate(1.2); opacity: 0; transition: opacity .25s var(--ease); }
+[data-theme="light"] .na-pop { background: rgba(220, 230, 242, .55); }
+.na-pop.on { opacity: 1; }
+.na-card { --c: #5CE1E6; position: relative; width: min(340px, 100%); display: flex; flex-direction: column; align-items: center; text-align: center; gap: 6px; padding: 34px 28px 24px; border-radius: 28px; overflow: hidden;
+  background: linear-gradient(180deg, color-mix(in srgb, var(--c) 12%, var(--card)) 0%, var(--card) 55%); border: 1px solid color-mix(in srgb, var(--c) 30%, var(--line-2));
+  box-shadow: 0 40px 80px -30px rgba(0,0,0,.75), 0 0 0 1px rgba(255,255,255,.03) inset; transform: translateY(14px) scale(.96); transition: transform .4s var(--ease-spring); }
+.na-pop.on .na-card { transform: none; }
+.na-card::before { content: ""; position: absolute; left: 50%; top: -120px; width: 260px; height: 220px; margin-left: -130px; border-radius: 50%; background: radial-gradient(closest-side, color-mix(in srgb, var(--c) 35%, transparent), transparent); pointer-events: none; }
+.na-orb { position: relative; width: 76px; height: 76px; margin-bottom: 14px; display: grid; place-items: center; border-radius: 24px; color: var(--c);
+  background: color-mix(in srgb, var(--c) 14%, var(--bg-2)); border: 1px solid color-mix(in srgb, var(--c) 40%, transparent); box-shadow: 0 14px 30px -12px color-mix(in srgb, var(--c) 70%, transparent); }
+.na-ring { position: absolute; inset: -8px; border-radius: 30px; border: 1px dashed color-mix(in srgb, var(--c) 35%, transparent); animation: naSpin 14s linear infinite; }
+@keyframes naSpin { to { transform: rotate(360deg); } }
+.na-ico { display: grid; line-height: 0; } .na-ico svg { width: 32px; height: 32px; display: block; }
+.na-lk { position: absolute; right: -9px; bottom: -9px; width: 30px; height: 30px; border-radius: 50%; display: grid; place-items: center; color: #fff; background: linear-gradient(160deg, #475569, #1F2937); border: 3px solid var(--card); box-shadow: 0 4px 10px rgba(0,0,0,.4); animation: naShake .6s .25s ease both; }
+.na-lk > span { display: grid; line-height: 0; } .na-lk svg { width: 13px; height: 13px; display: block; stroke-width: 2.4; }
+@keyframes naShake { 0%, 100% { transform: rotate(0); } 25% { transform: rotate(-14deg); } 50% { transform: rotate(10deg); } 75% { transform: rotate(-6deg); } }
+.na-card b { font-size: 1.2rem; font-weight: 600; letter-spacing: -.02em; color: var(--text); }
+.na-card p { margin: 0 0 18px; font-size: .9rem; color: var(--text-2); }
+.na-card p em { font-style: normal; font-weight: 600; color: var(--text); }
+.na-ok { width: 100%; height: 46px; border: 0; border-radius: 14px; font: inherit; font-size: .95rem; font-weight: 600; color: #031219; background: var(--grad-accent); cursor: pointer; box-shadow: 0 12px 26px -14px rgba(63,169,245,.9); transition: transform .2s var(--ease), filter .2s; }
+.na-ok:hover { filter: brightness(1.06); transform: translateY(-1px); }
+.na-ok:focus-visible { outline: 2px solid color-mix(in srgb, var(--accent) 60%, transparent); outline-offset: 3px; }
+.hx-keys:empty { display: none; }

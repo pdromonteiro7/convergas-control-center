@@ -293,7 +293,7 @@
         <div class="page-title">
           <span class="eyebrow">Visão geral</span>
           <h1>Dashboard</h1>
-          <p>Single source of truth da infraestrutura de TI da Convergas.</p>
+          <p>Infraestrutura de T.I.</p>
         </div>
         <div class="page-actions">
           <span class="badge ${sysOk ? 'ok' : 'warn'}" style="height:38px;padding:0 14px;font-size:.8rem">${sysOk ? 'Sistema operacional' : alerts.length + ' alerta(s)'}</span>
@@ -352,7 +352,7 @@
 
   /* ============ EQUIPE ============ */
   PAGES.equipe = () => {
-    pageShell('T.I.', 'Usuários & acessos', 'Máquina, VPN, servidor e recursos de cada pessoa. O cadastro de pessoas é feito pelo RH.', `<button class="btn" id="addBtn">${ic('users')}Cadastro de pessoas (RH)</button>`);
+    pageShell('T.I.', 'Usuários & acessos', 'Máquinas, VPN e recursos por pessoa.', `<button class="btn" id="addBtn">${ic('users')}Cadastro de pessoas (RH)</button>`);
     const tiPeople = Store.get('team').filter((u) => u.situacao !== 'desligado' || u.machineId || Store.itemsForUser(u.id).length).slice().sort((a, b) => (a.situacao === 'desligado') - (b.situacao === 'desligado') || (a.name || '').localeCompare(b.name || ''));
     const rows = () => tiPeople.map((u) => {
       const mine = Store.itemsForUser(u.id);
@@ -388,7 +388,7 @@
 
   /* ============ COMPUTADORES ============ */
   PAGES.computadores = () => {
-    pageShell('Computadores', 'Inventário de máquinas', 'Frota real PC00–PC30 — service tags, contas Office e antivírus.', `<button class="btn primary" id="addBtn">${ic('plus')}Novo computador</button>`);
+    pageShell('Computadores', 'Inventário de máquinas', 'Máquinas, service tags e antivírus.', `<button class="btn primary" id="addBtn">${ic('plus')}Novo computador</button>`);
     statusFilter('computers', ['ativo', 'manutencao', 'inativo'], (list) => {
       const rows = list.map((c) => `<tr class="tr-click" data-detail="${c.id}" title="Ver detalhes de ${esc(c.hostname)}">
         <td><div class="id-cell"><span class="st-ico" style="width:34px;height:34px;border-radius:9px">${ic(c.type === 'notebook' ? 'laptop' : 'desktop')}</span><div><div class="cell-main mono${c.admin ? ' is-admin' : ''}"${c.admin ? ' title="Acesso administrador"' : ''}>${esc(c.hostname)}</div><div class="cell-sub">${c.serial && c.serial !== '—' ? esc(c.serial) : (c.type === 'notebook' ? 'Notebook' : 'Desktop')}</div></div></div></td>
@@ -590,7 +590,7 @@
 
   /* ============ IMPRESSORAS ============ */
   PAGES.impressoras = () => {
-    pageShell('Impressoras', 'Gestão de impressão', 'Endereços, localização e drivers diretos.', `<button class="btn primary" id="addBtn">${ic('plus')}Nova impressora</button>`);
+    pageShell('Impressoras', 'Gestão de impressão', 'Endereços, locais e drivers.', `<button class="btn primary" id="addBtn">${ic('plus')}Nova impressora</button>`);
     const rows = () => Store.get('printers').map((p) => `<tr>
       <td><div class="id-cell"><span class="st-ico" style="width:34px;height:34px;border-radius:9px">${ic('printer')}</span><div><div class="cell-main">${esc(p.name)}</div><div class="cell-sub">${esc(p.location || '—')}</div></div></div></td>
       <td>${p.ip ? `<span class="mono">${esc(p.ip)}</span>` : '<span class="cell-sub">USB</span>'}</td>
@@ -635,7 +635,7 @@
   }).join('\n');
   const cmdTags = (c) => `<span class="cat-pill">${esc(c.category)}</span>${c.shell ? `<span class="cmd-tag">${esc(c.shell)}</span>` : ''}${c.admin ? `<span class="cmd-tag admin">${ic('shield')}Admin</span>` : ''}`;
   PAGES.command = () => {
-    pageShell('Command Center', 'Biblioteca de comandos', 'Comandos operacionais prontos para copiar. O sistema nunca executa — apenas orienta.', `<button class="btn primary" id="addBtn">${ic('plus')}Novo comando</button>`);
+    pageShell('Command Center', 'Biblioteca de comandos', 'Comandos prontos para copiar.', `<button class="btn primary" id="addBtn">${ic('plus')}Novo comando</button>`);
     const wrap = document.createElement('div');
     const state = { cat: 'all', q: '' };
     const tb = document.createElement('div');
@@ -692,7 +692,7 @@
         <div class="howto-meta">${cmdTags(c)}</div>
         <div class="cmd-code" style="margin-bottom:16px">${esc(c.command)}</div>
         <div class="howto-body">${fmtHowto(c.howto)}</div>
-        <div class="howto-warn">${ic('alert')}<span>O Ops Center <b>não executa</b> comandos — copie e rode manualmente no terminal indicado${c.admin ? ' <b>como Administrador</b>' : ''}.</span></div>`,
+        <div class="howto-warn">${ic('alert')}<span>Copie e execute no terminal indicado${c.admin ? ' <b>como Administrador</b>' : ''}.</span></div>`,
       footer: `<button class="btn primary" data-copy="${esc(c.command)}" data-copy-label="Comando copiado">${ic('copy')}Copiar comando</button><button class="btn ghost" data-close>Fechar</button>`,
     });
     bindCopy($('#modalCard'));
@@ -700,7 +700,7 @@
 
   /* ============ RUNBOOKS ============ */
   PAGES.runbooks = () => {
-    pageShell('Runbooks', 'Procedimentos operacionais', 'Passo a passo padronizado para reduzir dependência de memória.', `<button class="btn primary" id="addBtn">${ic('plus')}Novo runbook</button>`);
+    pageShell('Runbooks', 'Procedimentos operacionais', 'Procedimentos passo a passo.', `<button class="btn primary" id="addBtn">${ic('plus')}Novo runbook</button>`);
     const grid = document.createElement('div'); grid.className = 'rb-grid'; view.appendChild(grid);
     const render = () => {
       const items = Store.get('runbooks');
@@ -712,7 +712,7 @@
             <span>${ic('list')}${r.steps.length} passos</span>
             <span>${ic('terminal')}${(r.related || []).length} comandos</span>
           </div>
-        </div>`).join('') : emptyState('book', 'Nenhum runbook', 'Crie procedimentos para padronizar a operação.');
+        </div>`).join('') : emptyState('book', 'Nenhum runbook', '');
       Icons.apply(grid);
       $$('[data-open]', grid).forEach((b) => { b.onclick = () => openRunbook(Store.find('runbooks', b.dataset.open)); });
     };
@@ -743,7 +743,7 @@
 
   /* ============ DOMÍNIO & INFRA ============ */
   PAGES.infra = () => {
-    pageShell('Domínio & Infra', 'Infraestrutura web', 'Domínios, provedores, DNS e IPs atuais.', `<button class="btn primary" id="addDom">${ic('plus')}Novo domínio</button>`);
+    pageShell('Domínio & Infra', 'Infraestrutura web', 'Domínios, DNS e IPs.', `<button class="btn primary" id="addDom">${ic('plus')}Novo domínio</button>`);
     const doms = Store.get('webDomains'), dnsList = Store.get('dnsRecords');
     const wrap = document.createElement('div'); wrap.className = 'grid'; wrap.style.gap = '20px';
 
@@ -766,7 +766,7 @@
               <button class="mini-btn" data-edom="${d.id}" title="Editar">${ic('edit')}</button>
               <button class="mini-btn danger" data-ddom="${d.id}" title="Excluir">${ic('trash')}</button>
             </div>
-          </div>`).join('') : emptyState('globe', 'Nenhum domínio cadastrado', 'Clique em "Novo domínio" para adicionar.')}
+          </div>`).join('') : emptyState('globe', 'Nenhum domínio cadastrado', '')}
       </div>`;
 
     const dns = `
@@ -781,7 +781,7 @@
             <td class="mono">${esc(r.value)}</td>
             <td><div class="row-actions">${copyBtn(`${r.type} ${r.name} ${r.value}`, 'Registro copiado')}<button class="mini-btn" data-edns="${r.id}" title="Editar">${ic('edit')}</button><button class="mini-btn danger" data-ddns="${r.id}" title="Excluir">${ic('trash')}</button></div></td>
           </tr>`).join('')}</tbody>
-        </table>` : emptyState('server', 'Nenhum registro DNS', 'Clique em "Novo registro" para adicionar.')}
+        </table>` : emptyState('server', 'Nenhum registro DNS', '')}
       </div>`;
 
     wrap.innerHTML = domains + dns;
@@ -841,7 +841,7 @@
 
   /* ============ INVENTÁRIO ============ */
   PAGES.inventario = () => {
-    pageShell('Periféricos', 'Ativos físicos', 'Periféricos e equipamentos — estoque vinculado aos colaboradores.', `<button class="btn primary" id="addBtn">${ic('plus')}Novo item</button>`);
+    pageShell('Periféricos', 'Ativos físicos', 'Periféricos e equipamentos.', `<button class="btn primary" id="addBtn">${ic('plus')}Novo item</button>`);
     statusFilter('inventory', ['em_uso', 'disponivel', 'reserva'], (list) => {
       const rows = list.map((i) => {
         const used = i.assignments || [];
@@ -872,7 +872,7 @@
 
   /* ============ TELEFONIA ============ */
   PAGES.telefonia = () => {
-    pageShell('Telefonia', 'Telefonia & atendimento', 'Linhas móveis, planos, titulares e custos — vinculados aos colaboradores.', `<button class="btn primary" id="addBtn">${ic('plus')}Nova linha</button>`);
+    pageShell('Telefonia', 'Telefonia & atendimento', 'Linhas, planos e titulares.', `<button class="btn primary" id="addBtn">${ic('plus')}Nova linha</button>`);
     const phones = Store.get('phones');
     if (phones.length) {
       const total = phones.reduce((s, p) => s + (Number(p.value) || 0), 0);
@@ -938,7 +938,7 @@
   const LIC_TYPES = ['Antivírus', 'Autodesk', 'Microsoft'];
   const licTypeIcon = (t) => ({ 'Antivírus': 'shield', 'Autodesk': 'cpu', 'Microsoft': 'grid' }[t] || 'key');
   PAGES.licencas = () => {
-    pageShell('Licenças', 'Licenças & assinaturas', 'Software, assentos e datas de renovação — com alertas automáticos.', `<button class="btn primary" id="addBtn">${ic('plus')}Nova licença</button>`);
+    pageShell('Licenças', 'Licenças & assinaturas', 'Softwares, assentos e renovações.', `<button class="btn primary" id="addBtn">${ic('plus')}Nova licença</button>`);
     const lics = Store.get('licenses');
     if (lics.length) {
       const venc = lics.filter((l) => licStatus(l.renewalDate).key === 'vencido').length;
@@ -973,7 +973,7 @@
             <button class="mini-btn danger" data-del="${l.id}" title="Excluir">${ic('trash')}</button>
           </div>
         </div>`;
-      }).join('') : `<div style="grid-column:1/-1">${emptyState('key', 'Nenhuma licença cadastrada', 'Clique em “Nova licença” para começar o controle.')}</div>`;
+      }).join('') : `<div style="grid-column:1/-1">${emptyState('key', 'Nenhuma licença cadastrada', '')}</div>`;
       Icons.apply(grid);
       $$('[data-edit]', grid).forEach((b) => (b.onclick = (e) => { e.stopPropagation(); formLicense(Store.find('licenses', b.dataset.edit)); }));
       $$('[data-del]', grid).forEach((b) => (b.onclick = (e) => { e.stopPropagation(); confirmDialog('Excluir esta licença?', () => { Store.remove('licenses', b.dataset.del); refreshPage(); toast('Licença excluída', 'info'); }); }));
@@ -993,13 +993,13 @@
         ${field('Nome', 'name', l.name, 'text', { full: true, ph: 'Ex: Kaspersky — 10 PCs' })}
         ${field('Fornecedor', 'vendor', l.vendor, 'text', { ph: 'Ex: Kaspersky / Nexway' })}
         ${field('Tipo', 'type', l.type || 'Antivírus', 'select', { options: LIC_TYPES.map((x) => ({ v: x, t: x })) })}
-        ${field('Assentos (total)', 'seatsTotal', l.seatsTotal, 'number', { ph: 'Ex: 10', hint: 'Nº de licenças/assentos disponíveis para vincular.' })}
+        ${field('Assentos (total)', 'seatsTotal', l.seatsTotal, 'number', { ph: 'Ex: 10', hint: '' })}
         ${field('Abrangência (texto livre)', 'seats', l.seats, 'text', { ph: 'Ex: 10 PCs' })}
         ${field('Responsável / conta', 'owner', l.owner, 'text', { ph: 'conta@convergas.com.br' })}
         ${field('Data da compra', 'purchaseDate', l.purchaseDate, 'date')}
         ${field('Data de renovação', 'renewalDate', l.renewalDate, 'date')}
         ${field('Painel administrativo (URL)', 'adminUrl', l.adminUrl, 'url', { full: true, ph: 'https://…' })}
-        ${field('Código de ativação', 'code', l.code, 'text', { full: true, hint: 'Opcional — prefira guardar no Cofre.' })}
+        ${field('Código de ativação', 'code', l.code, 'text', { full: true, hint: 'Opcional' })}
         ${field('Observações', 'notes', l.notes, 'textarea', { full: true })}
       </div>`,
       footer: submitFooter(editing),
@@ -1066,7 +1066,7 @@
   /* ============ COFRE ============ */
   const VAULT_CATS = ['WiFi', 'Conta Admin', 'E-mail'];
   PAGES.cofre = () => {
-    pageShell('Cofre', 'Cofre de senhas', 'Credenciais sensíveis — ocultas por padrão. Tudo fica só neste dispositivo.', `<button class="btn primary" id="addBtn">${ic('plus')}Nova credencial</button>`);
+    pageShell('Cofre', 'Cofre de senhas', 'Credenciais guardadas neste aparelho.', `<button class="btn primary" id="addBtn">${ic('plus')}Nova credencial</button>`);
     const warn = document.createElement('div'); warn.className = 'vault-warn';
     warn.innerHTML = `${ic('shield')}<span><b>Zona sensível.</b> Os segredos ficam no armazenamento local do navegador. Clique no olho para revelar.</span>`;
     view.appendChild(warn);
@@ -1154,9 +1154,9 @@
 
   /* ============ SERVIDOR ============ */
   PAGES.servidor = () => {
-    pageShell('Servidor', 'Servidor', 'Gestão do servidor corporativo.', '');
+    pageShell('Servidor', 'Servidor', 'Servidor corporativo.', '');
     const w = document.createElement('div');
-    w.innerHTML = comingSoon('server', 'Módulo Servidor', 'Esta área será estruturada em breve para centralizar o controle do servidor da Convergas.', [
+    w.innerHTML = comingSoon('server', 'Módulo Servidor', 'Em breve.', [
       'Configuração e especificações (CPU, RAM, discos)',
       'Contas e níveis de acesso ao servidor',
       'Rotina e status de backups',
@@ -1167,9 +1167,9 @@
 
   /* ============ BITLOCKER ============ */
   PAGES.bitlocker = () => {
-    pageShell('BitLocker', 'BitLocker', 'Chaves de recuperação da frota.', '');
+    pageShell('BitLocker', 'BitLocker', 'Chaves de recuperação.', '');
     const w = document.createElement('div');
-    w.innerHTML = comingSoon('lock', 'Módulo BitLocker', 'Em elaboração — um controle dedicado às chaves de recuperação, vinculado à frota de máquinas.', [
+    w.innerHTML = comingSoon('lock', 'Módulo BitLocker', 'Em breve.', [
       'Chave de recuperação por máquina (PCxx)',
       'Vínculo direto com o módulo Computadores',
       'Busca por hostname e cópia rápida da chave',
@@ -1180,7 +1180,7 @@
 
   /* ============ SHAREPOINT — portais por setor (T.I) ============ */
   PAGES.sharepoint = () => {
-    pageShell('SharePoint', 'SharePoint', 'Portais de documentos por setor (Microsoft SharePoint).', `<button class="btn primary" id="addBtn">${ic('plus')}Novo site</button>`);
+    pageShell('SharePoint', 'SharePoint', 'Portais de documentos por setor.', `<button class="btn primary" id="addBtn">${ic('plus')}Novo site</button>`);
     const all = Store.get('sharepoint').slice().sort((a, b) => (a.name || '').localeCompare(b.name || ''));
     const grid = document.createElement('div'); grid.className = 'sp-grid';
     grid.innerHTML = all.length ? all.map((s) => `
@@ -1193,7 +1193,7 @@
         </div>
         <h3>${esc(s.name)}</h3>
         <span class="sp-cta">Abrir no SharePoint ${ic('arrowUpRight')}</span>
-      </div>`).join('') : emptyState('globe', 'Nenhum site cadastrado', 'Clique em "Novo site" para adicionar.');
+      </div>`).join('') : emptyState('globe', 'Nenhum site cadastrado', '');
     view.appendChild(grid); Icons.apply(grid);
     $$('.sp-card', grid).forEach((c) => (c.onclick = (e) => { if (e.target.closest('.mini-btn')) return; const s = Store.find('sharepoint', c.dataset.open); if (s && s.url) window.open(s.url, '_blank', 'noopener'); }));
     $$('[data-edit]', grid).forEach((b) => (b.onclick = () => formSharePoint(Store.find('sharepoint', b.dataset.edit))));
@@ -1231,7 +1231,7 @@
     { icon: 'clipboard', name: 'Convergas Homologa · Diagnóstico', desc: 'Calcula os gastos de uma homologação a partir dos requisitos INMETRO.', tag: 'Diagnóstico', url: 'https://convergas-diagnostico.vercel.app', color: 'var(--warn)' },
   ];
   PAGES['sistemas-home'] = () => {
-    pageShell('Sistemas', 'Sistemas', 'Sistemas e plataformas da Convergas — acesso rápido.', '');
+    pageShell('Sistemas', 'Sistemas', 'Plataformas da Convergas.', '');
     const w = document.createElement('div');
     w.className = 'sys-grid';
     w.innerHTML = SISTEMAS.map((s) => `
@@ -1458,7 +1458,7 @@
   /* =========================== PAINEL (indicadores — mesma linguagem circular da Home) =========================== */
   const PV_TIPO_COR = ['#5CE1E6', '#A78BFA', '#F5B840', '#3FA9F5', '#FF7A7A', '#46D39A', '#F472B6', '#94A3B8'];
   PAGES['pv-painel'] = () => {
-    pageShell('Pós-Vendas', 'Painel de pós-vendas', 'Reclamações, garantias e atendimento ao cliente — indicadores para IATF 16949 e ISO 9001.',
+    pageShell('Pós-Vendas', 'Painel de pós-vendas', 'Indicadores de atendimento.',
       `<button class="btn primary" id="pvNew">${ic('plus')}Novo chamado</button>`);
     $('#pvNew').onclick = () => pvGoNovo();
     const s = pvStats(); const all = s.all;
@@ -1607,7 +1607,7 @@
 
   /* =========================== LISTA DE CHAMADOS =========================== */
   PAGES['pv-chamados'] = () => {
-    pageShell('Pós-Vendas', 'Chamados', 'Todos os chamados de clientes — da abertura pelo Comercial até o encerramento.',
+    pageShell('Pós-Vendas', 'Chamados', 'Chamados de clientes.',
       `<button class="btn primary" id="pvNew">${ic('plus')}Novo chamado</button>`);
     $('#pvNew').onclick = () => pvGoNovo();
     view.appendChild(pvDash((f) => {
@@ -1661,7 +1661,7 @@
           <td>${pvRncBadge(c)}</td>
           <td>${pvBadge(PV_STATUS, c.status)}</td></tr>`;
       }).join('')}</tbody></table></div>`
-        : `<div class="tbl-wrap">${emptyState('list', all.length ? 'Nenhum chamado neste filtro' : 'Nenhum chamado ainda', all.length ? 'Ajuste os filtros acima.' : 'Clique em "Novo chamado" para registrar a primeira ocorrência de um cliente.')}</div>`;
+        : `<div class="tbl-wrap">${emptyState('list', all.length ? 'Nenhum chamado neste filtro' : 'Nenhum chamado ainda', all.length ? 'Ajuste os filtros acima.' : '')}</div>`;
       Icons.apply(holder);
       $$('tr[data-pvid]', holder).forEach((tr) => (tr.onclick = () => pvOpen(tr.dataset.pvid)));
     };
@@ -1713,7 +1713,7 @@
   }
 
   PAGES['pv-qualidade'] = () => {
-    pageShell('Qualidade', 'Fila de RNC', 'Chamados do Pós-Vendas que dependem da Qualidade: anexar a RNC, responder ao cliente e verificar a eficácia da ação.',
+    pageShell('Qualidade', 'Fila de RNC', 'Chamados aguardando a Qualidade.',
       `<button class="btn" id="qfToPv">${ic('list')}Todos os chamados</button>`);
     $('#qfToPv').onclick = () => navTo('pv-chamados');
     const all = Store.get('pvChamados').filter((c) => c.status !== 'cancelado' && pvPrecisaRnc(c));
@@ -1829,7 +1829,7 @@
         ${fone.length >= 10 ? `<a class="btn" target="_blank" rel="noopener" href="https://wa.me/55${fone}?text=${encodeURIComponent(pvAvMsg(a))}">${ic('share')}Enviar no WhatsApp</a>` : ''}
         ${a.contatoEmail ? `<a class="btn" href="mailto:${esc(a.contatoEmail)}?subject=${encodeURIComponent('Avaliação do atendimento — Convergas')}&body=${encodeURIComponent(pvAvMsg(a))}">${ic('mail')}Enviar por e-mail</a>` : ''}
       </div>
-      <p class="sv-note">${ic('shield')}O cliente vê só a página de avaliação. Depois de responder, ele é levado ao site da Convergas — nunca ao Control Center.</p>`;
+      `;
     Icons.apply(root);
     $('[data-sv="link"]', root).onclick = () => copy(pvAvLink(a), 'Link');
     $('[data-sv="msg"]', root).onclick = () => copy(pvAvMsg(a), 'Mensagem');
@@ -1837,9 +1837,9 @@
 
   function pvAvNovo(preCli, preCh) {
     const clis = Store.get('pvClientes').slice().sort((a, b) => a.nome.localeCompare(b.nome));
-    if (!clis.length) { toast('Cadastre um cliente primeiro (Pós-Vendas → Clientes)', 'warn'); return; }
+    if (!clis.length) { toast('Cadastre um cliente primeiro', 'warn'); return; }
     const card = modal({
-      title: 'Novo link de avaliação', sub: 'Satisfação do cliente · válido por 3 dias',
+      title: 'Novo link de avaliação', sub: 'Válido por 3 dias',
       body: `<div class="sv-form" id="svForm">
           <div class="form-sec">${ic('users')}Quem vai avaliar</div>
           <div class="form-grid">
@@ -1882,7 +1882,7 @@
       pvAvShare(a, $('.modal-body', card));
       $('.modal-foot', card).innerHTML = `<button class="btn primary" data-close>${ic('check')}Concluir</button>`; Icons.apply($('.modal-foot', card));
       $$('[data-close]', card).forEach((b) => (b.onclick = () => { closeModal(); if (currentRoute === 'pv-satisfacao') go('pv-satisfacao'); }));
-      if (!ok) toast('Sem conexão com a nuvem agora — o link passa a funcionar assim que sincronizar', 'warn');
+      if (!ok) toast('Sem conexão. O link funciona após sincronizar', 'warn');
     };
   }
 
@@ -1904,7 +1904,7 @@
 
   let pvAvFilt = 'todos';
   PAGES['pv-satisfacao'] = () => {
-    pageShell('Pós-Vendas', 'Satisfação do cliente', 'Gere um link de avaliação, envie ao cliente e acompanhe as respostas. Cada link vale 3 dias e aceita uma resposta.',
+    pageShell('Pós-Vendas', 'Satisfação do cliente', 'Avaliações enviadas aos clientes.',
       `<button class="btn" id="svSync">${ic('refresh')}Atualizar</button><button class="btn primary" id="svNew">${ic('share')}Gerar link</button>`);
     $('#svNew').onclick = () => pvAvNovo();
     $('#svSync').onclick = async (e) => { const b = e.currentTarget; b.disabled = true; b.classList.add('spin'); try { await Promise.race([Store.syncFromCloud(), new Promise((ok) => setTimeout(ok, 6000))]); } catch (er) {} go('pv-satisfacao'); };
@@ -1966,7 +1966,7 @@
           <td>${s === 'respondida' ? `${pvStars(r.nota || 0)} <b>${r.nota || ''}</b>` : '<span class="pvx-muted">—</span>'}</td>
           <td class="row-actions">${s === 'aguardando' ? `<button class="mini-btn" data-avcp="${a.id}" title="Copiar link">${ic('copy')}</button><button class="mini-btn" data-avsh="${a.id}" title="Enviar de novo">${ic('share')}</button><button class="mini-btn danger" data-avx="${a.id}" title="Cancelar link">${ic('x')}</button>` : s === 'respondida' ? `<button class="mini-btn" data-avv="${a.id}" title="Ver resposta">${ic('eye')}</button>` : ''}</td></tr>`;
       }).join('')}</tbody></table></div>`
-        : `<div class="tbl-wrap">${emptyState('share', all.length ? 'Nada neste filtro' : 'Nenhum link gerado ainda', all.length ? 'Escolha outro filtro.' : 'Clique em "Gerar link", escolha o cliente e envie o link por WhatsApp ou e-mail.')}</div>`;
+        : `<div class="tbl-wrap">${emptyState('share', all.length ? 'Nada neste filtro' : 'Nenhum link gerado ainda', all.length ? 'Escolha outro filtro.' : '')}</div>`;
       Icons.apply(holder);
       const find = (id) => Store.find('pvAvaliacoes', id);
       $$('[data-avcp]', holder).forEach((b) => (b.onclick = (e) => { e.stopPropagation(); copy(pvAvLink(find(b.dataset.avcp)), 'Link'); }));
@@ -2086,15 +2086,15 @@
     const pessoas = rhAtivos().filter((p) => p.id !== u.id);
     const opt = (v, t, sel) => `<option value="${esc(v)}" ${sel ? 'selected' : ''}>${esc(t)}</option>`;
     const card = modal({
-      title: editing ? 'Editar colaborador' : 'Novo colaborador', sub: 'RH · cadastro de pessoas',
+      title: editing ? 'Editar colaborador' : 'Novo colaborador', sub: 'RH',
       body: `<div class="form-sec">${ic('users')}Identificação</div>
         <div class="form-grid">
           ${field('Nome completo', 'name', u.name, 'text', { full: true, ph: 'Nome e sobrenome' })}
           ${field('E-mail corporativo', 'email', u.email, 'email', { ph: 'nome@convergas.com.br' })}
           ${field('Celular corporativo', 'celular', u.celular, 'tel', { ph: '(00) 00000-0000' })}
           ${field('Ramal', 'ramal', u.ramal, 'text', { ph: 'Ex.: 215' })}
-          ${field('Aniversário (dia/mês)', 'aniversario', u.aniversario, 'text', { ph: 'dd/mm', hint: 'Só o dia e o mês — para o mural de aniversariantes.' })}
-          <div class="field"><label>Sexo</label><select name="sexo"><option value="">Selecione</option><option value="M" ${(u.sexo || '') === 'M' ? 'selected' : ''}>Masculino</option><option value="F" ${(u.sexo || '') === 'F' ? 'selected' : ''}>Feminino</option></select><span class="hint">Usado no controle do RH e no boneco da planta.</span></div>
+          ${field('Aniversário (dia/mês)', 'aniversario', u.aniversario, 'text', { ph: 'dd/mm', hint: '' })}
+          <div class="field"><label>Sexo</label><select name="sexo"><option value="">Selecione</option><option value="M" ${(u.sexo || '') === 'M' ? 'selected' : ''}>Masculino</option><option value="F" ${(u.sexo || '') === 'F' ? 'selected' : ''}>Feminino</option></select></div>
         </div>
         <div class="form-sec">${ic('briefcase')}Trabalho</div>
         <div class="form-grid">
@@ -2103,9 +2103,9 @@
           <div class="field"><label>Gestor imediato</label><select name="gestorId"><option value="">Sem gestor</option>${pessoas.map((p) => opt(p.id, p.name, u.gestorId === p.id)).join('')}</select></div>
           <div class="field"><label>Tipo de contrato</label><select name="contrato">${RH_CONTRATOS.map((c) => opt(c, c, (u.contrato || 'CLT') === c)).join('')}</select></div>
           ${field('Data de admissão', 'admissao', u.admissao, 'date')}
-          ${field('Validade da CNH', 'cnhValidade', u.cnhValidade, 'date', { hint: 'Só se dirige veículo da empresa.' })}
+          ${field('Validade da CNH', 'cnhValidade', u.cnhValidade, 'date', { hint: '' })}
         </div>
-        <p class="sv-note">${ic('shield')}CPF, documentos e exames médicos entram quando o login com permissão do RH estiver ativo (LGPD).</p>`,
+        `,
       footer: submitFooter(editing),
     });
     ['sector', 'cargoId', 'gestorId', 'contrato', 'sexo'].forEach((n) => ccSelect($(`[name="${n}"]`, card), { search: !['contrato', 'sexo'].includes(n), icon: { sector: 'grid', cargoId: 'briefcase', gestorId: 'users', contrato: 'file', sexo: 'users' }[n] }));
@@ -2131,7 +2131,7 @@
 
   /* ---------- PAINEL ---------- */
   PAGES['rh-painel'] = () => {
-    pageShell('RH', 'Painel do RH', 'Pessoas, movimentações, treinamentos, férias e frota em um só lugar.',
+    pageShell('RH', 'Painel do RH', 'Visão geral do RH.',
       `<button class="btn" id="rhDesl">${ic('x')}Desligamento</button><button class="btn primary" id="rhAdm">${ic('userPlus')}Admissão</button>`);
     $('#rhAdm').onclick = () => rhNovaMov('admissao');
     $('#rhDesl').onclick = () => rhNovaMov('desligamento');
@@ -2245,7 +2245,7 @@
           <td><div class="cell-main">${esc(rhTempoCasa(u))}</div><div class="cell-sub">${u.admissao ? 'desde ' + fmtDate(u.admissao) : 'admissão não informada'}</div></td>
           <td>${!tr.total ? '<span class="pvx-muted">—</span>' : pend ? `<span class="badge danger plain">${pend} pendente${pend > 1 ? 's' : ''}</span>` : tr.vencendo ? `<span class="badge warn plain">${tr.vencendo} vencendo</span>` : `<span class="badge ok plain">${tr.total}/${tr.total} em dia</span>`}</td>
           <td>${rhSitBadge(u)}</td></tr>`;
-      }).join('')}</tbody></table></div>` : `<div class="tbl-wrap">${emptyState('users', all.length ? 'Ninguém neste filtro' : 'Nenhum colaborador', all.length ? 'Ajuste os filtros.' : 'Use "Admissão" para cadastrar com o checklist completo.')}</div>`;
+      }).join('')}</tbody></table></div>` : `<div class="tbl-wrap">${emptyState('users', all.length ? 'Ninguém neste filtro' : 'Nenhum colaborador', all.length ? 'Ajuste os filtros.' : '')}</div>`;
       Icons.apply(holder);
       $$('tr[data-p]', holder).forEach((tr) => (tr.onclick = () => rhOpenPessoa(tr.dataset.p)));
     };
@@ -2354,7 +2354,7 @@
     const editing = !!(c && c.id); c = c || { treinos: [] };
     const tr = rhTreinos(); const set = new Set(c.treinos || []);
     const card = modal({
-      title: editing ? 'Editar cargo' : 'Novo cargo', sub: 'Descrição de cargo e competências exigidas (IATF 7.2)',
+      title: editing ? 'Editar cargo' : 'Novo cargo', sub: 'Cargo e treinamentos exigidos',
       body: `<div class="form-grid">
           ${field('Nome do cargo', 'nome', c.nome, 'text', { ph: 'Ex.: Técnico de instalação' })}
           <div class="field"><label>Setor</label><select name="setor"><option value="">Selecione</option>${rhSetores().map((s) => `<option ${c.setor === s.nome ? 'selected' : ''}>${esc(s.nome)}</option>`).join('')}</select></div>
@@ -2381,7 +2381,7 @@
   function rhFormSetor(s) {
     const editing = !!(s && s.id); s = s || {};
     const card = modal({
-      title: editing ? 'Editar setor' : 'Novo setor', sub: 'Setores organizam pessoas, cargos e o organograma',
+      title: editing ? 'Editar setor' : 'Novo setor', sub: 'RH',
       body: `<div class="form-grid">${field('Nome do setor', 'nome', s.nome, 'text', { full: true, ph: 'Ex.: Engenharia' })}
         <div class="field full"><label>Responsável</label><select name="responsavelId"><option value="">Sem responsável</option>${rhAtivos().map((u) => `<option value="${u.id}" ${s.responsavelId === u.id ? 'selected' : ''}>${esc(u.name)}</option>`).join('')}</select></div></div>`,
       footer: (editing ? `<button class="btn danger ghost" id="delBtn" style="margin-right:auto">${ic('trash')}Excluir</button>` : '') + submitFooter(editing),
@@ -2492,23 +2492,23 @@
     host.innerHTML = `<div class="st-wrap">
       <div class="st-main">
         <div class="st-top"><label class="rh-pk-q">${ic('search')}<input id="stQ" placeholder="Procurar pessoa, cargo ou setor…" value="${esc(rhMapQ)}" autocomplete="off"></label>
-          <span class="st-hint">${ic('activity')}<span>Arraste a pessoa para o setor · toque para abrir</span></span></div>
+          </div>
         <section class="st-bench st-drop" data-set="">
-          <header class="st-rh"><span class="st-dot"></span><b>Sem setor</b><em>${semSetor.length}</em><small>${semSetor.length ? 'arraste para um setor abaixo' : 'todos alocados'}</small></header>
-          <div class="st-floor">${pawns(semSetor) || `<span class="st-empty">${ativos.length ? 'Todo mundo já tem setor.' : 'Nenhum colaborador ainda — use “Cadastro rápido” ou “Admissão”.'}</span>`}</div>
+          <header class="st-rh"><span class="st-dot"></span><b>Sem setor</b><em>${semSetor.length}</em><small></small></header>
+          <div class="st-floor">${pawns(semSetor) || `<span class="st-empty">${ativos.length ? 'Todos alocados' : 'Nenhum colaborador'}</span>`}</div>
         </section>
         <div class="st-grid">${setores.map((s, i) => { const l = ativos.filter((u) => u.sector === s.nome).sort((a, b) => (a.id === s.responsavelId ? -1 : b.id === s.responsavelId ? 1 : a.name.localeCompare(b.name)));
           return `<section class="st-reg st-drop${rhBorn === s.nome ? ' born' : ''}" data-set="${esc(s.nome)}" style="--c:${rhSetCor(s.nome, i)};--d:${i * 50}ms">
             <header class="st-rh"><span class="st-dot"></span><b>${esc(s.nome)}</b><em>${l.length}</em><button type="button" class="st-ed" data-sedit="${s.id}" data-nodrag aria-label="Editar setor">${ic('edit')}</button></header>
-            <div class="st-floor">${pawns(l, s.responsavelId) || '<span class="st-empty">Arraste alguém para cá</span>'}</div></section>`; }).join('')}
+            <div class="st-floor">${pawns(l, s.responsavelId) || '<span class="st-empty">Vazio</span>'}</div></section>`; }).join('')}
           <div class="st-new" id="stNew"><button type="button" class="st-new-b">${ic('plus')}<b>Novo setor</b><small>cria uma nova região</small></button><form class="st-new-f" hidden><input maxlength="40" placeholder="Nome do setor" aria-label="Nome do setor"><button class="btn sm primary" type="submit">${ic('check')}Criar</button></form></div>
         </div>
       </div>
       <aside class="st-cargos">
         <header class="st-ch"><b>${ic('briefcase')}Cargos</b><em>${cargos.length}</em><button type="button" class="btn sm" id="stCnew" data-nodrag>${ic('plus')}Novo</button></header>
-        <p class="st-tip">Arraste o cargo até a pessoa para definir.</p>
+        
         <div class="st-cl">${cargos.map((c) => { const n = ativos.filter((u) => u.cargoId === c.id).length; const tr = (c.treinos || []).length;
-          return `<div class="st-cargo" data-drag="c:${c.id}" style="--c:${c.setor ? rhSetCor(c.setor, setores.findIndex((s) => s.nome === c.setor)) : '#94A3B8'}"><span class="st-ci">${ic('briefcase')}</span><span class="st-ct"><b>${esc(c.nome)}</b><small>${n} ${n === 1 ? 'pessoa' : 'pessoas'}${tr ? ` · ${tr} treino${tr > 1 ? 's' : ''}` : ''}${c.setor ? ' · ' + esc(c.setor) : ''}</small></span><button type="button" class="st-ed" data-cedit="${c.id}" data-nodrag aria-label="Editar cargo">${ic('edit')}</button></div>`; }).join('') || '<p class="st-empty">Nenhum cargo. Crie o primeiro.</p>'}</div>
+          return `<div class="st-cargo" data-drag="c:${c.id}" style="--c:${c.setor ? rhSetCor(c.setor, setores.findIndex((s) => s.nome === c.setor)) : '#94A3B8'}"><span class="st-ci">${ic('briefcase')}</span><span class="st-ct"><b>${esc(c.nome)}</b><small>${n} ${n === 1 ? 'pessoa' : 'pessoas'}${tr ? ` · ${tr} treino${tr > 1 ? 's' : ''}` : ''}${c.setor ? ' · ' + esc(c.setor) : ''}</small></span><button type="button" class="st-ed" data-cedit="${c.id}" data-nodrag aria-label="Editar cargo">${ic('edit')}</button></div>`; }).join('') || '<p class="st-empty">Nenhum cargo</p>'}</div>
       </aside></div>`;
     Icons.apply(host);
     $$('.st-pawn', host).forEach((b) => { b.dataset.drag = 'p:' + b.dataset.p; if (rhMapQ) b.classList.toggle('dim', !match(rhPessoa(b.dataset.p))); });
@@ -2558,7 +2558,7 @@
   }
 
   PAGES['rh-colab'] = () => {
-    pageShell('RH', 'Pessoas & setores', 'Colaboradores, cargos e setores num lugar só. Arraste as pessoas entre os setores.',
+    pageShell('RH', 'Pessoas & setores', 'Colaboradores, cargos e setores.',
       `<button class="btn" id="rhNovo">${ic('plus')}Cadastro rápido</button><button class="btn primary" id="rhAdm">${ic('userPlus')}Admissão</button>`);
     $('#rhNovo').onclick = () => rhFormPessoa(null, () => go('rh-colab'));
     $('#rhAdm').onclick = () => rhNovaMov('admissao');
@@ -2584,13 +2584,13 @@
       body: `<div class="form-grid">${field('Nome', 'nome', t.nome, 'text', { full: true, ph: 'Ex.: NR-35 · Trabalho em altura' })}
         <div class="field"><label>Tipo</label><select name="tipo">${RH_TIPOS_TREINO.map((x) => `<option ${t.tipo === x ? 'selected' : ''}>${esc(x)}</option>`).join('')}</select></div>
         ${field('Carga horária (horas)', 'cargaHoras', t.cargaHoras || '', 'text', { ph: 'Ex.: 8' })}
-        <div class="field full"><label>Reciclagem</label><select name="validadeMeses">${[['0', 'Não vence'], ['6', 'A cada 6 meses'], ['12', 'A cada 12 meses'], ['24', 'A cada 24 meses'], ['36', 'A cada 36 meses']].map(([v, l]) => `<option value="${v}" ${String(t.validadeMeses || 0) === v ? 'selected' : ''}>${l}</option>`).join('')}</select><span class="hint">Define a validade de cada registro e os avisos de vencimento.</span></div></div>`,
+        <div class="field full"><label>Reciclagem</label><select name="validadeMeses">${[['0', 'Não vence'], ['6', 'A cada 6 meses'], ['12', 'A cada 12 meses'], ['24', 'A cada 24 meses'], ['36', 'A cada 36 meses']].map(([v, l]) => `<option value="${v}" ${String(t.validadeMeses || 0) === v ? 'selected' : ''}>${l}</option>`).join('')}</select></div></div>`,
       footer: (editing ? `<button class="btn danger ghost" id="delBtn" style="margin-right:auto">${ic('trash')}Excluir</button>` : '') + submitFooter(editing),
     });
     ccSelect($('[name="tipo"]', card), { icon: 'award' }); ccSelect($('[name="validadeMeses"]', card), { icon: 'refresh' });
     rhMaskNum($('[name="cargaHoras"]', card), 400);
     const del = $('#delBtn', card);
-    if (del) del.onclick = () => rhList('rhTreinoReg').some((r) => r.treinoId === t.id) ? toast('Este treinamento já tem registros — fica no catálogo para manter o histórico', 'warn') : confirmDialog(`Excluir "${t.nome}" do catálogo?`, () => { Store.remove('rhTreinos', t.id); rhList('rhCargos').filter((c) => (c.treinos || []).includes(t.id)).forEach((c) => Store.update('rhCargos', c.id, { treinos: c.treinos.filter((x) => x !== t.id) })); toast('Treinamento excluído', 'info'); go(currentRoute); });
+    if (del) del.onclick = () => rhList('rhTreinoReg').some((r) => r.treinoId === t.id) ? toast('Treinamento com registros não pode ser excluído', 'warn') : confirmDialog(`Excluir "${t.nome}" do catálogo?`, () => { Store.remove('rhTreinos', t.id); rhList('rhCargos').filter((c) => (c.treinos || []).includes(t.id)).forEach((c) => Store.update('rhCargos', c.id, { treinos: c.treinos.filter((x) => x !== t.id) })); toast('Treinamento excluído', 'info'); go(currentRoute); });
     $('#saveBtn', card).onclick = () => {
       const d = readForm(card); if (d.nome.length < 3) return toast('Informe o nome do treinamento', 'warn');
       const ch = rhNum(d.cargaHoras); if (!ch) return toast('Informe a carga horária', 'warn');
@@ -2603,7 +2603,7 @@
   function rhFormTreinoReg(pre, onDone) {
     pre = pre || {}; const tr = rhTreinos();
     const card = modal({
-      title: 'Registrar treinamento', sub: 'Registre a turma inteira de uma vez — cada pessoa recebe o registro',
+      title: 'Registrar treinamento', sub: 'Turma',
       body: `<div class="form-grid">
           <div class="field full"><label>Treinamento</label><select name="treinoId">${tr.map((t) => `<option value="${t.id}" ${pre.treinoId === t.id ? 'selected' : ''}>${esc(t.nome)}</option>`).join('')}</select></div>
           ${field('Data de realização', 'data', todayISO(), 'date')}
@@ -2648,7 +2648,7 @@
     const T = Store.find('rhTreinos', r.treinoId) || { nome: 'Treinamento' };
     const card = modal({
       title: 'Anular registro', sub: `${T.nome} · ${rhNome(r.colaboradorId)} · ${fmtDate(r.data)}`, dialog: true,
-      body: `<p class="sv-note" style="margin:0 0 14px">${ic('shield')}<span>O registro <b>não é apagado</b>: fica riscado no histórico, com o motivo, e deixa de contar na matriz.</span></p>
+      body: `<p class="sv-note" style="margin:0 0 14px">${ic('shield')}<span>O registro continua no histórico.</span></p>
         <div class="field full"><label>Motivo da anulação</label><textarea name="motivo" rows="3" placeholder="Ex.: lançado na pessoa errada; data digitada errada"></textarea></div>`,
       footer: `<button class="btn ghost" data-close>Cancelar</button><button class="btn danger" id="anOk">${ic('x')}Anular registro</button>`,
     });
@@ -2656,7 +2656,7 @@
     $('#anOk', card).onclick = () => { const m = $('[name="motivo"]', card).value.trim(); if (m.length < 10) return toast('Explique o motivo (mín. 10 caracteres)', 'warn'); const me = typeof pvMe === 'function' ? pvMe() : ''; Store.update('rhTreinoReg', r.id, { anulado: true, motivoAnulacao: m, anuladoEm: new Date().toISOString(), anuladoPor: (me && (me.name || me)) || 'RH' }); toast('Registro anulado', 'info'); closeModal(); go(currentRoute); };
   }
   PAGES['rh-treinos'] = () => {
-    pageShell('RH', 'Treinamentos & competências', 'Matriz de competências por pessoa, catálogo e histórico — evidência para a IATF 16949 (7.2).',
+    pageShell('RH', 'Treinamentos & competências', 'Matriz, catálogo e registros.',
       `<button class="btn" id="rtNovo">${ic('plus')}Treinamento</button><button class="btn primary" id="rtReg">${ic('award')}Registrar treinamento</button>`);
     $('#rtNovo').onclick = () => rhFormTreino(null);
     $('#rtReg').onclick = () => rhFormTreinoReg({});
@@ -2687,7 +2687,7 @@
               <span class="rh-card-h">${rhAvatar(u.name)}<span><b>${esc(u.name)}</b><small>${esc([(rhCargo(u.cargoId) || {}).nome || 'Sem cargo', u.sector].filter(Boolean).join(' · '))}</small></span>
                 ${r.total ? `<span class="rh-mc-pct"><b>${pct}%</b><small>${r.ok + r.vencendo}/${r.total}</small></span>` : ''}</span>
               ${r.total ? `<span class="rh-mc-bar"><i style="width:${pct}%"></i></span>` : ''}
-              <span class="rh-mc-l">${ex.length || extras.length ? ex.map((t) => chip(t)).join('') + extras.map((t) => chip(t, true)).join('') : `<small class="rh-mc-none">${u.cargoId ? 'O cargo desta pessoa não exige treinamentos — defina em Pessoas & setores.' : 'Sem cargo definido — escolha o cargo em Colaboradores → Editar.'}</small>`}</span></button>`; }).join('')}</div>`
+              <span class="rh-mc-l">${ex.length || extras.length ? ex.map((t) => chip(t)).join('') + extras.map((t) => chip(t, true)).join('') : `<small class="rh-mc-none">${u.cargoId ? 'Nenhum treinamento exigido.' : 'Sem cargo definido.'}</small>`}</span></button>`; }).join('')}</div>`
             : `<div class="tbl-wrap">${emptyState('users', 'Ninguém neste filtro', 'Ajuste a busca ou o filtro.')}</div>`;
           Icons.apply($('#mxG', holder));
           $$('#mxG [data-p]', holder).forEach((b) => (b.onclick = () => rhOpenPessoa(b.dataset.p)));
@@ -2698,7 +2698,7 @@
       } else if (rhTreinoTab === 'catalogo') {
         const valTx = (m) => !m ? 'não vence' : m % 12 ? `${m} meses` : `${m / 12} ano${m > 12 ? 's' : ''}`;
         if (!tr.length) {
-          holder.innerHTML = `<div class="tbl-wrap">${emptyState('award', 'Catálogo vazio', 'Crie os treinamentos da Convergas em “+ Treinamento”, ou comece pelas sugestões (Integração, IATF, NR-06, NR-10, NR-12, NR-35 e GNV) e ajuste depois.')}<div class="rh-sug"><button type="button" class="btn" id="rtSug">${ic('award')}Usar sugestões</button></div></div>`;
+          holder.innerHTML = `<div class="tbl-wrap">${emptyState('award', 'Catálogo vazio', '')}<div class="rh-sug"><button type="button" class="btn" id="rtSug">${ic('award')}Usar sugestões</button></div></div>`;
           Icons.apply(holder); $('#rtSug', holder).onclick = () => { rhTreinosSugestoes(); toast('Sugestões adicionadas — edite ou apague as que não servirem'); go('rh-treinos'); };
           return;
         }
@@ -2716,8 +2716,8 @@
             <td>${r.validade ? `<span class="badge ${v.st === 'vencido' ? 'danger' : v.st === 'vencendo' ? 'warn' : 'ok'} plain">${fmtDate(r.validade)}</span>` : '<span class="pvx-muted">não vence</span>'}</td>
             <td><button type="button" class="badge ${ef[0]} plain rh-ef" data-ef="${r.id}" title="Registrar a avaliação de eficácia">${ef[1]}</button></td>
             <td class="row-actions"><button class="btn sm ghost" data-anul="${r.id}" title="Lançado por engano? Anule com o motivo — o registro continua no histórico">${ic('x')}Anular</button></td></tr>`; }).join('')}</tbody></table></div>
-          <p class="sv-note">${ic('shield')}Registros de treinamento não são apagados: são evidência para auditoria (IATF 16949 · 7.2). Se algo foi lançado por engano, use <b>Anular</b> com o motivo — ele sai da matriz e fica riscado no histórico.</p>`
-          : `<div class="tbl-wrap">${emptyState('award', 'Nenhum treinamento registrado', 'Use "Registrar treinamento" para lançar uma turma.')}</div>`;
+          `
+          : `<div class="tbl-wrap">${emptyState('award', 'Nenhum treinamento registrado', '')}</div>`;
         $$('[data-ef]', holder).forEach((b) => (b.onclick = () => rhEficacia(Store.find('rhTreinoReg', b.dataset.ef), render)));
         $$('[data-anul]', holder).forEach((b) => (b.onclick = () => rhAnularReg(Store.find('rhTreinoReg', b.dataset.anul))));
       }
@@ -2757,30 +2757,30 @@
   PAGES['rh-mov-novo'] = () => {
     const dr = rhMovDraft || { tipo: 'admissao' }; rhMovDraft = null;
     const adm = dr.tipo === 'admissao';
-    pageShell('RH', adm ? 'Nova admissão' : 'Novo desligamento', adm ? 'Cadastro guiado da pessoa, cargo e checklist de entrada.' : 'Desligamento guiado com o checklist de saída e devoluções.',
+    pageShell('RH', adm ? 'Nova admissão' : 'Novo desligamento', adm ? 'Dados, cargo e checklist.' : 'Motivo, devoluções e checklist.',
       `<button class="btn" id="rmBack">${ic('chevron')}Admissão / Desligamento</button>`);
     $('#rmBack').onclick = () => go('rh-movs');
     const setores = rhSetores(), cargos = rhList('rhCargos').slice().sort((a, b) => a.nome.localeCompare(b.nome)), ativos = rhAtivos();
     const opt = (v, t, s) => `<option value="${esc(v)}" ${s ? 'selected' : ''}>${esc(t)}</option>`;
     const ck = new Set(); let ckList = [];
-    const ckHtml = (list, ct) => `<div class="rh-ck-ct">${ic('file')}<span>Checklist para contrato <b>${esc(ct)}</b></span></div><div class="rh-chk rh-chk-1">${list.map((t) => `<button type="button" class="rh-chk-i${ck.has(t) ? ' on' : ''}" data-ck="${esc(t)}"><i>${ic('check')}</i><span><b>${esc(t)}</b></span></button>`).join('')}</div><p class="sv-note">${ic('alert')}Marque o que já foi feito. O restante fica pendente no processo e pode ser marcado depois.</p>`;
+    const ckHtml = (list, ct) => `<div class="rh-ck-ct">${ic('file')}<span>Checklist para contrato <b>${esc(ct)}</b></span></div><div class="rh-chk rh-chk-1">${list.map((t) => `<button type="button" class="rh-chk-i${ck.has(t) ? ' on' : ''}" data-ck="${esc(t)}"><i>${ic('check')}</i><span><b>${esc(t)}</b></span></button>`).join('')}</div>`;
     let steps, panes;
     if (adm) {
-      steps = [{ t: 'Pessoa', s: 'Identificação', h: 'Quem está chegando?', p: 'Dados de contato da nova pessoa.' }, { t: 'Cargo', s: 'Setor e contrato', h: 'Onde a pessoa vai trabalhar', p: 'Cargo, setor, gestor e tipo de contrato.' }, { t: 'Checklist', s: 'Entrada', h: 'Checklist de admissão', p: 'O que precisa estar pronto para o primeiro dia.' }, { t: 'Revisão', s: 'Confirmar', h: 'Tudo certo?', p: 'Confira antes de concluir.' }];
+      steps = [{ t: 'Pessoa', s: 'Identificação', h: 'Quem está chegando?', p: '' }, { t: 'Cargo', s: 'Setor e contrato', h: 'Onde a pessoa vai trabalhar', p: '' }, { t: 'Checklist', s: 'Entrada', h: 'Checklist de admissão', p: '' }, { t: 'Revisão', s: 'Confirmar', h: 'Tudo certo?', p: '' }];
       panes = [
-        `<div class="form-grid">${field('Nome completo', 'name', '', 'text', { full: true, ph: 'Nome e sobrenome' })}${field('E-mail corporativo', 'email', '', 'email', { ph: 'nome@convergas.com.br' })}${field('Celular corporativo', 'celular', '', 'tel', { ph: '(00) 00000-0000' })}${field('Ramal', 'ramal', '', 'text', { ph: 'Opcional' })}${field('Aniversário (dia/mês)', 'aniversario', '', 'text', { ph: 'dd/mm' })}<div class="field"><label>Sexo</label><select name="sexo"><option value="">Selecione</option><option value="M" ${'' === 'M' ? 'selected' : ''}>Masculino</option><option value="F" ${'' === 'F' ? 'selected' : ''}>Feminino</option></select><span class="hint">Usado no controle do RH e no boneco da planta.</span></div></div>
-         <p class="sv-note">${ic('shield')}CPF, RG e exames médicos ficam fora do sistema até o login com permissão do RH (LGPD).</p>`,
+        `<div class="form-grid">${field('Nome completo', 'name', '', 'text', { full: true, ph: 'Nome e sobrenome' })}${field('E-mail corporativo', 'email', '', 'email', { ph: 'nome@convergas.com.br' })}${field('Celular corporativo', 'celular', '', 'tel', { ph: '(00) 00000-0000' })}${field('Ramal', 'ramal', '', 'text', { ph: 'Opcional' })}${field('Aniversário (dia/mês)', 'aniversario', '', 'text', { ph: 'dd/mm' })}<div class="field"><label>Sexo</label><select name="sexo"><option value="">Selecione</option><option value="M" ${'' === 'M' ? 'selected' : ''}>Masculino</option><option value="F" ${'' === 'F' ? 'selected' : ''}>Feminino</option></select></div></div>
+         `,
         `<div class="form-grid"><div class="field"><label>Setor</label><select name="sector"><option value="">Selecione</option>${setores.map((s) => opt(s.nome, s.nome)).join('')}</select></div>
           <div class="field"><label>Cargo</label><select name="cargoId"><option value="">Selecione</option>${cargos.map((c) => opt(c.id, c.nome + (c.setor ? ' · ' + c.setor : ''))).join('')}</select></div>
           <div class="field"><label>Gestor imediato</label><select name="gestorId"><option value="">Sem gestor</option>${ativos.map((p) => opt(p.id, p.name)).join('')}</select></div>
           <div class="field"><label>Tipo de contrato</label><select name="contrato">${RH_CONTRATOS.map((c) => opt(c, c)).join('')}</select></div>
-          ${field('Data de admissão', 'admissao', todayISO(), 'date')}${field('Validade da CNH', 'cnhValidade', '', 'date', { hint: 'Só se for dirigir veículo da empresa.' })}</div>
+          ${field('Data de admissão', 'admissao', todayISO(), 'date')}${field('Validade da CNH', 'cnhValidade', '', 'date', { hint: '' })}</div>
           <div class="wz-tip" id="rmExp">${ic('clock')}<span></span></div>`,
         `<div id="rmCk"></div>`,
         `<div id="rmRev"></div>`,
       ];
     } else {
-      steps = [{ t: 'Pessoa', s: 'Quem sai', h: 'Quem está saindo?', p: 'Escolha o colaborador.' }, { t: 'Motivo', s: 'Data e tipo', h: 'Motivo e data', p: 'Último dia de trabalho e o tipo de desligamento.' }, { t: 'Checklist', s: 'Saída', h: 'Checklist de desligamento', p: 'Devoluções e bloqueios.' }, { t: 'Revisão', s: 'Confirmar', h: 'Tudo certo?', p: 'Ao concluir, a pessoa sai da lista de ativos.' }];
+      steps = [{ t: 'Pessoa', s: 'Quem sai', h: 'Quem está saindo?', p: '' }, { t: 'Motivo', s: 'Data e tipo', h: 'Motivo e data', p: '' }, { t: 'Checklist', s: 'Saída', h: 'Checklist de desligamento', p: '' }, { t: 'Revisão', s: 'Confirmar', h: 'Tudo certo?', p: '' }];
       panes = [
         `<div class="wz-search">${ic('search')}<input id="rmQ" placeholder="Buscar colaborador…" autocomplete="off"></div><div class="rh-pk-l rh-one" id="rmPpl">${ativos.map((u) => `<button type="button" class="rh-pk-p${dr.colabId === u.id ? ' on' : ''}" data-id="${u.id}">${rhAvatar(u.name)}<span><b>${esc(u.name)}</b><small>${esc([(rhCargo(u.cargoId) || {}).nome || u.role, u.sector].filter(Boolean).join(' · '))}</small></span><i>${ic('check')}</i></button>`).join('')}</div>`,
         `<div class="form-grid">${field('Último dia de trabalho', 'data', todayISO(), 'date')}<div class="field"><label>Motivo</label><select name="motivo">${RH_MOTIVOS.map((m) => opt(m, m)).join('')}</select></div>
@@ -2899,7 +2899,7 @@
   }
   let rhMovTab = 'andamento';
   PAGES['rh-movs'] = () => {
-    pageShell('RH', 'Admissão / Desligamento', 'Entradas e saídas com checklist — nada fica esquecido (acessos, EPIs, equipamentos, eSocial).',
+    pageShell('RH', 'Admissão / Desligamento', 'Entradas e saídas.',
       `<button class="btn" id="rmD">${ic('x')}Desligamento</button><button class="btn primary" id="rmA">${ic('userPlus')}Admissão</button>`);
     $('#rmA').onclick = () => rhNovaMov('admissao'); $('#rmD').onclick = () => rhNovaMov('desligamento');
     const all = rhList('rhMovs').slice().sort((a, b) => String(b.data).localeCompare(String(a.data)));
@@ -2916,7 +2916,7 @@
           <span class="rh-card-h">${rhAvatar(nm)}<span><b>${esc(nm)}</b><small>${adm ? 'Admissão' : 'Desligamento'} · ${fmtDate(m.data)}</small></span>${m.status === 'concluido' ? '<span class="badge ok plain">Concluído</span>' : '<span class="badge warn plain">Em andamento</span>'}</span>
           <span class="rh-mv-p"><span class="qband-bar"><i style="--w:${(100 * done) / tot}%;--c:${adm ? '#46D39A' : '#FF7A7A'};width:${(100 * done) / tot}%"></i></span><small>${done}/${tot}</small></span>
           <span class="rh-card-d">${pend.length ? 'Falta: ' + esc(pend.slice(0, 2).map((x) => x.t).join(' · ')) + (pend.length > 2 ? ` e mais ${pend.length - 2}` : '') : 'Checklist completo'}</span></button>`; }).join('')}</div>`
-        : `<div class="tbl-wrap">${emptyState('refresh', rhMovTab === 'andamento' ? 'Nenhum processo em andamento' : 'Nada registrado', 'Use "Admissão" ou "Desligamento" para começar um processo guiado.')}</div>`;
+        : `<div class="tbl-wrap">${emptyState('refresh', rhMovTab === 'andamento' ? 'Nenhum processo em andamento' : 'Nada registrado', '')}</div>`;
       Icons.apply(holder);
       $$('[data-m]', holder).forEach((b) => (b.onclick = () => rhVerMov(b.dataset.m)));
     };
@@ -2929,7 +2929,7 @@
   function rhFormAus(a, onDone) {
     const editing = !!(a && a.id); a = a || {};
     const card = modal({
-      title: editing ? 'Editar ausência' : 'Registrar férias / ausência', sub: 'Aparece no calendário e na situação da pessoa',
+      title: editing ? 'Editar ausência' : 'Registrar férias / ausência', sub: 'RH',
       body: `<div class="form-grid">
           <div class="field full"><label>Colaborador</label><select name="colaboradorId"><option value="">Selecione</option>${rhAtivos().map((u) => `<option value="${u.id}" ${a.colaboradorId === u.id ? 'selected' : ''}>${esc(u.name)}</option>`).join('')}</select></div>
           <div class="field full"><label>Tipo</label><div class="rh-tipos">${Object.entries(RH_AUS).map(([k, t]) => `<button type="button" class="rh-tp${(a.tipo || 'ferias') === k ? ' on' : ''}" data-tp="${k}" style="--c:${t.c}">${ic(t.i)}<span>${esc(t.l)}</span></button>`).join('')}</div><input type="hidden" name="tipo" value="${esc(a.tipo || 'ferias')}"></div>
@@ -2958,7 +2958,7 @@
   }
   let rhCalMes = null, rhAusTab = 'calendario';
   PAGES['rh-ferias'] = () => {
-    pageShell('RH', 'Férias & ausências', 'Quem está fora, quando e quem precisa tirar férias.', `<button class="btn primary" id="raNovo">${ic('plus')}Registrar</button>`);
+    pageShell('RH', 'Férias & ausências', 'Férias, folgas e afastamentos.', `<button class="btn primary" id="raNovo">${ic('plus')}Registrar</button>`);
     $('#raNovo').onclick = () => rhFormAus(null);
     const h = rhHoje(); if (!rhCalMes) rhCalMes = h.slice(0, 7);
     const all = rhList('rhAusencias').slice().sort((a, b) => String(a.inicio).localeCompare(String(b.inicio)));
@@ -3007,8 +3007,8 @@
         holder.innerHTML = prog.length ? `<div class="tbl-wrap"><table class="data"><thead><tr><th>Colaborador</th><th>Saldo</th><th>Tirar até</th><th></th></tr></thead><tbody>${prog.map((p) => `<tr><td><div class="pvc-who">${rhAvatar(p.u.name)}<div><div class="cell-main">${esc(p.u.name)}</div><div class="cell-sub">${esc(p.u.sector || '')} · admissão ${fmtDate(p.u.admissao)}</div></div></div></td><td><b>${p.saldo}</b> dias</td>
             <td><span class="badge ${p.dias < 0 ? 'danger' : p.dias <= 60 ? 'warn' : 'neutral'} plain">${fmtDate(p.venc)}${p.dias < 0 ? ' · vencidas' : p.dias <= 60 ? ` · ${p.dias}d` : ''}</span></td>
             <td class="row-actions"><button class="btn sm" data-prog="${p.u.id}">${ic('calendar')}Programar</button></td></tr>`).join('')}</tbody></table></div>
-            <p class="sv-note">${ic('alert')}Estimativa pela data de admissão (CLT): a cada 12 meses de casa a pessoa ganha 30 dias, que precisam ser tirados nos 12 meses seguintes. Não considera faltas — confira com a folha.</p>`
-          : `<div class="tbl-wrap">${emptyState('check', 'Nada a programar', 'Ninguém com período de férias em aberto (pela data de admissão).')}</div>`;
+            <p class="sv-note">${ic('alert')}Estimativa pela data de admissão.</p>`
+          : `<div class="tbl-wrap">${emptyState('check', 'Nada a programar', '')}</div>`;
         $$('[data-prog]', holder).forEach((b) => (b.onclick = () => rhFormAus({ colaboradorId: b.dataset.prog, tipo: 'ferias', inicio: addDays(h, 30), fim: addDays(h, 59) })));
       }
       Icons.apply(holder);
@@ -3102,7 +3102,7 @@
   }
   let rhVeicTab = 'frota';
   PAGES['rh-veiculos'] = () => {
-    pageShell('RH', 'Controle de veículos', 'Frota, quem está com cada veículo, quilometragem e vencimentos (licenciamento, seguro, revisão, CNH).', `<button class="btn primary" id="rvNovo">${ic('car')}Novo veículo</button>`);
+    pageShell('RH', 'Controle de veículos', 'Frota, uso e vencimentos.', `<button class="btn primary" id="rvNovo">${ic('car')}Novo veículo</button>`);
     $('#rvNovo').onclick = () => rhFormVeic(null);
     const vs = rhList('rhVeiculos').slice().sort((a, b) => a.placa.localeCompare(b.placa));
     const usos = rhList('rhVeicUso').slice().sort((a, b) => String(b.saida).localeCompare(String(a.saida)));
@@ -3130,17 +3130,17 @@
             <div class="rh-vc-who">${uso ? `${rhAvatar(rhNome(uso.colaboradorId))}<span><b>${esc(rhNome(uso.colaboradorId))}</b><small>${esc(uso.destino || 'Sem destino')} · desde ${pvFmtDT(uso.saida)}</small></span>` : v.responsavelId ? `${rhAvatar(rhNome(v.responsavelId))}<span><b>${esc(rhNome(v.responsavelId))}</b><small>responsável fixo</small></span>` : `<span class="rh-vc-free">${ic('users')}</span><span><b>Uso compartilhado</b><small>sem responsável fixo</small></span>`}</div>
             <div class="rh-card-tags">${al}</div>
             <div class="rh-vc-a"><button type="button" class="btn sm ghost" data-ed="${v.id}">${ic('edit')}Editar</button>${uso ? `<button type="button" class="btn sm primary" data-ret="${v.id}">${ic('check')}Registrar retorno</button>` : `<button type="button" class="btn sm primary" data-sai="${v.id}">${ic('arrowUpRight')}Registrar saída</button>`}</div></div>`; }).join('')}</div>`
-          : `<div class="tbl-wrap">${emptyState('car', 'Nenhum veículo cadastrado', 'Cadastre a frota para controlar saídas, quilometragem e vencimentos.')}</div>`;
+          : `<div class="tbl-wrap">${emptyState('car', 'Nenhum veículo cadastrado', '')}</div>`;
         $$('[data-ed]', holder).forEach((b) => (b.onclick = () => rhFormVeic(Store.find('rhVeiculos', b.dataset.ed))));
         $$('[data-sai]', holder).forEach((b) => (b.onclick = () => rhVeicSaida(Store.find('rhVeiculos', b.dataset.sai))));
         $$('[data-ret]', holder).forEach((b) => (b.onclick = () => { const v = Store.find('rhVeiculos', b.dataset.ret); rhVeicRetorno(v, rhVeicEmUso(v.id)); }));
       } else if (rhVeicTab === 'uso') {
         holder.innerHTML = usos.length ? `<div class="tbl-wrap"><table class="data"><thead><tr><th>Veículo</th><th>Motorista</th><th>Destino</th><th>Saída</th><th>Retorno</th><th>Km</th></tr></thead><tbody>${usos.map((x) => { const v = Store.find('rhVeiculos', x.veiculoId) || {};
           return `<tr><td>${rhPlacaHtml(v.placa || '—')}</td><td>${esc(rhNome(x.colaboradorId))}</td><td><div class="cell-main">${esc(x.destino || '—')}</div>${x.obs ? `<div class="cell-sub">${esc(x.obs)}</div>` : ''}</td><td>${pvFmtDT(x.saida)}</td><td>${x.retorno ? pvFmtDT(x.retorno) : '<span class="badge warn plain">Em uso</span>'}</td><td>${x.retorno ? `<b>${Math.max(0, x.kmRetorno - x.kmSaida).toLocaleString('pt-BR')}</b>` : '—'}</td></tr>`; }).join('')}</tbody></table></div>`
-          : `<div class="tbl-wrap">${emptyState('car', 'Nenhuma saída registrada', 'Em Frota, use "Registrar saída" quando alguém levar um veículo.')}</div>`;
+          : `<div class="tbl-wrap">${emptyState('car', 'Nenhuma saída registrada', '')}</div>`;
       } else {
         holder.innerHTML = venc.length ? `<div class="pvp-card rh-vz"><div class="rh-tl">${venc.map((x) => `<div class="rh-tr" style="--c:${x.x.st === 'vencido' ? '#FF7A7A' : '#F5B840'}"><i></i><span><b>${esc(x.t)}</b><small>${esc(x.s)}</small></span><span class="badge ${x.x.st === 'vencido' ? 'danger' : 'warn'} plain">${x.d ? (x.x.st === 'vencido' ? 'venceu ' : 'vence ') + fmtDate(x.d) : x.x.st === 'vencido' ? 'passou do km' : 'perto do km'}</span></div>`).join('')}</div></div>`
-          : `<div class="tbl-wrap">${emptyState('check', 'Tudo em dia', 'Nenhum licenciamento, seguro, revisão ou CNH vencendo nos próximos 60 dias.')}</div>`;
+          : `<div class="tbl-wrap">${emptyState('check', 'Tudo em dia', 'Nada vencendo nos próximos 60 dias.')}</div>`;
       }
       Icons.apply(holder);
     };
@@ -3167,7 +3167,7 @@
   }
   function meuBoneco() {
     const tid = CCAuth && CCAuth.perfil && CCAuth.perfil.team_id; const u = tid && Store.find('team', tid);
-    if (!u) return modal({ title: 'Meu boneco', sub: 'Sua conta ainda não está ligada a um colaborador', dialog: true, body: `<p class="sv-note">${ic('users')}<span>Peça ao administrador para ligar o seu usuário ao seu cadastro do RH (T.I. → Usuários & permissões → seu usuário → Colaborador). Depois disso você monta o seu boneco aqui.</span></p>`, footer: '<button class="btn primary" data-close>Entendi</button>' });
+    if (!u) return modal({ title: 'Meu boneco', sub: '', dialog: true, body: `<p class="sv-note">${ic('users')}<span>Sua conta ainda não tem um colaborador vinculado.</span></p>`, footer: '<button class="btn primary" data-close>Entendi</button>' });
     avatarEditor(u);
   }
   function avatarEditor(u, done) {
@@ -3177,7 +3177,7 @@
       const av = { ...base };
       const sw = (k, cores) => `<div class="av-sw" data-k="${k}">${cores.map((c, i) => `<button type="button" data-v="${i}" style="--c:${c}" aria-label="Cor ${i + 1}"></button>`).join('')}</div>`;
       const card = modal({
-        title: u.id === (CCAuth.perfil || {}).team_id ? 'Meu boneco' : `Boneco de ${u.name.split(' ')[0]}`, sub: 'Como a pessoa aparece na planta da Home', wide: true,
+        title: u.id === (CCAuth.perfil || {}).team_id ? 'Meu boneco' : `Boneco de ${u.name.split(' ')[0]}`, sub: 'Aparência na planta', wide: true,
         body: `<div class="av-wrap"><div class="av-prev" id="avPrev"><span class="av-hint">${ic('refresh')}arraste para girar</span></div>
           <div class="av-opts">
             <div class="av-g"><span class="av-l">Corpo</span><div class="av-seg" data-k="sexo"><button type="button" data-v="M">Masculino</button><button type="button" data-v="F">Feminino</button></div></div>
@@ -3280,7 +3280,7 @@
         <div class="sv-link"><input readonly value="${esc(senha)}" class="us-pass"><button class="btn primary" id="usCp">${ic('copy')}Copiar senha</button></div>
         <div class="sv-msg"><span class="sv-msg-h">Mensagem pronta</span><p>${esc(msg).replace(/\n/g, '<br>')}</p></div>
         <div class="sv-share"><button class="btn" id="usCpMsg">${ic('copy')}Copiar mensagem</button></div>
-        <p class="sv-note">${ic('shield')}<span>Esta senha não aparece de novo. Se perder, gere outra no cadastro do usuário.</span></p>`,
+        <p class="sv-note">${ic('shield')}<span>Esta senha não será exibida novamente.</span></p>`,
       footer: `<button class="btn primary" data-close>Pronto</button>`,
     });
     $('#usCp', card).onclick = () => copy(senha, 'Senha copiada');
@@ -3299,7 +3299,7 @@
       title: editing ? 'Editar usuário' : 'Novo usuário', sub: editing ? u.email : 'Login e permissões por aba', wide: true,
       body: `<div class="form-sec">${ic('users')}Pessoa</div>
         <div class="form-grid">
-          <div class="field full"><label>Colaborador (cadastro do RH)</label><select name="teamId"><option value="">Não vincular</option>${pessoas.map((p) => `<option value="${p.id}" ${u.team_id === p.id ? 'selected' : ''}>${esc(p.name)}${p.sector ? ' · ' + esc(p.sector) : ''}</option>`).join('')}</select><span class="hint">Vincular preenche nome e e-mail e faz o sistema saber quem é a pessoa (ex.: "Aberto por").</span></div>
+          <div class="field full"><label>Colaborador (cadastro do RH)</label><select name="teamId"><option value="">Não vincular</option>${pessoas.map((p) => `<option value="${p.id}" ${u.team_id === p.id ? 'selected' : ''}>${esc(p.name)}${p.sector ? ' · ' + esc(p.sector) : ''}</option>`).join('')}</select></div>
           ${field('Nome', 'nome', u.nome, 'text', { ph: 'Nome e sobrenome' })}
           ${field('E-mail de login', 'email', u.email, 'email', { ph: 'nome@convergas.com.br', hint: editing ? 'O e-mail de login não muda.' : '' })}
         </div>
@@ -3360,7 +3360,7 @@
 
   let usrFilt = { q: '', st: 'todos' };
   PAGES.usuarios = () => {
-    pageShell('T.I.', 'Usuários & permissões', 'Quem entra no Control Center e o que cada pessoa pode ver e editar, aba por aba.', Perm.on() ? `<button class="btn primary" id="usNovo">${ic('userPlus')}Novo usuário</button>` : '');
+    pageShell('T.I.', 'Usuários & permissões', 'Acessos ao Control Center.', Perm.on() ? `<button class="btn primary" id="usNovo">${ic('userPlus')}Novo usuário</button>` : '');
     if (!Perm.on()) {
       const el = document.createElement('section'); el.className = 'pvp-card us-setup';
       el.innerHTML = `<div class="us-setup-h"><span class="rh-card-ic" style="--c:#5CE1E6">${ic('key')}</span><div><b>O login ainda não foi ativado</b><span>Hoje o sistema abre sem senha. Para ativar, faça uma vez os 3 passos abaixo (as instruções estão na conversa com o Claude).</span></div></div>
@@ -3541,7 +3541,7 @@
   function pvOpenCli(id) { pvCliId = id; try { sessionStorage.setItem('pv_cli', id); } catch (e) {} navTo('pv-cliente'); }
 
   PAGES['pv-clientes'] = () => {
-    pageShell('Pós-Vendas', 'Clientes', 'Carteira de clientes, satisfação e requisitos específicos (CSR) — clique num cliente para ver o perfil completo.',
+    pageShell('Pós-Vendas', 'Clientes', 'Carteira de clientes.',
       `<button class="btn primary" id="pvNewCli">${ic('plus')}Novo cliente</button>`);
     $('#pvNewCli').onclick = () => pvFormCliente();
     const clis = Store.get('pvClientes').slice().sort((a, b) => a.nome.localeCompare(b.nome));
@@ -3611,7 +3611,7 @@
           <td><b>${mine.length}</b>${ab ? ` <span class="badge warn plain">${ab} em aberto</span>` : ''}</td>
           <td>${s.avg == null ? '<span class="pvx-muted">—</span>' : `${pvStars(s.avg)} <small class="pvx-muted">${s.avg.toFixed(1).replace('.', ',')}</small>`}</td>
           <td class="row-actions"><button class="mini-btn" data-clied="${k.id}" title="Editar">${ic('edit')}</button><span class="pvc-go">${ic('arrowUpRight')}</span></td></tr>`;
-      }).join('')}</tbody></table></div>` : `<div class="tbl-wrap">${emptyState('users', clis.length ? 'Nenhum cliente encontrado' : 'Nenhum cliente cadastrado', clis.length ? 'Ajuste o filtro ou a busca.' : 'Cadastre aqui ou direto ao abrir um chamado.')}</div>`;
+      }).join('')}</tbody></table></div>` : `<div class="tbl-wrap">${emptyState('users', clis.length ? 'Nenhum cliente encontrado' : 'Nenhum cliente cadastrado', clis.length ? 'Ajuste o filtro ou a busca.' : '')}</div>`;
       Icons.apply(holder);
       $$('tr[data-cli]', holder).forEach((tr) => (tr.onclick = (e) => { if (e.target.closest('[data-clied]')) return; pvOpenCli(tr.dataset.cli); }));
       $$('[data-clied]', holder).forEach((b) => (b.onclick = () => pvFormCliente(Store.find('pvClientes', b.dataset.clied))));
@@ -3643,7 +3643,7 @@
     const custo = ch.reduce((a, c) => a + (Number((c.atendimento || {}).custoTotal) || 0), 0);
     const ult = ch.map((c) => pvDay(c.criadoEm)).sort().pop();
 
-    pageShell('Pós-Vendas', k.fantasia || k.nome, 'Perfil do cliente — visão geral, indicadores e histórico de chamados.',
+    pageShell('Pós-Vendas', k.fantasia || k.nome, 'Perfil do cliente.',
       `<button class="btn" id="pcBack">${ic('chevron')}Clientes</button><button class="btn" id="pcEdit">${ic('edit')}Editar</button><button class="btn primary" id="pcNew">${ic('plus')}Novo chamado</button>`);
     $('#pcBack').onclick = () => go('pv-clientes');
     $('#pcEdit').onclick = () => pvFormCliente(k, () => go('pv-cliente'));
@@ -3851,7 +3851,7 @@
       $$('.wz-st', w).forEach((b, i) => { b.classList.toggle('cur', i === step); b.classList.toggle('done', i !== step && i <= reached && (i < step || i < N - 1)); b.disabled = i > reached; });
       $('.wz-line-fill', w).style.width = (step / (N - 1)) * 100 + '%';
       const S = cfg.steps[step], pane = $(`.wz-pane[data-p="${step}"]`, w);
-      if (!$('.wz-head', pane)) pane.insertAdjacentHTML('afterbegin', `<header class="wz-head"><span class="wz-kick">Etapa ${step + 1} de ${N}</span><h2>${esc(S.h)}</h2><p>${esc(S.p)}</p></header>`);
+      if (!$('.wz-head', pane)) pane.insertAdjacentHTML('afterbegin', `<header class="wz-head"><span class="wz-kick">Etapa ${step + 1} de ${N}</span><h2>${esc(S.h)}</h2>${S.p ? `<p>${esc(S.p)}</p>` : ''}</header>`);
       $('.wz-prev', w).style.visibility = step === 0 ? 'hidden' : 'visible';
       $('.wz-count', w).textContent = step < N - 1 ? 'Enter para continuar' : '';
       const nx = $('.wz-next', w);
@@ -3997,7 +3997,7 @@
       <aside class="cf-side"><div class="cf-card" id="cfCard"></div></aside>
     </div>`;
     const card = modal({
-      title: editing ? 'Editar cliente' : 'Novo cliente', sub: 'Pós-Vendas · cadastro de cliente', body,
+      title: editing ? 'Editar cliente' : 'Novo cliente', sub: 'Pós-Vendas', body,
       footer: `${editing ? `<button type="button" class="btn ghost danger cf-del" id="cfDel">${ic('trash')}<span>Excluir</span></button>` : ''}<span class="cf-foot-sp"></span><button type="button" class="btn ghost cf-prev" id="cfPrev">${ic('chevron')}<span>Anterior</span></button><button type="button" class="btn primary" id="cfSave"></button>`,
     });
     card.classList.add('cf-sheet');
@@ -4273,11 +4273,11 @@
      é a mesma de antes. Cada etapa valida o que é obrigatório antes de seguir. */
   function pvGoNovo(ch) { pvNovoDraft = ch || null; go('pv-novo'); }
   const PV_WZ = [
-    { t: 'Cliente', s: 'Quem relatou e onde', i: 'users', h: 'Quem é o cliente?', p: 'Escolha o cliente e confirme o contato e o local da ocorrência.' },
-    { t: 'Ocorrência', s: 'O que aconteceu', i: 'alert', h: 'O que aconteceu?', p: 'Registre o relato do cliente com as palavras dele. Isso orienta toda a tratativa.' },
-    { t: 'Produto', s: 'Rastreabilidade', i: 'box', h: 'Qual produto está envolvido?', p: 'Quanto mais completo, mais fácil rastrear o lote e conter o problema.' },
-    { t: 'RNC e evidências', s: 'Documentos', i: 'file', h: 'O cliente enviou uma RNC?', p: 'Se veio RNC ou reclamação formal, registre aqui. Fotos e e-mails ajudam a análise.' },
-    { t: 'Revisão', s: 'Conferir e abrir', i: 'check', h: 'Tudo certo?', p: 'Confira o resumo. Você pode voltar a qualquer etapa antes de abrir o chamado.' },
+    { t: 'Cliente', s: 'Quem relatou e onde', i: 'users', h: 'Quem é o cliente?', p: '' },
+    { t: 'Ocorrência', s: 'O que aconteceu', i: 'alert', h: 'O que aconteceu?', p: '' },
+    { t: 'Produto', s: 'Rastreabilidade', i: 'box', h: 'Qual produto está envolvido?', p: '' },
+    { t: 'RNC e evidências', s: 'Documentos', i: 'file', h: 'O cliente enviou uma RNC?', p: '' },
+    { t: 'Revisão', s: 'Conferir e abrir', i: 'check', h: 'Tudo certo?', p: '' },
   ];
   const pvInitials = (n) => (n || '?').split(/\s+/).filter((w) => w.length > 2 || /^[A-Z]/.test(w)).slice(0, 2).map((w) => w[0]).join('').toUpperCase() || '?';
   const pvHue = (s) => { let h = 0; for (const ch of String(s || '')) h = (h * 31 + ch.charCodeAt(0)) % 360; return h; };
@@ -4287,7 +4287,7 @@
     const c = editing ? Store.find('pvChamados', pvNovoDraft.id) || {} : {};
     pvNovoDraft = null;
     const preCli = editing ? null : pvNovoPreCli; pvNovoPreCli = null;
-    pageShell('Pós-Vendas', editing ? `Editar abertura · ${c.numero}` : 'Novo chamado', editing ? 'Dados registrados pelo Comercial na abertura.' : 'Abertura guiada em 5 etapas — leva cerca de 2 minutos.',
+    pageShell('Pós-Vendas', editing ? `Editar abertura · ${c.numero}` : 'Novo chamado', editing ? 'Dados da abertura.' : 'Abertura em 5 etapas.',
       `<button class="btn" id="pvBack">${ic('chevron')}${editing ? 'Voltar ao chamado' : 'Chamados'}</button>`);
     const leave = () => (editing ? pvOpen(c.id) : go('pv-chamados'));
     $('#pvBack').onclick = leave;
@@ -4398,7 +4398,7 @@
           <!-- 5. REVISÃO -->
           <section class="wz-pane" data-p="4">
             <div class="wz-sum" id="wzSum"></div>
-            <div class="form-grid wz-by">${field('Aberto por', 'abertoPor', c.abertoPor || pvMe(), 'text', { hint: 'Fica salvo neste computador para os próximos registros' })}</div>
+            <div class="form-grid wz-by">${field('Aberto por', 'abertoPor', c.abertoPor || pvMe(), 'text', { hint: '' })}</div>
           </section>
         </div>
 
@@ -4530,7 +4530,7 @@
       $('#wzLine', w).style.width = (step / (N - 1)) * 100 + '%';
       const S = PV_WZ[step];
       const head = $(`.wz-pane[data-p="${step}"] .wz-head`, w);
-      if (!head) $(`.wz-pane[data-p="${step}"]`, w).insertAdjacentHTML('afterbegin', `<header class="wz-head"><span class="wz-kick">Etapa ${step + 1} de ${N}</span><h2>${esc(S.h)}</h2><p>${esc(S.p)}</p></header>`);
+      if (!head) $(`.wz-pane[data-p="${step}"]`, w).insertAdjacentHTML('afterbegin', `<header class="wz-head"><span class="wz-kick">Etapa ${step + 1} de ${N}</span><h2>${esc(S.h)}</h2>${S.p ? `<p>${esc(S.p)}</p>` : ''}</header>`);
       $('#wzPrev', w).style.visibility = step === 0 ? 'hidden' : 'visible';
       $('#wzCount', w).textContent = step < N - 1 ? 'Enter para continuar' : '';
       const nx = $('#wzNext', w);
@@ -4935,7 +4935,7 @@
 
   /* =========================== FLUXO & NORMAS =========================== */
   PAGES['pv-guia'] = () => {
-    pageShell('Pós-Vendas', 'Fluxo & Normas', 'Como um chamado anda — e onde cada requisito da IATF 16949 e da ISO 9001 é atendido no sistema.', '');
+    pageShell('Pós-Vendas', 'Fluxo & Normas', 'Fluxo do chamado e requisitos IATF / ISO.', '');
     const flow = [
       ['1', 'Abertura', 'Comercial', 'Registra cliente, contato, local, produto (lote/série/NF), descrição e evidências. Se o cliente mandou RNC, anexa e informa o prazo de resposta.'],
       ['2', 'Triagem', 'Pós-vendas / responsável', 'Decide: o chamado precisa de RNC? (do cliente, interna, ou não). Se não, a justificativa é obrigatória. Define responsável, prazo e procedência.'],
@@ -5167,7 +5167,7 @@
   function formMetas() {
     const T = Store.get('settings').mntTargets || { disp: 95, mttr: 4, prev: 90 };
     const card = modal({
-      title: 'Metas de manutenção', sub: 'Objetivos e metas dos indicadores',
+      title: 'Metas de manutenção', sub: 'Indicadores',
       body: `<div class="form-grid">
         ${field('Disponibilidade mínima (%)', 'disp', String(T.disp), 'text', { ph: '95' })}
         ${field('MTTR máximo (horas)', 'mttr', String(T.mttr), 'text', { ph: '4' })}
@@ -5210,12 +5210,12 @@
     if (cfg.add) $('#addBtn').onclick = cfg.addFn;
   }
   PAGES['mnt-os'] = () => mntListPage({
-    title: 'Ordens de Serviço', sub: 'Abertura, execução e finalização das manutenções.', add: 'Nova Ordem de Serviço', addFn: () => formOS(), filter: (o) => o.kind === 'os', card: osCard, list: true, row: osRow, head: ['Nº', 'Equipamento / descrição', 'Prioridade', 'Status', 'Abertura', 'Duração / Resp.'], icon: 'file', empty: 'Nenhuma ordem de serviço', emptySub: 'Abra a primeira ordem de serviço.',
+    title: 'Ordens de Serviço', sub: 'Manutenções corretivas.', add: 'Nova Ordem de Serviço', addFn: () => formOS(), filter: (o) => o.kind === 'os', card: osCard, list: true, row: osRow, head: ['Nº', 'Equipamento / descrição', 'Prioridade', 'Status', 'Abertura', 'Duração / Resp.'], icon: 'file', empty: 'Nenhuma ordem de serviço', emptySub: 'Abra a primeira ordem de serviço.',
     statuses: [['pendente', 'Agendada'], ['andamento', 'Em andamento'], ['finalizada', 'Realizada']],
     stats: (all) => { const st = (k) => all.filter((o) => o.status === k).length, n = all.length; return `${mstat('clipboard', n, 'Total', '', 1)}${mstat('file', st('pendente'), 'Agendadas', st('pendente') ? 'info' : '', frac(st('pendente'), n))}${mstat('wrench', st('andamento'), 'Em andamento', st('andamento') ? 'warn' : '', frac(st('andamento'), n))}${mstat('check', st('finalizada'), 'Realizadas', st('finalizada') ? 'ok' : '', frac(st('finalizada'), n))}`; },
   });
   PAGES['mnt-prev'] = () => mntListPage({
-    title: 'Preventivas', sub: 'Manutenção planejada e recorrente (ex.: anual).', add: 'Nova preventiva', addFn: () => formPreventiva(), filter: (o) => o.kind === 'preventiva', card: prevCard, icon: 'refresh', empty: 'Nenhuma preventiva', emptySub: 'Programe a primeira preventiva.',
+    title: 'Preventivas', sub: 'Manutenções planejadas.', add: 'Nova preventiva', addFn: () => formPreventiva(), filter: (o) => o.kind === 'preventiva', card: prevCard, icon: 'refresh', empty: 'Nenhuma preventiva', emptySub: 'Programe a primeira preventiva.',
     statuses: [['aberta', 'Programada'], ['andamento', 'Em execução'], ['concluida', 'Concluída']],
     stats: (all) => { const st = (k) => all.filter((o) => o.status === k).length, n = all.length, atr = all.filter(isOverdue).length; return `${mstat('clipboard', n, 'Total', '', 1)}${mstat('flash', st('aberta'), 'Programadas', st('aberta') ? 'info' : '', frac(st('aberta'), n))}${mstat('alert', atr, 'Atrasadas', atr ? 'danger' : 'ok', frac(atr, n))}${mstat('check', st('concluida'), 'Concluídas', st('concluida') ? 'ok' : '', frac(st('concluida'), n))}`; },
   });
@@ -5321,7 +5321,7 @@
     </div>`;
 
     const card = modal({
-      wide: true, title: editing ? `Editar ${o.number || 'OS'}` : 'Nova Ordem de Serviço', sub: 'Emissão em 3 etapas',
+      wide: true, title: editing ? `Editar ${o.number || 'OS'}` : 'Nova Ordem de Serviço', sub: 'Manutenção',
       body,
       footer: `<button class="btn ghost" id="wizBack" style="visibility:hidden">Voltar</button><div class="wiz-spacer"></div><button class="btn ghost" data-close>Cancelar</button><button class="btn primary" id="wizNext">Próximo</button>`,
     });
@@ -5559,7 +5559,7 @@
       body: `<div class="form-grid">
         ${field('Serviço / atividade', 'title', o.title, 'text', { full: true, ph: 'Ex: Troca de óleo, revisão anual' })}
         ${field('Máquina', 'equipmentId', o.equipmentId || '', 'select', { full: true, options: eqOpts })}
-        ${field('Frequência', 'frequencyDays', String(o.frequencyDays || '365'), 'select', { options: [{ v: '7', t: 'Semanal (7 dias)' }, { v: '15', t: 'Quinzenal (15 dias)' }, { v: '30', t: 'Mensal (30 dias)' }, { v: '90', t: 'Trimestral (90 dias)' }, { v: '180', t: 'Semestral (180 dias)' }, { v: '365', t: 'Anual (365 dias)' }], hint: 'Ao concluir, a próxima é agendada automaticamente.' })}
+        ${field('Frequência', 'frequencyDays', String(o.frequencyDays || '365'), 'select', { options: [{ v: '7', t: 'Semanal (7 dias)' }, { v: '15', t: 'Quinzenal (15 dias)' }, { v: '30', t: 'Mensal (30 dias)' }, { v: '90', t: 'Trimestral (90 dias)' }, { v: '180', t: 'Semestral (180 dias)' }, { v: '365', t: 'Anual (365 dias)' }], hint: '' })}
         ${field('Data prevista', 'dueDate', o.dueDate || todayISO(), 'date')}
         ${field('Responsável', 'assignee', o.assignee, 'text', { ph: 'Quem executa' })}
         ${field('Prioridade', 'priority', o.priority || 'media', 'select', { options: [{ v: 'baixa', t: 'Baixa' }, { v: 'media', t: 'Média' }, { v: 'alta', t: 'Alta' }, { v: 'urgente', t: 'Urgente' }] })}
@@ -5718,7 +5718,7 @@
   };
 
   PAGES['mnt-equip'] = () => {
-    pageShell('Máquinas', 'Máquinas & Equipamentos', 'Ativos de produção — cadastro, arquivos e histórico de manutenção.', `<button class="btn primary" id="addBtn">${ic('plus')}Nova máquina</button>`);
+    pageShell('Máquinas', 'Máquinas & Equipamentos', 'Ativos de produção.', `<button class="btn primary" id="addBtn">${ic('plus')}Nova máquina</button>`);
     const all = Store.get('equipments');
     const cnt = (k) => all.filter((e) => e.status === k).length;
     const head = document.createElement('div'); head.className = 'mstat-grid'; head.style.marginBottom = '20px';
@@ -5733,7 +5733,7 @@
       if (state.q) { const q = state.q.toLowerCase(); list = list.filter((e) => JSON.stringify(e).toLowerCase().includes(q)); }
       list = list.slice().sort((a, b) => (a.name || '').localeCompare(b.name || ''));
       holder.innerHTML = '';
-      if (!list.length) { holder.innerHTML = emptyState('cpu', 'Nenhuma máquina', 'Clique em "Nova máquina" para cadastrar.'); Icons.apply(holder); return; }
+      if (!list.length) { holder.innerHTML = emptyState('cpu', 'Nenhuma máquina', ''); Icons.apply(holder); return; }
       const grid = document.createElement('div'); grid.className = 'mc-grid';
       grid.innerHTML = list.map(machineCard).join('');
       holder.appendChild(grid); Icons.apply(grid);
@@ -5836,7 +5836,7 @@
     let parts = (e.parts || []).map((p) => ({ ...p }));
     const partsRows = () => parts.map((p, i) => `<div class="part-row" data-i="${i}"><input class="pr-name" placeholder="Peça" value="${esc(p.name || '')}"><input class="pr-code" placeholder="Código" value="${esc(p.code || '')}"><input class="pr-qty" placeholder="Qtd" value="${esc(String(p.qty || ''))}"><button class="mini-btn danger pr-del" type="button">${ic('trash')}</button></div>`).join('');
     const card = modal({
-      wide: true, title: editing ? 'Editar máquina' : 'Nova máquina', sub: 'Cadastro de máquina / equipamento',
+      wide: true, title: editing ? 'Editar máquina' : 'Nova máquina', sub: 'Manutenção',
       body: `<div class="form-grid form-compact">
         ${formSec('cpu', 'Identificação')}
         ${field('Nome da máquina ou equipamento *', 'name', e.name, 'text', { full: true, ph: 'Ex: Compressor de Ar' })}
@@ -5913,7 +5913,7 @@
   const evColor = (o) => o.kind === 'preventiva' ? (isOverdue(o) ? 'danger' : 'info') : 'warn';
   function mntEvents() { const map = {}; Store.get('serviceOrders').forEach((o) => { if (o.kind !== 'os' && o.kind !== 'preventiva') return; const dt = (o.kind === 'preventiva' ? o.dueDate : o.openDate); if (!dt) return; (map[dt] = map[dt] || []).push(o); }); return map; }
   PAGES['mnt-cal'] = () => {
-    pageShell('Calendário', 'Calendário de manutenção', 'Ordens de Serviço e manutenções preventivas agendadas.', '');
+    pageShell('Calendário', 'Calendário de manutenção', 'OS e preventivas agendadas.', '');
     const state = { view: 'mes', ref: todayISO() };
     const bar = document.createElement('div'); bar.className = 'cal-bar';
     const holder = document.createElement('div');
@@ -5951,7 +5951,7 @@
 
   /* ---------- Estoque de peças ---------- */
   PAGES['mnt-pecas'] = () => {
-    pageShell('Peças', 'Estoque de peças', 'Peças de reposição — controle de estoque e mínimo.', `<button class="btn primary" id="addBtn">${ic('plus')}Nova peça</button>`);
+    pageShell('Peças', 'Estoque de peças', 'Peças de reposição.', `<button class="btn primary" id="addBtn">${ic('plus')}Nova peça</button>`);
     const all = Store.get('parts');
     const isLow = (p) => (p.minQty != null && p.minQty !== '') && Number(p.qty || 0) <= Number(p.minQty || 0);
     const low = all.filter(isLow);
@@ -5969,7 +5969,7 @@
       list.sort((a, b) => (a.name || '').localeCompare(b.name || ''));
       holder.innerHTML = '';
       const tw = document.createElement('div'); tw.className = 'tbl-wrap';
-      tw.innerHTML = list.length ? `<table class="data"><thead><tr><th>Peça</th><th class="hide-sm">Código</th><th class="hide-sm">Local</th><th>Estoque</th><th class="hide-sm">Mín.</th><th></th></tr></thead><tbody>${list.map((p) => `<tr><td><div class="cell-main">${esc(p.name)}</div>${p.category ? `<div class="cell-sub">${esc(p.category)}</div>` : ''}</td><td class="hide-sm mono cell-sub">${esc(p.code || '—')}</td><td class="hide-sm cell-sub">${esc(p.location || '—')}</td><td>${isLow(p) ? `<span class="badge danger">${esc(String(p.qty || 0))} ${esc(p.unit || '')}</span>` : `<b>${esc(String(p.qty || 0))}</b> <span class="cell-sub">${esc(p.unit || '')}</span>`}</td><td class="hide-sm cell-sub">${esc(String(p.minQty != null && p.minQty !== '' ? p.minQty : '—'))}</td><td><div class="row-actions"><button class="mini-btn" data-mov="${p.id}" title="Movimentar estoque">${ic('refresh')}</button><button class="mini-btn" data-edit="${p.id}" title="Editar">${ic('edit')}</button><button class="mini-btn danger" data-del="${p.id}" title="Excluir">${ic('trash')}</button></div></td></tr>`).join('')}</tbody></table>` : emptyState('box', 'Nenhuma peça', 'Clique em "Nova peça" para cadastrar.');
+      tw.innerHTML = list.length ? `<table class="data"><thead><tr><th>Peça</th><th class="hide-sm">Código</th><th class="hide-sm">Local</th><th>Estoque</th><th class="hide-sm">Mín.</th><th></th></tr></thead><tbody>${list.map((p) => `<tr><td><div class="cell-main">${esc(p.name)}</div>${p.category ? `<div class="cell-sub">${esc(p.category)}</div>` : ''}</td><td class="hide-sm mono cell-sub">${esc(p.code || '—')}</td><td class="hide-sm cell-sub">${esc(p.location || '—')}</td><td>${isLow(p) ? `<span class="badge danger">${esc(String(p.qty || 0))} ${esc(p.unit || '')}</span>` : `<b>${esc(String(p.qty || 0))}</b> <span class="cell-sub">${esc(p.unit || '')}</span>`}</td><td class="hide-sm cell-sub">${esc(String(p.minQty != null && p.minQty !== '' ? p.minQty : '—'))}</td><td><div class="row-actions"><button class="mini-btn" data-mov="${p.id}" title="Movimentar estoque">${ic('refresh')}</button><button class="mini-btn" data-edit="${p.id}" title="Editar">${ic('edit')}</button><button class="mini-btn danger" data-del="${p.id}" title="Excluir">${ic('trash')}</button></div></td></tr>`).join('')}</tbody></table>` : emptyState('box', 'Nenhuma peça', '');
       holder.appendChild(tw); Icons.apply(tw);
       $$('[data-edit]', tw).forEach((b) => (b.onclick = () => formPart(Store.find('parts', b.dataset.edit), render)));
       $$('[data-mov]', tw).forEach((b) => (b.onclick = () => movePart(Store.find('parts', b.dataset.mov), render)));
@@ -6201,7 +6201,7 @@
   let qaAgFilt = 'proximos';
 
   PAGES['qa-dashboard'] = () => {
-    pageShell('Qualidade', 'Painel da Qualidade', 'Certificados, calibrações, EPIs e a fila de RNC do Pós-Vendas em um só lugar.',
+    pageShell('Qualidade', 'Painel da Qualidade', 'Visão geral da Qualidade.',
       `<button class="btn primary" id="qaNew">${ic('plus')}Novo certificado</button>`);
     $('#qaNew').onclick = () => formCert({ type: 'cata' });
     const certs = Store.get('certificates');
@@ -6383,9 +6383,9 @@
     requestAnimationFrame(() => requestAnimationFrame(() => { top.classList.add('in'); pvCountUp(top); }));
   }
 
-  PAGES['qa-cata'] = () => certListPage('cata', 'Certificados InMetro', 'Certificados InMetro', 'Certificados de produtos (INMETRO) — emissão, validade e renovação.', 'Cadastre o primeiro certificado InMetro.');
-  PAGES['qa-equipamentos'] = () => certListPage('equipamento', 'Calibração de Equipamentos', 'Calibração de Equipamentos', 'Equipamentos de medição — calibração, validade e renovação.', 'Cadastre o primeiro equipamento.');
-  PAGES['qa-manutencao'] = () => certListPage('manutencao', 'Manutenção Certificados', 'Manutenção Certificados', 'Certificados de manutenção — emissão, validade e renovação.', 'Cadastre o primeiro certificado de manutenção.');
+  PAGES['qa-cata'] = () => certListPage('cata', 'Certificados InMetro', 'Certificados InMetro', 'Certificados de produto.', 'Cadastre o primeiro certificado InMetro.');
+  PAGES['qa-equipamentos'] = () => certListPage('equipamento', 'Calibração de Equipamentos', 'Calibração de Equipamentos', 'Equipamentos de medição.', 'Cadastre o primeiro equipamento.');
+  PAGES['qa-manutencao'] = () => certListPage('manutencao', 'Manutenção Certificados', 'Manutenção Certificados', 'Certificados de manutenção.', 'Cadastre o primeiro certificado de manutenção.');
 
   /* ---------- Laboratórios parceiros ---------- */
   // laboratório vinculado a um certificado (casamento pelo nome)
@@ -6401,7 +6401,7 @@
   }
 
   PAGES['qa-labs'] = () => {
-    pageShell('Laboratórios parceiros', 'Laboratórios parceiros', 'Cadastre uma vez e vincule aos certificados na hora do cadastro.', `<button class="btn primary" id="addBtn">${ic('plus')}Novo laboratório</button>`);
+    pageShell('Laboratórios parceiros', 'Laboratórios parceiros', 'Laboratórios de calibração e ensaio.', `<button class="btn primary" id="addBtn">${ic('plus')}Novo laboratório</button>`);
     const labs = Store.get('labs').slice().sort((a, b) => (a.name || '').localeCompare(b.name || ''));
     const grid = document.createElement('div'); grid.className = 'lab-grid';
     grid.innerHTML = labs.length ? labs.map((l) => {
@@ -6420,7 +6420,7 @@
         ${l.notes ? `<p class="lab-notes">${esc(l.notes)}</p>` : ''}
         <span class="lab-count">${ic('award')}${n} certificado${n === 1 ? '' : 's'} vinculado${n === 1 ? '' : 's'}</span>
       </div>`;
-    }).join('') : emptyState('flask', 'Nenhum laboratório', 'Cadastre o primeiro laboratório parceiro.');
+    }).join('') : emptyState('flask', 'Nenhum laboratório', '');
     view.appendChild(grid); Icons.apply(view);
     $('#addBtn').onclick = () => formLab();
     $$('[data-edit]', grid).forEach((b) => (b.onclick = () => formLab(Store.find('labs', b.dataset.edit))));
@@ -6472,7 +6472,7 @@
         ${field('Nº do certificado', 'number', c.number, 'text', { ph: 'Ex: CCM62604/26' })}
         ${field('Processo / TAG', 'process', c.process, 'text', { ph: 'CATA: 2024MEC171 · Equip.: EM 013' })}
         ${field('Serial / Nº de série', 'serial', c.serial, 'text', { ph: 'Ex: F210418' })}
-        ${field('Intervalo (dias)', 'intervalDays', c.intervalDays || '365', 'text', { ph: '365', hint: 'Periodicidade da calibração (equipamentos).' })}
+        ${field('Intervalo (dias)', 'intervalDays', c.intervalDays || '365', 'text', { ph: '365', hint: '' })}
         ${field('Data de emissão / calibração', 'issueDate', c.issueDate, 'date')}
         ${field('Data de validade / próxima calibração', 'expiryDate', c.expiryDate, 'date')}
         <div class="field full"><label>Arquivo do certificado (PDF)</label>
@@ -6482,7 +6482,7 @@
             <span class="fd-tx" id="certFileTx">${c.fileName ? esc(c.fileName) : 'Clique para selecionar ou arraste o PDF aqui'}</span>
           </label>
           <span class="hint">O PDF fica salvo na nuvem (Supabase) e no navegador, alimentando os botões compartilhar e baixar.${c.fileName ? ' Selecione outro para substituir.' : ''}</span></div>
-        ${field('Laboratório parceiro', 'lab', c.lab || '', 'select', { full: true, options: [{ v: '', t: '— selecione um laboratório —' }].concat(Store.get('labs').slice().sort((a, b) => (a.name || '').localeCompare(b.name || '')).map((l) => ({ v: l.name, t: l.name }))), hint: 'E-mail e telefone vêm do cadastro em Qualidade → Laboratórios parceiros.' })}
+        ${field('Laboratório parceiro', 'lab', c.lab || '', 'select', { full: true, options: [{ v: '', t: '— selecione um laboratório —' }].concat(Store.get('labs').slice().sort((a, b) => (a.name || '').localeCompare(b.name || '')).map((l) => ({ v: l.name, t: l.name }))), hint: '' })}
         ${field('Observações', 'notes', c.notes, 'textarea', { full: true })}
       </div>`,
       footer: submitFooter(editing),
@@ -6512,7 +6512,7 @@
 
   /* ============ SETTINGS ============ */
   PAGES.settings = () => {
-    pageShell('Settings', 'Configurações', 'Aparência, dados e preferências do Ops Center.', '');
+    pageShell('Settings', 'Configurações', 'Aparência e preferências.', '');
     const s = Store.get('settings');
     const theme = s.theme || 'dark';
     const co = s.company || {};
@@ -6694,7 +6694,7 @@
   };
 
   PAGES['epi'] = () => {
-    pageShell('Controle de EPI', 'Controle de EPI', 'EPIs usados na Convergas, entregas aos colaboradores e atestados de recebimento.', `<button class="btn" id="addEpiBtn">${ic('shield')}Novo EPI</button><button class="btn primary" id="addEntregaBtn">${ic('plus')}Nova entrega</button>`);
+    pageShell('Controle de EPI', 'Controle de EPI', 'EPIs e entregas.', `<button class="btn" id="addEpiBtn">${ic('shield')}Novo EPI</button><button class="btn primary" id="addEntregaBtn">${ic('plus')}Nova entrega</button>`);
     const epis = Store.get('epis'), entregas = Store.get('epiEntregas');
     const venc = entregas.filter((e) => certStatus(e.expiryDate).key === 'vencido').length;
     const soon = entregas.filter((e) => certStatus(e.expiryDate).key === 'vencendo').length;
@@ -6715,7 +6715,7 @@
       $$('.ficha-card', grid).forEach((b) => (b.onclick = () => viewFicha(Store.find('epiFichas', b.dataset.ficha))));
     } else {
       const emp = document.createElement('div'); emp.className = 'tbl-wrap';
-      emp.innerHTML = emptyState('users', 'Nenhuma ficha ainda', 'Registre uma entrega para criar a ficha de um colaborador.');
+      emp.innerHTML = emptyState('users', 'Nenhuma ficha ainda', '');
       view.appendChild(emp); Icons.apply(emp);
     }
 
@@ -6733,7 +6733,7 @@
     const catTw = document.createElement('div'); catTw.className = 'tbl-wrap';
     catTw.innerHTML = catItems.length
       ? `<table class="data"><thead><tr><th>EPI</th><th>Pessoas vinculadas</th><th></th></tr></thead><tbody>${catItems.map(epiCadRow).join('')}</tbody></table>`
-      : emptyState('shield', 'Nenhum EPI cadastrado', 'Use “Novo EPI” para registrar os EPIs usados na Convergas.');
+      : emptyState('shield', 'Nenhum EPI cadastrado', '');
     view.appendChild(catTw); Icons.apply(catTw);
 
     $('#addEpiBtn').onclick = () => formEpi();
@@ -6747,7 +6747,7 @@
     const editing = !!(e && e.id); e = e || {};
     const names = epiNames();
     const card = modal({
-      title: editing ? 'Editar EPI' : 'Novo EPI', sub: 'Cadastro do EPI (nome)',
+      title: editing ? 'Editar EPI' : 'Novo EPI', sub: 'Qualidade',
       body: `<div class="form-grid">
         <div class="field full"><label>Nome do EPI</label><input name="name" list="epiNameList" value="${esc(e.name || '')}" placeholder="Ex: Luva nitrílica, Óculos de proteção, Protetor auricular"><datalist id="epiNameList">${names.map((n) => `<option value="${esc(n)}"></option>`).join('')}</datalist><span class="hint">Cadastra o EPI usado na Convergas. O CA e a validade são informados na entrega.</span></div>
       </div>`,
@@ -6770,7 +6770,7 @@
     const epiOpts = [{ v: '', t: '— selecione o EPI —' }].concat(epis.map((x) => ({ v: x.id, t: x.name })));
     const funcOpts = [{ v: '', t: '— selecione o colaborador —' }].concat(team.map((u) => ({ v: u.id, t: u.name + (u.sector ? ` · ${u.sector}` : '') })));
     const card = modal({
-      wide: true, title: editing ? 'Editar entrega' : 'Nova entrega de EPI', sub: 'Recebimento pelo colaborador',
+      wide: true, title: editing ? 'Editar entrega' : 'Nova entrega de EPI', sub: 'Qualidade',
       body: `<div class="form-grid">
         ${field('EPI', 'epiId', en.epiId || '', 'select', { full: true, options: epiOpts })}
         ${field('Colaborador (recebe)', 'funcionarioId', en.funcionarioId || '', 'select', { full: true, options: funcOpts })}
@@ -6976,7 +6976,7 @@
     $$('[data-copy]', root).forEach((b) => { if (b.dataset.copyBound) return; b.dataset.copyBound = '1'; b.addEventListener('click', () => copy(b.dataset.copy, b.dataset.copyLabel)); });
   }
   function emptyState(icon, title, sub) {
-    return `<div class="empty"><div class="em-ico">${ic(icon)}</div><h3>${esc(title)}</h3><p>${esc(sub)}</p></div>`;
+    return `<div class="empty"><div class="em-ico">${ic(icon)}</div><h3>${esc(title)}</h3>${sub ? `<p>${esc(sub)}</p>` : ''}</div>`;
   }
   // rebuild the current page in-place (keeps any open modal, which lives in #modalRoot)
   function refreshPage() { view.innerHTML = ''; PAGES[currentRoute](); refreshSysPulse(); }
@@ -7111,7 +7111,7 @@
       title: 'Acessos de T.I.', sub: `${u.name}${u.sector ? ' · ' + u.sector : ''}`,
       body: `<div class="form-grid">
         <div class="field full"><div class="form-inline-note">${ic('users')}<span>Nome, e-mail e setor vêm do cadastro do <b>RH</b>${u.email ? ` (${esc(u.email)})` : ''}. Aqui ficam só os acessos e a máquina.</span></div></div>
-        ${field('Máquina principal', 'machineId', u.machineId, 'select', { options: compOpts, hint: 'Um usuário pode ter várias máquinas; esta é a principal.' })}
+        ${field('Máquina principal', 'machineId', u.machineId, 'select', { options: compOpts, hint: '' })}
         <div class="field full">${sw('Acesso VPN', 'vpn', u.vpn)}</div>
         <div class="field full">${sw('Acesso servidor de engenharia', 'engServer', u.engServer)}</div>
         ${linkedNote}
@@ -7145,7 +7145,7 @@
         ${field('Conta Office 365', 'office', c.office, 'text', { ph: 'usuario@convergas.com.br' })}
         ${field('Tipo', 'type', c.type || 'desktop', 'select', { options: [{ v: 'desktop', t: 'Desktop' }, { v: 'notebook', t: 'Notebook' }] })}
         ${field('Antivírus (texto)', 'antivirus', c.antivirus, 'text', { ph: 'Kaspersky / Verificar / —' })}
-        ${field('Licença de antivírus', 'antivirusLicenseId', c.antivirusLicenseId, 'select', { options: avLicOpts, hint: 'Vincula esta máquina a um assento da licença.' })}
+        ${field('Licença de antivírus', 'antivirusLicenseId', c.antivirusLicenseId, 'select', { options: avLicOpts, hint: '' })}
         ${field('Status', 'status', c.status || 'ativo', 'select', { options: [{ v: 'ativo', t: 'Ativo' }, { v: 'manutencao', t: 'Manutenção' }, { v: 'inativo', t: 'Inativo' }] })}
         <div class="field">${sw('Acesso administrador', 'admin', c.admin)}</div>
         ${field('Observações', 'notes', c.notes, 'textarea', { full: true, ph: 'Modelo, detalhes, pendências…' })}
@@ -7201,7 +7201,7 @@
         ${field('Terminal', 'shell', c.shell || 'CMD', 'select', { options: ['CMD', 'PowerShell', 'Executar'].map((x) => ({ v: x, t: x })) })}
         ${field('Descrição — o que o comando faz', 'desc', c.desc, 'textarea', { full: true, ph: 'Explique de forma clara o que o comando faz e por quê.' })}
         ${field('Comando', 'command', c.command, 'textarea', { full: true, ph: 'ipconfig /flushdns' })}
-        ${field('Como usar (quando usar, passos, cuidados)', 'howto', c.howto, 'textarea', { full: true, ph: 'Quando usar: …\nPasso a passo:\n1. …\nCuidado: …', hint: 'Comece linhas com "Rótulo:" — elas ficam em destaque no guia.' })}
+        ${field('Como usar (quando usar, passos, cuidados)', 'howto', c.howto, 'textarea', { full: true, ph: 'Quando usar: …\nPasso a passo:\n1. …\nCuidado: …', hint: '' })}
         <div class="field full">${sw('Requer privilégios de administrador', 'admin', c.admin)}</div>
       </div>`,
       footer: submitFooter(editing),
@@ -7435,10 +7435,18 @@
   }
   function semAcessoArea(area) {
     const ha = HOME_AREAS_ALL.find((x) => x.area === area) || {};
-    const card = modal({ title: 'Acesso restrito', sub: ha.label || 'Área', dialog: true,
-      body: `<div class="na-box" style="--c:${ha.color || '#5CE1E6'}"><span class="na-ic">${ic('lock')}</span><div><b>Você não tem permissão para acessar ${esc(ha.label || 'esta área')}.</b><span>Se precisa usar esta área, peça ao administrador do Control Center para liberar o seu acesso em T.I. → Usuários & permissões.</span></div></div>`,
-      footer: '<button class="btn primary" data-close>Entendi</button>' });
-    Icons.apply(card);
+    const root = document.createElement('div'); root.className = 'na-pop';
+    root.innerHTML = `<div class="na-card" role="alertdialog" aria-modal="true" style="--c:${ha.color || '#5CE1E6'}">
+        <span class="na-orb"><span class="na-ring"></span><span class="na-ico">${ic(ha.icon || 'grid')}</span><span class="na-lk">${ic('lock')}</span></span>
+        <b>Acesso restrito</b><p>Você não tem acesso a <em>${esc(ha.label || 'esta área')}</em>.</p>
+        <button type="button" class="na-ok">OK</button></div>`;
+    document.body.appendChild(root); Icons.apply(root);
+    requestAnimationFrame(() => root.classList.add('on'));
+    const fechar = () => { root.classList.remove('on'); setTimeout(() => root.remove(), 260); document.removeEventListener('keydown', tecla); };
+    const tecla = (e) => { if (e.key === 'Escape' || e.key === 'Enter') { e.preventDefault(); fechar(); } };
+    document.addEventListener('keydown', tecla);
+    root.addEventListener('click', (e) => { if (e.target === root || e.target.closest('.na-ok')) fechar(); });
+    setTimeout(() => { const b = root.querySelector('.na-ok'); if (b) b.focus(); }, 60);
   }
   function enterArea(area) { const r = Perm.primeira(area); if (!r) { semAcessoArea(area); return; } currentArea = area; renderSidebar(area); navTo(r, area); }
 
@@ -7587,7 +7595,7 @@
     if (i < 0) {
       el.innerHTML = `<img class="hx-hub-logo" src="assets/logo-icone.png" alt="">
         <b class="hx-hub-t">Control Center</b>
-        <p class="hx-hub-d">Passe o cursor pela roda ou use as setas para escolher uma área.</p>`;
+        <p class="hx-hub-d">Escolha uma área.</p>`;
     } else {
       // minimalista: só o nome e a descrição da área
       const a = HOME_AREAS[i];
@@ -7649,6 +7657,7 @@
   function hxEnter() {
     if (HX.sel < 0 || HX.leaving) return;
     const a = HOME_AREAS[HX.sel];
+    if (!a.ext && !Perm.primeira(a.area)) { semAcessoArea(a.area); return; }
     const mount = $('#wheelMount');
     HX.leaving = true;
     if (mount && !hxReduce()) mount.classList.add('hx-leave');
@@ -7956,7 +7965,7 @@ void main(){
 
   // ---------------- ATIVIDADES (3 vistas) ----------------
   PAGES['prog-atividades'] = () => {
-    pageShell('Programação', 'Atividades', 'Cada setor alimenta o que é seu — a mesma informação em três vistas.',
+    pageShell('Programação', 'Atividades', 'Atividades por setor.',
       `<button class="btn primary" id="progNew">${ic('plus')}Nova atividade</button>`);
     const tb = document.createElement('div'); tb.className = 'toolbar prog-toolbar';
     tb.innerHTML = `
@@ -7994,7 +8003,7 @@ void main(){
     list.sort((a, b) => (a.status === 'done') - (b.status === 'done') || String(a.prazo || '9').localeCompare(String(b.prazo || '9')));
     body.innerHTML = list.length
       ? `<div class="prog-list">${list.map(progAtvRow).join('')}</div>`
-      : emptyState('list', me ? 'Nada na sua fila' : 'Nenhuma atividade ainda', me ? 'Crie com "Nova atividade".' : 'Diga quem você é no seletor acima, ou crie a primeira atividade.');
+      : emptyState('list', me ? 'Nada na sua fila' : 'Nenhuma atividade ainda', me ? '' : '');
     Icons.apply(body);
     $$('[data-atv]', body).forEach((c) => (c.onclick = (e) => { if (e.target.closest('[data-rnc-atv]')) return; const a = Store.find('progAtividades', c.dataset.atv); if (a) progFormAtividade(a); }));
     $$('[data-rnc-atv]', body).forEach((b) => (b.onclick = (e) => { e.stopPropagation(); const a = Store.find('progAtividades', b.dataset.rncAtv); progFormRNC({ atividadeId: a.id, descricao: a.titulo }); }));
@@ -8109,7 +8118,7 @@ void main(){
 
   // ---------------- RNC (Registro de Não Conformidade) ----------------
   PAGES['prog-rnc'] = () => {
-    pageShell('Programação', 'Não Conformidades', 'Registro, tratativa e ação corretiva — rastreável para IATF 16949 / ISO 9001.',
+    pageShell('Programação', 'Não Conformidades', 'Não conformidades e ações.',
       `<button class="btn primary" id="progNewRnc">${ic('plus')}Abrir RNC</button>`);
     $('#progNewRnc').onclick = () => progFormRNC();
 
@@ -8129,7 +8138,7 @@ void main(){
           <div class="pr-right">${progBadge(pa.status === 'em_andamento' ? 'info' : 'warn', PROG_PA_STATUS[pa.status] || 'Pendente')}${pPrazoBadge(pa.prazo)}</div>
         </div>`).join('')}</div>`;
       } else {
-        pan.innerHTML += `<div class="tbl-wrap">${emptyState('check', 'Nenhuma ação de RNC pra você', 'Quando uma RNC distribuir uma ação pro seu setor, ela aparece aqui.')}</div>`;
+        pan.innerHTML += `<div class="tbl-wrap">${emptyState('check', 'Nenhuma ação de RNC pra você', '')}</div>`;
       }
       view.appendChild(pan); Icons.apply(pan);
       $$('[data-rnc]', pan).forEach((el) => (el.onclick = () => { const r = Store.find('progRNC', el.dataset.rnc); if (r) progFormRNC(r); }));
@@ -8147,7 +8156,7 @@ void main(){
           <td>${(r.planoAcao || []).length} ação(ões)</td>
           <td>${progBadge(r.status === 'fechada' ? 'ok' : r.status === 'aberta' ? 'danger' : 'warn', PROG_RNC_STATUS[r.status] || 'Aberta')}</td>
         </tr>`).join('')}</tbody></table>`
-      : emptyState('alert', 'Nenhuma RNC registrada', 'Clique em "Abrir RNC" ou use o botão de alerta numa atividade.');
+      : emptyState('alert', 'Nenhuma RNC registrada', '');
     view.appendChild(tw); Icons.apply(tw);
     $$('tr[data-rnc]', tw).forEach((tr) => (tr.onclick = () => { const r = Store.find('progRNC', tr.dataset.rnc); if (r) progFormRNC(r); }));
   };
@@ -8220,7 +8229,7 @@ void main(){
 
   // ---------------- CADASTROS (equipe & setores) ----------------
   PAGES['prog-cadastros'] = () => {
-    pageShell('Programação', 'Equipe & Setores', 'Quem alimenta o sistema e a que setores pertence.',
+    pageShell('Programação', 'Equipe & Setores', 'Pessoas e setores do PCP.',
       `<button class="btn" id="progNewP">${ic('users')}Cadastro de pessoas (RH)</button>`);
     $('#progNewP').onclick = () => navTo('rh-colab');
 
@@ -8233,7 +8242,7 @@ void main(){
     $$('[data-delset]', sh).forEach((b) => (b.onclick = (e) => { e.stopPropagation(); const s = Store.find('progSetores', b.dataset.delset); confirmDialog(`Remover o setor "${esc(s.nome)}"?`, () => { Store.remove('progSetores', s.id); refreshPage(); toast('Setor removido', 'info'); }); }));
 
     const sh2 = document.createElement('div');
-    sh2.innerHTML = `<div class="section-head"><h2><span class="sh-ico">${ic('users')}</span>Pessoas</h2></div><p class="sv-note" style="margin:-4px 0 12px">${ic('users')}<span>As pessoas vêm do <b>cadastro do RH</b>. Aqui você só define em quais setores do PCP cada uma atua.</span></p>`;
+    sh2.innerHTML = `<div class="section-head"><h2><span class="sh-ico">${ic('users')}</span>Pessoas</h2></div>`;
     view.appendChild(sh2); Icons.apply(sh2);
     const pessoas = progPessoasAll();
     const tw = document.createElement('div'); tw.className = 'tbl-wrap';
@@ -8245,7 +8254,7 @@ void main(){
           <td>${progBadge(p.ativo === false ? 'neutral' : 'ok', p.ativo === false ? 'Não participa' : 'Participa')}</td>
           <td><div class="row-actions"><button class="mini-btn" data-editp="${p.id}" title="Setores do PCP">${ic('edit')}</button></div></td>
         </tr>`).join('')}</tbody></table>`
-      : emptyState('users', 'Nenhuma pessoa cadastrada', 'Cadastre as pessoas pela Admissão do RH.');
+      : emptyState('users', 'Nenhuma pessoa cadastrada', '');
     view.appendChild(tw); Icons.apply(tw);
     $$('[data-editp]', tw).forEach((b) => (b.onclick = (e) => { e.stopPropagation(); progFormPessoa(progPessoaFind(b.dataset.editp)); }));
     $$('tr[data-p]', tw).forEach((tr) => (tr.onclick = () => progFormPessoa(progPessoaFind(tr.dataset.p))));
@@ -8344,10 +8353,10 @@ void main(){
     const inicioNecessario = (pedido.deadline && duracaoDias) ? pAddDays(pedido.deadline, -(duracaoDias - 1)) : null;
 
     const motivos = [];
-    if (!familia) motivos.push({ nivel: 'amarelo', titulo: 'Sem família de serviço', detalhe: 'Selecione uma família pra eu estimar a duração e a capacidade de equipe.' });
+    if (!familia) motivos.push({ nivel: 'amarelo', titulo: 'Sem família de serviço', detalhe: 'Selecione uma família.' });
     else if (!cabe) motivos.push({ nivel: 'vermelho', titulo: 'Janela curta demais', detalhe: `A execução estimada leva ${duracaoDias} dia(s), mas entre início e deadline só há ${janelaDias}. Comece até ${pFmtBR(inicioNecessario)} ou estenda o prazo.` });
     itens.forEach((i) => {
-      if (i.desconhecido) { motivos.push({ nivel: 'amarelo', titulo: `"${i.pn}" não está no estoque`, detalhe: 'Esse código não existe na fonte de estoque — confira o de-para do BOM ou atualize o estoque.' }); return; }
+      if (i.desconhecido) { motivos.push({ nivel: 'amarelo', titulo: `"${i.pn}" não está no estoque`, detalhe: 'Código não encontrado no estoque.' }); return; }
       if (i.precisaReabastecer) {
         if (!i.podePedirATempo) motivos.push({ nivel: 'vermelho', titulo: `Sem tempo de repor "${i.pn}"`, detalhe: `${i.cobreMeses != null ? `O estoque livre cobre ~${i.cobreMeses.toFixed(1)} mês(es). ` : `Faltam ${i.falta} un. `}Era pra pedir até ${pFmtBR(i.dataLimitePedido)} (já passou). Entregar no prazo fica inviável.` });
         else motivos.push({ nivel: 'amarelo', titulo: `Repor "${i.pn}"${i.descricao ? ` (${i.descricao})` : ''}`, detalhe: `${i.cobreMeses != null ? `Cobre ~${i.cobreMeses.toFixed(1)} mês(es) — ` : `Faltam ${i.falta} un. — `}peça${fornecedorSugerido ? ` ao ${fornecedorSugerido}` : ''} até ${pFmtBR(i.dataLimitePedido)} (lead ${leadTime}d).` });
@@ -8388,11 +8397,11 @@ void main(){
 
   // ----- LISTA de pedidos -----
   PAGES['prog-pedidos'] = () => {
-    pageShell('Programação', 'Pedidos', 'Cada pedido passa pelo motor de viabilidade antes de virar compromisso.',
+    pageShell('Programação', 'Pedidos', 'Pedidos e viabilidade.',
       `<button class="btn primary" id="pedNew">${ic('plus')}Novo pedido</button>`);
     $('#pedNew').onclick = () => { progDraftId = null; go('prog-pedido'); };
     const peds = Store.get('progPedidos');
-    if (!peds.length) { const tw = document.createElement('div'); tw.className = 'tbl-wrap'; tw.innerHTML = emptyState('file', 'Nenhum pedido ainda', 'Clique em "Novo pedido" pra avaliar a viabilidade.'); view.appendChild(tw); Icons.apply(tw); return; }
+    if (!peds.length) { const tw = document.createElement('div'); tw.className = 'tbl-wrap'; tw.innerHTML = emptyState('file', 'Nenhum pedido ainda', ''); view.appendChild(tw); Icons.apply(tw); return; }
     const list = document.createElement('div'); list.className = 'prog-list';
     list.innerHTML = peds.map((p) => { const a = progAvaliar(p); const cls = PROG_NIVEL_CLS[a.nivel]; return `<div class="prog-row" data-ped="${p.id}">
       <span class="pv-dot ${cls}" title="${a.nivel}"></span>
@@ -8442,7 +8451,7 @@ void main(){
     const editing = !!id;
     const base = id ? Store.find('progPedidos', id) : null;
     const p = base ? Object.assign({}, base) : { titulo: '', cliente: '', produto: '', quantidade: 1, ritmoMensal: 0, inicio: pToday(), deadline: pAddDays(pToday(), 30), familiaId: '', equipeIds: [], bom: [], status: 'analise' };
-    pageShell('Programação', editing ? 'Editar pedido' : 'Novo pedido', 'Preencha e veja o veredito recalcular ao vivo — o motor mostra o que impacta.',
+    pageShell('Programação', editing ? 'Editar pedido' : 'Novo pedido', 'Dados do pedido.',
       `<button class="btn" id="pedBack">${ic('chevron')}Voltar</button>`);
     const famOpts = [{ v: '', t: '— selecione —' }].concat(Store.get('progFamilias').map((f) => ({ v: f.id, t: `${f.nome} · ${f.baselineDias}d · ${f.pessoasNecessarias}p` })));
     const grid = document.createElement('div'); grid.className = 'prog-ped-grid';
@@ -8534,7 +8543,7 @@ void main(){
 
   // ----- CATÁLOGO: famílias, fornecedores, estoque -----
   PAGES['prog-catalogo'] = () => {
-    pageShell('Programação', 'Catálogo', 'Famílias de serviço, fornecedores e estoque — a base que o motor usa pra decidir.',
+    pageShell('Programação', 'Catálogo', 'Famílias, fornecedores e estoque.',
       `<button class="btn primary" id="famNew">${ic('plus')}Nova família</button>`);
     $('#famNew').onclick = () => progFormFamilia();
 
@@ -8543,7 +8552,7 @@ void main(){
     view.appendChild(secFam); Icons.apply(secFam);
     const twF = document.createElement('div'); twF.className = 'tbl-wrap';
     const fams = Store.get('progFamilias');
-    twF.innerHTML = fams.length ? `<table class="data"><thead><tr><th>Família</th><th>Duração base</th><th>Pessoas</th><th></th></tr></thead><tbody>${fams.map((f) => `<tr data-fam="${f.id}"><td><b>${esc(f.nome)}</b></td><td>${f.baselineDias} dia(s)</td><td>${f.pessoasNecessarias}</td><td><div class="row-actions"><button class="mini-btn" data-editfam="${f.id}">${ic('edit')}</button><button class="mini-btn danger" data-delfam="${f.id}">${ic('trash')}</button></div></td></tr>`).join('')}</tbody></table>` : emptyState('grid', 'Nenhuma família', 'Crie a primeira em "Nova família".');
+    twF.innerHTML = fams.length ? `<table class="data"><thead><tr><th>Família</th><th>Duração base</th><th>Pessoas</th><th></th></tr></thead><tbody>${fams.map((f) => `<tr data-fam="${f.id}"><td><b>${esc(f.nome)}</b></td><td>${f.baselineDias} dia(s)</td><td>${f.pessoasNecessarias}</td><td><div class="row-actions"><button class="mini-btn" data-editfam="${f.id}">${ic('edit')}</button><button class="mini-btn danger" data-delfam="${f.id}">${ic('trash')}</button></div></td></tr>`).join('')}</tbody></table>` : emptyState('grid', 'Nenhuma família', '');
     view.appendChild(twF); Icons.apply(twF);
 
     const secFor = document.createElement('div');
@@ -8552,7 +8561,7 @@ void main(){
     $('#forNew').onclick = () => progFormFornecedor();
     const twR = document.createElement('div'); twR.className = 'tbl-wrap';
     const forns = Store.get('progFornecedores');
-    twR.innerHTML = forns.length ? `<table class="data"><thead><tr><th>Fornecedor</th><th>Contato</th><th>Lead time</th><th></th></tr></thead><tbody>${forns.map((f) => `<tr data-for="${f.id}"><td><b>${esc(f.nome)}</b></td><td>${esc(f.contato || '—')}</td><td>${f.leadTimeDias} dia(s)</td><td><div class="row-actions"><button class="mini-btn" data-editfor="${f.id}">${ic('edit')}</button><button class="mini-btn danger" data-delfor="${f.id}">${ic('trash')}</button></div></td></tr>`).join('')}</tbody></table>` : emptyState('box', 'Nenhum fornecedor', 'Adicione um fornecedor e o lead time.');
+    twR.innerHTML = forns.length ? `<table class="data"><thead><tr><th>Fornecedor</th><th>Contato</th><th>Lead time</th><th></th></tr></thead><tbody>${forns.map((f) => `<tr data-for="${f.id}"><td><b>${esc(f.nome)}</b></td><td>${esc(f.contato || '—')}</td><td>${f.leadTimeDias} dia(s)</td><td><div class="row-actions"><button class="mini-btn" data-editfor="${f.id}">${ic('edit')}</button><button class="mini-btn danger" data-delfor="${f.id}">${ic('trash')}</button></div></td></tr>`).join('')}</tbody></table>` : emptyState('box', 'Nenhum fornecedor', '');
     view.appendChild(twR); Icons.apply(twR);
 
     const secEst = document.createElement('div');
@@ -8561,7 +8570,7 @@ void main(){
     $('#estNew').onclick = () => progFormEstoque();
     const twE = document.createElement('div'); twE.className = 'tbl-wrap';
     const est = Store.get('progEstoque');
-    twE.innerHTML = est.length ? `<table class="data"><thead><tr><th>PN</th><th>Descrição</th><th>Quantidade</th><th></th></tr></thead><tbody>${est.map((e) => `<tr data-est="${e.pn}"><td><b>${esc(e.pn)}</b></td><td>${esc(e.descricao || '—')}</td><td>${e.quantidade}</td><td><div class="row-actions"><button class="mini-btn" data-editest="${esc(e.pn)}">${ic('edit')}</button><button class="mini-btn danger" data-delest="${esc(e.pn)}">${ic('trash')}</button></div></td></tr>`).join('')}</tbody></table>` : emptyState('server', 'Estoque vazio', 'Adicione itens manualmente (na Fase 3 vem do OMIE).');
+    twE.innerHTML = est.length ? `<table class="data"><thead><tr><th>PN</th><th>Descrição</th><th>Quantidade</th><th></th></tr></thead><tbody>${est.map((e) => `<tr data-est="${e.pn}"><td><b>${esc(e.pn)}</b></td><td>${esc(e.descricao || '—')}</td><td>${e.quantidade}</td><td><div class="row-actions"><button class="mini-btn" data-editest="${esc(e.pn)}">${ic('edit')}</button><button class="mini-btn danger" data-delest="${esc(e.pn)}">${ic('trash')}</button></div></td></tr>`).join('')}</tbody></table>` : emptyState('server', 'Estoque vazio', '');
     view.appendChild(twE); Icons.apply(twE);
 
     $$('[data-editfam]', view).forEach((b) => (b.onclick = () => progFormFamilia(Store.find('progFamilias', b.dataset.editfam))));

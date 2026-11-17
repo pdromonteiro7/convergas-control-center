@@ -54,13 +54,13 @@
 
   function telaLogin(resolve, msgInicial) {
     const c = card();
-    c.innerHTML = `${head('Entrar', 'Use o e-mail e a senha que o administrador passou para você.')}
+    c.innerHTML = `${head('Entrar', '')}
       <form class="lg-form" id="lgForm" novalidate>
         <label class="lg-f"><span>E-mail</span><span class="lg-in"><span data-icon="mail"></span><input id="lgEmail" type="email" autocomplete="username" inputmode="email" placeholder="nome@convergas.com.br" required></span></label>
         <label class="lg-f"><span>Senha</span><span class="lg-in"><span data-icon="lock"></span><input id="lgPass" type="password" autocomplete="current-password" placeholder="Sua senha" required><button type="button" class="lg-eye" id="lgEye" aria-label="Mostrar senha"><span data-icon="eye"></span></button></span></label>
         <div class="lg-err" role="alert"></div>
         <button class="lg-btn" id="lgGo" type="submit"><span class="lg-btn-t">Entrar</span><span class="lg-spin" aria-hidden="true"></span></button>
-        <p class="lg-help">Esqueceu a senha? Peça ao administrador do sistema para gerar uma nova.</p>
+        <p class="lg-help">Esqueceu a senha? Fale com o administrador.</p>
       </form>`;
     icons(c);
     try { const last = localStorage.getItem('cc_last_email'); if (last) $('#lgEmail', c).value = last; } catch (e) {}
@@ -91,7 +91,7 @@
   function telaSenha(obrigatoria, resolve) {
     return new Promise((done) => {
       const c = card();
-      c.innerHTML = `${head(obrigatoria ? 'Crie a sua senha' : 'Trocar senha', obrigatoria ? `Olá, <b>${esc((CCAuth.perfil && CCAuth.perfil.nome || '').split(' ')[0])}</b>! No primeiro acesso, troque a senha temporária por uma só sua.` : 'Escolha uma nova senha para a sua conta.')}
+      c.innerHTML = `${head(obrigatoria ? 'Crie a sua senha' : 'Trocar senha', obrigatoria ? `Olá, <b>${esc((CCAuth.perfil && CCAuth.perfil.nome || '').split(' ')[0])}</b>! Defina uma nova senha para continuar.` : '')}
         <form class="lg-form" id="lgForm" novalidate>
           <label class="lg-f"><span>Nova senha</span><span class="lg-in"><span data-icon="lock"></span><input id="lgN1" type="password" autocomplete="new-password" placeholder="Mínimo 8 caracteres"><button type="button" class="lg-eye" id="lgEye" aria-label="Mostrar senha"><span data-icon="eye"></span></button></span></label>
           <div class="lg-meter" id="lgMeter"><i></i><i></i><i></i><i></i><span></span></div>
@@ -149,8 +149,8 @@
       try { const c = JSON.parse(localStorage.getItem(PERFIL_KEY) || 'null'); const s = CCAuth.session; if (c && s && c.id === s.user.id) p = c; } catch (_) {}
       if (!p) return telaLogin(resolve, 'Sem conexão com o servidor. Verifique a internet.');
     }
-    if (!p) return telaAviso('Acesso não liberado', 'Sua conta existe, mas ainda não tem permissões no Control Center. Fale com o administrador.');
-    if (!p.ativo) return telaAviso('Acesso desativado', 'Seu acesso ao Control Center foi desativado. Fale com o administrador.');
+    if (!p) return telaAviso('Acesso não liberado', 'Sua conta ainda não tem permissões.');
+    if (!p.ativo) return telaAviso('Acesso desativado', 'Sua conta está desativada.');
     p.permissoes = p.permissoes || {};
     CCAuth.perfil = p;
     // os dados guardados no navegador são de quem estava logado antes? então limpa
