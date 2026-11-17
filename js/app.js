@@ -5452,7 +5452,7 @@
   }
 
   function pageShell(crumbName, title, sub, actions) {
-    crumb.textContent = crumbName;
+    crumb.textContent = title || crumbName; // trilha do topo: Área › Página
     view.innerHTML = `
       <div class="page-head">
         <div class="page-title"><span class="eyebrow">${esc(crumbName)}</span><h1>${esc(title)}</h1><p>${esc(sub)}</p></div>
@@ -5916,6 +5916,10 @@
     currentRoute = route;
     showApp();
     $('#crumbRoot').textContent = (NAV[currentArea] || {}).label || 'Control Center';
+    // cor e ícone da área (os mesmos do seletor da Home) no topo e na marca
+    const ha = HOME_AREAS.find((x) => x.area === currentArea);
+    document.documentElement.style.setProperty('--area-c', ha ? ha.color : '#5CE1E6');
+    const aico = $('#tbAreaIco'); if (aico) { aico.innerHTML = ic(ha ? ha.icon : 'grid'); Icons.apply(aico); }
     crumb.textContent = TITLES[route] || route;
     $$('.nav-item').forEach((a) => a.classList.toggle('active', a.dataset.route === route || (route === 'pv-cliente' && a.dataset.route === 'pv-clientes')));
     renderMobileNav(currentArea, route);

@@ -1976,3 +1976,38 @@ body:has(.modal-root.open .modal-card.sheet) .app-shell * { visibility: hidden !
 .sv-big .pvs-stars, .sv-big .pvs-stars span { font-size: 1.3rem; color: inherit; }
 .sv-big .pvs-stars { color: color-mix(in srgb, var(--text) 18%, transparent); }
 .sv-big .pvs-stars .on { color: #F5B840; }
+
+/* =====================================================================
+   TOPO e MARCA — trilha da área (sem pílula) e botões no mesmo tamanho
+   ===================================================================== */
+:root { --area-c: #5CE1E6; }
+.topbar { gap: 8px; padding: 6px; }
+.tb-session { height: 44px; gap: 10px; padding: 0 16px 0 6px; border-radius: 999px; background: color-mix(in srgb, var(--text) 4%, transparent); border: 1px solid var(--line); }
+.tb-dot { display: none; }
+.tb-aico { width: 32px; height: 32px; flex: none; border-radius: 50%; display: grid; place-items: center; color: var(--area-c); background: color-mix(in srgb, var(--area-c) 15%, transparent); border: 1px solid color-mix(in srgb, var(--area-c) 38%, transparent); box-shadow: 0 0 14px -4px color-mix(in srgb, var(--area-c) 70%, transparent); transition: color .5s var(--ease), background .5s var(--ease), border-color .5s var(--ease); }
+.tb-aico svg { width: 15px; height: 15px; }
+.tb-area { font-family: var(--font-body); font-size: .88rem; font-weight: 600; letter-spacing: 0; text-transform: none; color: var(--text); }
+.tb-sep { width: 6px; height: 6px; flex: none; margin: 0 2px 0 0; border-top: 1.5px solid var(--text-3); border-right: 1.5px solid var(--text-3); transform: rotate(45deg); opacity: .7; }
+.tb-page { display: block; max-width: 280px; font-size: .88rem; font-weight: 500; color: var(--text-2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.tb-page:empty, .tb-page:empty ~ .tb-sep { display: none; }
+.tb-session:has(.tb-page:empty) .tb-sep { display: none; }
+.tb-home { width: 44px; height: 44px; color: var(--accent); background: color-mix(in srgb, var(--accent) 12%, transparent); border: 1px solid color-mix(in srgb, var(--accent) 38%, transparent); box-shadow: none; }
+.tb-home svg { width: 18px; height: 18px; }
+.tb-home:hover { color: #031219; background: var(--grad-accent); border-color: transparent; box-shadow: 0 10px 24px -10px rgba(63,169,245,.9); transform: translateY(-1px); }
+.tb-mini { width: 44px; height: 44px; }
+[data-theme="light"] .tb-home { color: #0B7C86; }
+/* marca na lateral */
+.brand .tg-row { gap: 6px; flex-wrap: wrap; row-gap: 2px; }
+.brand .tg { font-size: .7rem; font-weight: 500; letter-spacing: .01em; text-transform: none; color: var(--text-3); line-height: 1.2; }
+.brand-area { display: inline-flex; align-items: center; gap: 6px; padding: 0; border: 0 !important; background: none !important; border-radius: 0; font-family: var(--font-body); font-size: .7rem; font-weight: 600; letter-spacing: .01em; text-transform: none; color: var(--text-2); line-height: 1.2; }
+.brand-area::before { content: ""; width: 3px; height: 3px; border-radius: 50%; background: var(--text-3); margin-right: 1px; }
+.brand-area::after { content: ""; order: -1; width: 7px; height: 7px; border-radius: 50%; background: var(--area-c); box-shadow: 0 0 8px var(--area-c); }
+.brand .nm { font-size: 1.05rem; }
+@media (max-width: 760px) {
+  .tb-sep, .tb-page { display: none !important; }
+  .tb-session { padding-right: 14px; }
+  .tb-home, .tb-mini { width: 40px; height: 40px; }
+}
+.brand .tg-row { flex-direction: column; align-items: flex-start; gap: 3px; }
+.brand-area::before { display: none; }
+.brand-area::after { width: 6px; height: 6px; }
