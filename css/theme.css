@@ -2382,3 +2382,5 @@ button.rh-card:hover { transform: translateY(-2px); border-color: color-mix(in s
   .rh-mxf-c::-webkit-scrollbar { display: none; }
   .rh-fc { flex: none; }
 }
+
+.ti-rh-note { margin: 0 0 14px; }

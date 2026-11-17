@@ -352,14 +352,15 @@
 
   /* ============ EQUIPE ============ */
   PAGES.equipe = () => {
-    pageShell('Equipe', 'Colaboradores', 'Pessoas, máquinas e recursos vinculados do estoque.', `<button class="btn primary" id="addBtn">${ic('plus')}Novo colaborador</button>`);
-    const rows = () => Store.get('team').map((u) => {
+    pageShell('T.I.', 'Usuários & acessos', 'Máquina, VPN, servidor e recursos de cada pessoa. O cadastro de pessoas é feito pelo RH.', `<button class="btn" id="addBtn">${ic('users')}Cadastro de pessoas (RH)</button>`);
+    const tiPeople = Store.get('team').filter((u) => u.situacao !== 'desligado' || u.machineId || Store.itemsForUser(u.id).length).slice().sort((a, b) => (a.situacao === 'desligado') - (b.situacao === 'desligado') || (a.name || '').localeCompare(b.name || ''));
+    const rows = () => tiPeople.map((u) => {
       const mine = Store.itemsForUser(u.id);
       const resCell = mine.length
         ? `<div class="chips">${mine.slice(0, 3).map((i) => `<span class="chip">${ic(invIcon(i.type))}${esc(i.type)}</span>`).join('')}${mine.length > 3 ? `<span class="chip">+${mine.length - 3}</span>` : ''}</div>`
         : '<span class="cell-sub">Nenhum</span>';
       return `<tr class="tr-click" data-detail="${u.id}" title="Ver detalhes de ${esc(u.name)}">
-        <td><div class="id-cell"><span class="avatar">${esc(initials(u.name))}</span><div><div class="cell-main">${esc(u.name)}</div><div class="cell-sub">${u.email ? esc(u.email) : '—'}</div></div></div></td>
+        <td><div class="id-cell"><span class="avatar">${esc(initials(u.name))}</span><div><div class="cell-main">${esc(u.name)}${u.situacao === 'desligado' ? ' <span class="badge danger plain">Desligado · recolher</span>' : ''}</div><div class="cell-sub">${u.email ? esc(u.email) : '—'}</div></div></div></td>
         <td class="hide-sm">${u.sector ? `<span class="badge neutral plain">${esc(u.sector)}</span>` : '<span class="cell-sub">—</span>'}</td>
         <td>${u.machineId && compName(u.machineId) ? `<span class="mono">${esc(compName(u.machineId))}</span>` : '<span class="cell-sub">—</span>'}</td>
         <td class="hide-sm">${yn(u.vpn)}</td>
@@ -368,13 +369,15 @@
         <td><div class="row-actions">
           <button class="mini-btn" data-link="${u.id}" title="Vincular recursos">${ic('box')}</button>
           ${copyBtn(u.email, 'E-mail copiado')}
-          <button class="mini-btn" data-edit="${u.id}" title="Editar">${ic('edit')}</button>
-          <button class="mini-btn danger" data-del="${u.id}" title="Excluir">${ic('trash')}</button>
+          <button class="mini-btn" data-edit="${u.id}" title="Editar acessos">${ic('edit')}</button>
         </div></td>
       </tr>`;
     }).join('');
     renderTable(['Colaborador', 'Setor', 'Máquina', 'VPN', 'Servidor Eng.', 'Recursos', ''], rows, 'team');
-    $('#addBtn').onclick = () => formTeam();
+    $('#addBtn').onclick = () => navTo('rh-colab');
+    const tiNote = document.createElement('p'); tiNote.className = 'sv-note ti-rh-note';
+    tiNote.innerHTML = `${ic('users')}<span>Pessoas novas entram pela <b>Admissão do RH</b> e já aparecem aqui. No desligamento, quem ainda tem máquina ou periféricos fica marcado como <b>Desligado · recolher</b>.</span>`;
+    view.insertBefore(tiNote, view.querySelector('.tbl-wrap, .panel, table') || null); Icons.apply(tiNote);
     bindRowActions('team', formTeam, (u) => `${u.name}`);
     $$('[data-link]', view).forEach((b) => (b.onclick = () => manageUserResources(Store.find('team', b.dataset.link))));
     $$('tr[data-detail]', view).forEach((r) => (r.onclick = (e) => {
@@ -526,8 +529,9 @@
       ${L.vault.length ? `<div class="form-sec">${ic('shield')}Cofre</div>${vaultChips(L.vault)}` : ''}
       ${spLinks.length ? `<div class="form-sec">${ic('globe')}SharePoint do setor</div><div class="chips">${spLinks.map((s) => `<a class="chip chip-link" href="${esc(s.url)}" target="_blank" rel="noopener">${ic('globe')}${esc(s.name)}</a>`).join('')}</div>` : ''}`;
 
-    const footer = `<button class="btn ghost" data-close>Fechar</button><button class="btn" id="dtLink">${ic('box')}Vincular recursos</button><button class="btn primary" id="dtEdit">${ic('edit')}Editar</button>`;
+    const footer = `<button class="btn ghost" data-close>Fechar</button><button class="btn" id="dtRh">${ic('users')}Ver no RH</button><button class="btn" id="dtLink">${ic('box')}Vincular recursos</button><button class="btn primary" id="dtEdit">${ic('edit')}Editar acessos</button>`;
     const card = modal({ title: 'Detalhes do colaborador', sub: u.name, wide: true, body, footer });
+    $('#dtRh', card).onclick = () => { closeModal(); rhOpenPessoa(u.id); };
     bindCopy(card); bindDetailLinks(card);
     $('#dtEdit', card).onclick = () => { closeModal(); formTeam(u); };
     $('#dtLink', card).onclick = () => { closeModal(); manageUserResources(Store.find('team', u.id)); };
@@ -6642,18 +6646,17 @@
 
   /* ---- Team form ---- */
   function formTeam(u) {
-    const editing = !!u; u = u || {};
+    if (!u) { navTo('rh-colab'); return; }
+    const editing = true;
     const compOpts = [{ v: '', t: '— Nenhuma —' }].concat(Store.get('computers').map((c) => ({ v: c.id, t: c.hostname })));
     const linkedNote = editing
       ? `<div class="field full"><label>Recursos do estoque</label>
            <div class="form-inline-note">${ic('box')}<span>${Store.itemsForUser(u.id).length} item(ns) vinculado(s). Gerencie pelo botão <b>Vincular recursos</b> na lista.</span></div></div>`
       : '';
     const card = modal({
-      title: editing ? 'Editar colaborador' : 'Novo colaborador', sub: 'Equipe',
+      title: 'Acessos de T.I.', sub: `${u.name}${u.sector ? ' · ' + u.sector : ''}`,
       body: `<div class="form-grid">
-        ${field('Nome', 'name', u.name, 'text', { full: true, ph: 'Nome completo' })}
-        ${field('E-mail (Office 365)', 'email', u.email, 'email', { full: true, ph: 'nome.sobrenome@convergas.com.br' })}
-        ${field('Setor', 'sector', u.sector, 'text', { ph: 'Ex: Engenharia' })}
+        <div class="field full"><div class="form-inline-note">${ic('users')}<span>Nome, e-mail e setor vêm do cadastro do <b>RH</b>${u.email ? ` (${esc(u.email)})` : ''}. Aqui ficam só os acessos e a máquina.</span></div></div>
         ${field('Máquina principal', 'machineId', u.machineId, 'select', { options: compOpts, hint: 'Um usuário pode ter várias máquinas; esta é a principal.' })}
         <div class="field full">${sw('Acesso VPN', 'vpn', u.vpn)}</div>
         <div class="field full">${sw('Acesso servidor de engenharia', 'engServer', u.engServer)}</div>
@@ -6663,15 +6666,14 @@
     });
     $('#saveBtn', card).onclick = () => {
       const d = readForm(card);
-      if (!d.name) return toast('Informe o nome', 'warn');
-      const obj = { name: d.name, email: d.email, sector: d.sector, machineId: d.machineId, vpn: d.vpn, engServer: d.engServer };
-      const uid2 = editing ? u.id : Store.add('team', obj).id;
-      if (editing) Store.update('team', u.id, obj);
+      const obj = { machineId: d.machineId, vpn: d.vpn, engServer: d.engServer };
+      const uid2 = u.id;
+      Store.update('team', u.id, obj);
       if (obj.machineId) {
         Store.get('team').forEach((t) => { if (t.id !== uid2 && t.machineId === obj.machineId) Store.update('team', t.id, { machineId: '' }); });
         Store.linkUserMachine(uid2, obj.machineId);
       }
-      toast(editing ? 'Colaborador atualizado' : 'Colaborador adicionado'); afterSave();
+      toast('Acessos atualizados'); afterSave();
     };
   }
 
@@ -6833,7 +6835,7 @@
   // navegação por área (a sidebar é montada conforme a área atual)
   const NAV = {
     ti: { label: 'T.I', groups: [
-      { label: 'Operação', items: [ { r: 'dashboard', t: 'Dashboard', s: 'Painel', i: 'grid' }, { r: 'equipe', t: 'Equipe', s: 'Equipe', i: 'users' } ] },
+      { label: 'Operação', items: [ { r: 'dashboard', t: 'Dashboard', s: 'Painel', i: 'grid' }, { r: 'equipe', t: 'Usuários & acessos', s: 'Acessos', i: 'users' } ] },
       { label: 'Conhecimento', items: [ { r: 'command', t: 'Command Center', s: 'Comandos', i: 'terminal' }, { r: 'runbooks', t: 'Runbooks', s: 'Runbooks', i: 'book' }, { r: 'sharepoint', t: 'SharePoint', s: 'Portais', i: 'globe' } ] },
       { label: 'Infraestrutura', items: [ { r: 'infra', t: 'Domínio & Infra', s: 'Infra', i: 'globe' }, { r: 'computadores', t: 'Computadores', s: 'PCs', i: 'monitor' }, { r: 'impressoras', t: 'Impressoras', s: 'Impr.', i: 'printer' }, { r: 'telefonia', t: 'Telefonia', s: 'Fones', i: 'phone' }, { r: 'inventario', t: 'Periféricos', s: 'Perif.', i: 'box' }, { r: 'licencas', t: 'Licenças', s: 'Licenças', i: 'key' } ] },
       { label: 'Segurança', items: [ { r: 'cofre', t: 'Cofre', s: 'Cofre', i: 'shield' }, { r: 'bitlocker', t: 'BitLocker', s: 'BitLock', i: 'lock' } ] },
@@ -7382,8 +7384,12 @@ void main(){
   function progMe() { try { return localStorage.getItem('prog_me') || ''; } catch (e) { return ''; } }
   function setProgMe(id) { try { localStorage.setItem('prog_me', id || ''); } catch (e) {} }
   function progSetorNome(id) { const s = Store.find('progSetores', id); return s ? s.nome : '—'; }
-  function progPessoaNome(id) { const p = Store.find('progPessoas', id); return p ? p.nome : '—'; }
-  function progPessoaSetores(id) { const p = Store.find('progPessoas', id); return p ? (p.setores || []) : []; }
+  // pessoas da Programação = cadastro único do RH (coleção "team"); setores do PCP ficam em team.progSetores
+  const progPessoasAll = () => Store.get('team').filter((u) => u.situacao !== 'desligado').slice().sort((a, b) => (a.name || '').localeCompare(b.name || ''))
+    .map((u) => ({ id: u.id, nome: u.name, funcao: ((Store.find('rhCargos', u.cargoId) || {}).nome) || u.role || u.sector || '', setores: u.progSetores || [], ativo: u.progAtivo !== false }));
+  const progPessoaFind = (id) => { const u = Store.find('team', id); return u ? { id: u.id, nome: u.name, funcao: ((Store.find('rhCargos', u.cargoId) || {}).nome) || u.role || u.sector || '', setores: u.progSetores || [], ativo: u.progAtivo !== false && u.situacao !== 'desligado' } : null; };
+  function progPessoaNome(id) { const p = progPessoaFind(id); return p ? p.nome : '—'; }
+  function progPessoaSetores(id) { const p = progPessoaFind(id); return p ? (p.setores || []) : []; }
   function progBadge(cls, txt) { return `<span class="prog-badge prog-b-${cls}">${esc(txt)}</span>`; }
   function progStatusBadge(st) { const s = PROG_ATV_STATUS[st] || PROG_ATV_STATUS.todo; return progBadge(s.cls, s.label); }
   function pPrazoBadge(iso) {
@@ -7412,7 +7418,7 @@ void main(){
     view.appendChild(wrap); Icons.apply(wrap);
     if (spec.afterRender) spec.afterRender(wrap);
     const back = () => go(spec.back);
-    $('#fBack', wrap).onclick = back;
+    const fb = $('#fBack'); if (fb) fb.onclick = back;
     $('#fCancel', wrap).onclick = back;
     $('#fSave', wrap).onclick = () => { if (spec.onSave(readForm(wrap), wrap) !== false) back(); };
     const del = $('#fDel', wrap); if (del) del.onclick = () => confirmDialog(spec.delMsg || 'Excluir este registro?', () => { spec.onDelete(); back(); });
@@ -7431,7 +7437,7 @@ void main(){
       </div>
       <div class="spacer"></div>
       <div class="prog-filt">${ic('grid')}<select id="progSetFilt"><option value="">Todos os setores</option>${Store.get('progSetores').map((s) => `<option value="${s.id}" ${progFilterSetor === s.id ? 'selected' : ''}>${esc(s.nome)}</option>`).join('')}</select></div>
-      <div class="prog-me">${ic('users')}<select id="progMeSel"><option value="">— quem é você? —</option>${Store.get('progPessoas').map((p) => `<option value="${p.id}" ${progMe() === p.id ? 'selected' : ''}>${esc(p.nome)}</option>`).join('')}</select></div>`;
+      <div class="prog-me">${ic('users')}<select id="progMeSel"><option value="">— quem é você? —</option>${progPessoasAll().map((p) => `<option value="${p.id}" ${progMe() === p.id ? 'selected' : ''}>${esc(p.nome)}</option>`).join('')}</select></div>`;
     view.appendChild(tb); Icons.apply(tb);
     const body = document.createElement('div'); body.id = 'progBody'; body.className = 'prog-body'; view.appendChild(body);
     $$('#progViewSeg button', tb).forEach((b) => (b.onclick = () => { progView = b.dataset.v; $$('#progViewSeg button', tb).forEach((x) => x.classList.toggle('on', x === b)); progRenderView(); }));
@@ -7543,7 +7549,7 @@ void main(){
 
   function progFormAtividade(a) {
     const editing = !!(a && a.id); a = a || {};
-    const pessoaOpts = [{ v: '', t: '— ninguém —' }].concat(Store.get('progPessoas').map((p) => ({ v: p.id, t: p.nome })));
+    const pessoaOpts = [{ v: '', t: '— ninguém —' }].concat(progPessoasAll().filter((p) => p.ativo).map((p) => ({ v: p.id, t: p.nome })));
     const setores = Store.get('progSetores');
     const sel = new Set(a.setores || []);
     progOpenForm({
@@ -7618,7 +7624,7 @@ void main(){
 
   function progPaRowHtml(pa) {
     pa = pa || {};
-    const setores = Store.get('progSetores'), pessoas = Store.get('progPessoas');
+    const setores = Store.get('progSetores'), pessoas = progPessoasAll();
     return `<div class="pa-row">
       <input class="pa-acao" placeholder="Ação corretiva a tomar" value="${esc(pa.acao || '')}">
       <select class="pa-setor"><option value="">Setor…</option>${setores.map((s) => `<option value="${s.id}" ${pa.setorId === s.id ? 'selected' : ''}>${esc(s.nome)}</option>`).join('')}</select>
@@ -7685,8 +7691,8 @@ void main(){
   // ---------------- CADASTROS (equipe & setores) ----------------
   PAGES['prog-cadastros'] = () => {
     pageShell('Programação', 'Equipe & Setores', 'Quem alimenta o sistema e a que setores pertence.',
-      `<button class="btn primary" id="progNewP">${ic('plus')}Nova pessoa</button>`);
-    $('#progNewP').onclick = () => progFormPessoa();
+      `<button class="btn" id="progNewP">${ic('users')}Cadastro de pessoas (RH)</button>`);
+    $('#progNewP').onclick = () => navTo('rh-colab');
 
     const sh = document.createElement('div');
     sh.innerHTML = `<div class="section-head"><h2><span class="sh-ico">${ic('grid')}</span>Setores</h2><button class="btn sm" id="progNewSet">${ic('plus')}Novo setor</button></div>
@@ -7697,23 +7703,22 @@ void main(){
     $$('[data-delset]', sh).forEach((b) => (b.onclick = (e) => { e.stopPropagation(); const s = Store.find('progSetores', b.dataset.delset); confirmDialog(`Remover o setor "${esc(s.nome)}"?`, () => { Store.remove('progSetores', s.id); refreshPage(); toast('Setor removido', 'info'); }); }));
 
     const sh2 = document.createElement('div');
-    sh2.innerHTML = `<div class="section-head"><h2><span class="sh-ico">${ic('users')}</span>Pessoas</h2></div>`;
+    sh2.innerHTML = `<div class="section-head"><h2><span class="sh-ico">${ic('users')}</span>Pessoas</h2></div><p class="sv-note" style="margin:-4px 0 12px">${ic('users')}<span>As pessoas vêm do <b>cadastro do RH</b>. Aqui você só define em quais setores do PCP cada uma atua.</span></p>`;
     view.appendChild(sh2); Icons.apply(sh2);
-    const pessoas = Store.get('progPessoas');
+    const pessoas = progPessoasAll();
     const tw = document.createElement('div'); tw.className = 'tbl-wrap';
     tw.innerHTML = pessoas.length
-      ? `<table class="data"><thead><tr><th>Nome</th><th>Função</th><th>Setores</th><th>Status</th><th></th></tr></thead><tbody>${pessoas.map((p) => `<tr data-p="${p.id}">
+      ? `<table class="data"><thead><tr><th>Nome</th><th>Cargo</th><th>Setores do PCP</th><th>Na programação</th><th></th></tr></thead><tbody>${pessoas.map((p) => `<tr data-p="${p.id}">
           <td><b>${esc(p.nome)}</b></td>
           <td>${esc(p.funcao || '—')}</td>
           <td>${(p.setores || []).map((s) => `<span class="pc-chip">${esc(progSetorNome(s))}</span>`).join('') || '—'}</td>
-          <td>${progBadge(p.ativo === false ? 'neutral' : 'ok', p.ativo === false ? 'Inativo' : 'Ativo')}</td>
-          <td><div class="row-actions"><button class="mini-btn" data-editp="${p.id}" title="Editar">${ic('edit')}</button><button class="mini-btn danger" data-delp="${p.id}" title="Excluir">${ic('trash')}</button></div></td>
+          <td>${progBadge(p.ativo === false ? 'neutral' : 'ok', p.ativo === false ? 'Não participa' : 'Participa')}</td>
+          <td><div class="row-actions"><button class="mini-btn" data-editp="${p.id}" title="Setores do PCP">${ic('edit')}</button></div></td>
         </tr>`).join('')}</tbody></table>`
-      : emptyState('users', 'Nenhuma pessoa cadastrada', 'Clique em "Nova pessoa".');
+      : emptyState('users', 'Nenhuma pessoa cadastrada', 'Cadastre as pessoas pela Admissão do RH.');
     view.appendChild(tw); Icons.apply(tw);
-    $$('[data-editp]', tw).forEach((b) => (b.onclick = (e) => { e.stopPropagation(); progFormPessoa(Store.find('progPessoas', b.dataset.editp)); }));
-    $$('[data-delp]', tw).forEach((b) => (b.onclick = (e) => { e.stopPropagation(); const p = Store.find('progPessoas', b.dataset.delp); confirmDialog(`Excluir ${esc(p.nome)}?`, () => { Store.remove('progPessoas', p.id); refreshPage(); toast('Pessoa removida', 'info'); }); }));
-    $$('tr[data-p]', tw).forEach((tr) => (tr.onclick = () => progFormPessoa(Store.find('progPessoas', tr.dataset.p))));
+    $$('[data-editp]', tw).forEach((b) => (b.onclick = (e) => { e.stopPropagation(); progFormPessoa(progPessoaFind(b.dataset.editp)); }));
+    $$('tr[data-p]', tw).forEach((tr) => (tr.onclick = () => progFormPessoa(progPessoaFind(tr.dataset.p))));
   };
 
   function progFormSetor(s) {
@@ -7727,16 +7732,16 @@ void main(){
   function progFormPessoa(p) {
     const editing = !!(p && p.id); p = p || {};
     const setores = Store.get('progSetores'); const sel = new Set(p.setores || []);
-    progOpenForm({ title: editing ? 'Editar pessoa' : 'Nova pessoa', sub: 'Programação · equipe', back: 'prog-cadastros', editing,
+    if (!editing) { navTo('rh-colab'); return; }
+    progOpenForm({ title: p.nome, sub: 'Programação · setores do PCP', back: 'prog-cadastros', editing,
       html: `<div class="panel panel-pad"><div class="form-grid">
-        ${field('Nome', 'nome', p.nome, 'text', { full: true, ph: 'Nome completo' })}
-        ${field('Função', 'funcao', p.funcao, 'text', { full: true, ph: 'Ex: Instalador, Analista, Comprador' })}
+        <div class="field full"><div class="form-inline-note">${ic('users')}<span><b>${esc(p.nome)}</b>${p.funcao ? ' · ' + esc(p.funcao) : ''} — nome e cargo vêm do cadastro do RH.</span></div></div>
         <div class="field full"><label>Setores</label><div class="wrap prog-setchips">${setores.length ? setores.map((s) => `<button type="button" class="chip prog-chip ${sel.has(s.id) ? 'on' : ''}" data-set="${s.id}">${esc(s.nome)}</button>`).join('') : '<span class="hint">Cadastre setores primeiro.</span>'}</div></div>
-        ${sw('Ativo', 'ativo', p.ativo !== false)}
+        ${sw('Participa da programação', 'ativo', p.ativo !== false)}
       </div></div>`,
       afterRender: (w) => { $$('.prog-chip', w).forEach((c) => (c.onclick = () => c.classList.toggle('on'))); },
-      onSave: (d, w) => { if (!d.nome) { toast('Informe o nome', 'warn'); return false; } const obj = { nome: d.nome, funcao: d.funcao, ativo: d.ativo, setores: $$('.prog-chip.on', w).map((c) => c.dataset.set) }; if (editing) Store.update('progPessoas', p.id, obj); else Store.add('progPessoas', obj); toast('Pessoa salva'); },
-      onDelete: editing ? () => { Store.remove('progPessoas', p.id); toast('Pessoa removida', 'info'); } : null, delMsg: `Excluir ${p.nome || 'esta pessoa'}?` });
+      onSave: (d, w) => { Store.update('team', p.id, { progAtivo: d.ativo, progSetores: $$('.prog-chip.on', w).map((c) => c.dataset.set) }); toast('Setores atualizados'); },
+      onDelete: null });
   }
 
   /* =====================================================================
@@ -7797,7 +7802,7 @@ void main(){
     const insuficiente = !!familia && alocadas < necessarias;
     const conflitos = [];
     (pedido.equipeIds || []).forEach((pid) => {
-      const pessoa = Store.find('progPessoas', pid);
+      const pessoa = progPessoaFind(pid);
       outros.forEach((o) => { if (o.status === 'concluido' || o.status === 'rascunho') return; if (!(o.equipeIds || []).includes(pid)) return; if (progOverlap(pedido.inicio, pedido.deadline, o.inicio, o.deadline)) conflitos.push({ pessoa: pessoa ? pessoa.nome : '—', pedido: o.titulo }); });
     });
 
@@ -7926,7 +7931,7 @@ void main(){
         </div></div>
         <div class="panel panel-pad">
           <label class="prog-flabel">Equipe alocada</label>
-          <div class="wrap ped-eqwrap">${Store.get('progPessoas').filter((x) => x.ativo !== false).map((x) => `<button type="button" class="chip ped-eq ${(p.equipeIds || []).includes(x.id) ? 'on' : ''}" data-p="${x.id}">${esc(x.nome)}</button>`).join('') || '<span class="hint">Cadastre pessoas em Equipe & Setores.</span>'}</div>
+          <div class="wrap ped-eqwrap">${progPessoasAll().filter((x) => x.ativo !== false).map((x) => `<button type="button" class="chip ped-eq ${(p.equipeIds || []).includes(x.id) ? 'on' : ''}" data-p="${x.id}">${esc(x.nome)}</button>`).join('') || '<span class="hint">Cadastre pessoas em Equipe & Setores.</span>'}</div>
         </div>
         <div class="panel panel-pad">
           <div class="prog-bom-top"><label class="prog-flabel">BOM — material por unidade</label><button type="button" class="btn ghost sm" id="bomAdd">${ic('plus')}Adicionar item</button></div>
