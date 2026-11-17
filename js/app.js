@@ -3427,13 +3427,20 @@
   function campusBuild(force) {
     const host = $('#homeCampus'); if (!host) return;
     if (getComputedStyle(host).display === 'none' || !$('#homeScreen').classList.contains('show')) return;
+    // navegador sem cópia local: espera a 1ª sincronização (até 4 s) para montar a planta uma vez só
+    if (!window.__ccSynced && !Store.get('team').length && !(Store.get('rhSetores') || []).length && !CP.waitT) {
+      host.classList.add('loading'); CP.waitT = setTimeout(() => { window.__ccSynced = true; campusBuild(true); }, 4000); return;
+    }
+    if (!window.__ccSynced && CP.waitT && !force) return;
+    host.classList.remove('loading');
     const d = campusData(window.__campusDemo);
     const theme = document.documentElement.getAttribute('data-theme') || 'dark';
     const sig = JSON.stringify([d, theme]);
-    if (!force && sig === CP.built && host.querySelector('canvas')) return;
-    CP.built = sig;
+    if (sig === CP.built && (host.querySelector('canvas') || CP.pend)) return;
+    CP.built = sig; CP.pend = true;
     campusLoad().then((ok) => {
-      if (!ok || !window.Campus3D) return;
+      CP.pend = false;
+      if (!ok || !window.Campus3D || CP.built !== sig) return;
       host.classList.toggle('empty', !d.sectors.length);
       Campus3D.render(host, { ...d, theme, interactive: Perm.aba('rh-colab') !== 'nenhum',
         onRoom: (nome) => setorDetalhe(nome, d) });
@@ -8661,6 +8668,8 @@ void main(){
   function syncCloud() {
     if (!window.Store || !Store.syncFromCloud) return;
     Store.syncFromCloud((changed) => {
+      const primeira = !window.__ccSynced; window.__ccSynced = true;
+      if (primeira && CP.waitT) { clearTimeout(CP.waitT); CP.waitT = null; try { campusBuild(true); } catch (e) {} }
       if (!changed) return;
       // reflete os dados novos SEM redesenhar a tela (antes isso dava uma "piscada" segundos após abrir):
       // na Home só atualiza os números; numa página, re-renderiza em silêncio (sem animação de entrada,
@@ -8683,5 +8692,7 @@ void main(){
   window.syncCloud = syncCloud;
 
   // login primeiro (se configurado no banco); depois abre o sistema
+  // já baixa o 3D da planta enquanto a pessoa faz login (só em telas grandes, onde a planta aparece)
+  try { if (innerWidth >= 1180) setTimeout(() => campusLoad(), 300); } catch (e) {}
   if (window.CCAuth) CCAuth.start().then(boot); else boot();
 })();

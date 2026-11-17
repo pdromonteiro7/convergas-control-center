@@ -56,6 +56,24 @@
       return (data || []).map((r) => ({ id: r.id, ...mapIn(coll, r.data || {}) }));
     },
 
+    // tudo de uma vez: uma consulta (paginada) para todas as coleções + uma para os computadores
+    async pullAll() {
+      if (!SB) return null;
+      const out = {}; ENTITY_COLLECTIONS.forEach((c) => (out[c] = []));
+      const pcP = SB.from('computers').select('id,data');
+      const PAGE = 1000; let from = 0;
+      for (;;) {
+        const { data, error } = await SB.from('entities').select('entity,id,data').in('entity', ENTITY_COLLECTIONS).order('entity').order('id').range(from, from + PAGE - 1);
+        if (error) throw error;
+        (data || []).forEach((r) => { if (out[r.entity]) out[r.entity].push({ id: r.id, ...mapIn(r.entity, r.data || {}) }); });
+        if (!data || data.length < PAGE) break;
+        from += PAGE;
+      }
+      const pc = await pcP; if (pc.error) throw pc.error;
+      out.computers = (pc.data || []).map((r) => ({ id: r.id, ...mapIn('computers', r.data || {}) }));
+      return out;
+    },
+
     // marcadores de manutenção (ex.: "meta/pvReset" = zerar clientes e chamados em todos os navegadores)
     async pullMeta(id) {
       if (!SB) return null;

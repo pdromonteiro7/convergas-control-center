@@ -871,29 +871,36 @@
     // com login ativo e sem sessão o banco devolve listas vazias — não sincroniza (evita "apagar" a cópia local)
     if (window.CCAuth && CCAuth.modo === 'login' && !CCAuth.session) return false;
     let changed = false;
+    const metasP = Promise.all([window.Cloud.pullMeta ? window.Cloud.pullMeta('pvReset').catch(() => null) : null, window.Cloud.pullMeta ? window.Cloud.pullMeta('reset2').catch(() => null) : null]);
+    const settingsP = window.Cloud.pullSettings().catch(() => null);
     try {
-      const s = await window.Cloud.pullSettings();
+      const s = await settingsP;
       if (s) ['prodDashboardUrl', 'guidelineUrl'].forEach((k) => { if (s[k] != null && s[k] !== data.settings[k]) { data.settings[k] = s[k]; changed = true; } });
     } catch (e) {}
     // limpeza geral pedida pela administração: zera a cópia local de clientes/chamados uma única vez
     try {
-      const m = window.Cloud.pullMeta ? await window.Cloud.pullMeta('pvReset') : null;
+      const m = (await metasP)[0];
       if (m && m.epoch && m.epoch !== data._pvResetEpoch) {
         data.pvChamados = []; data.pvClientes = []; data._pvResetEpoch = m.epoch; changed = true; persist();
       }
     } catch (e) {}
     // "meta/reset2": recomeço do cadastro de pessoas (RH) e do levantamento da T.I. — zera também neste navegador
     try {
-      const m2 = window.Cloud.pullMeta ? await window.Cloud.pullMeta('reset2') : null;
+      const m2 = (await metasP)[1];
       if (m2 && m2.epoch && m2.epoch !== data._reset2Epoch) {
         (m2.colls || []).forEach((k) => { if (Array.isArray(data[k])) data[k] = []; });
         if (m2.soltar !== false) { (data.rhVeiculos || []).forEach((v) => { v.responsavelId = ''; }); (data.phones || []).forEach((f) => { if (f.userId) f.userId = ''; }); }
         data._reset2Epoch = m2.epoch; changed = true; persist();
       }
     } catch (e) {}
-    for (const coll of window.Cloud.SYNCED) {
+    // baixa todas as coleções ao mesmo tempo (antes era uma por vez e o primeiro acesso demorava)
+    let pulled;
+    try { const all = await window.Cloud.pullAll(); pulled = window.Cloud.SYNCED.map((c) => (all && all[c]) || null); }
+    catch (e) { pulled = await Promise.all(window.Cloud.SYNCED.map((coll) => window.Cloud.pullCollection(coll).catch(() => null))); }
+    for (let ci = 0; ci < window.Cloud.SYNCED.length; ci++) {
+      const coll = window.Cloud.SYNCED[ci];
       try {
-        const rows = await window.Cloud.pullCollection(coll);
+        const rows = pulled[ci];
         if (rows == null) continue;
         const local = Array.isArray(data[coll]) ? data[coll] : [];
         if (coll === 'certificates') {

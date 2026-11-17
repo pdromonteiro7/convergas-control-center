@@ -2808,3 +2808,5 @@ body.cc-ro #rpBoneco { display: none !important; }
 .na-ok:hover { filter: brightness(1.06); transform: translateY(-1px); }
 .na-ok:focus-visible { outline: 2px solid color-mix(in srgb, var(--accent) 60%, transparent); outline-offset: 3px; }
 .hx-keys:empty { display: none; }
+
+.hx-campus.loading::before { content: ""; position: absolute; left: 50%; top: 50%; width: 46px; height: 46px; margin: -23px 0 0 -23px; border-radius: 50%; border: 3px solid color-mix(in srgb, var(--accent) 20%, transparent); border-top-color: var(--accent); animation: hxSpin .9s linear infinite; }
