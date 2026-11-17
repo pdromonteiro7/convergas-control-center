@@ -346,7 +346,7 @@
       plant(M, x0 + RW - .55, z0 + .55, g, 1); grid.block(x0 + RW - 1, z0, x0 + RW, z0 + 1);
       box(1.2, .9, .45, M.cabinet, x0 + .55 + .6 + 4.2, .55, z0 + .38, g); grid.block(x0 + 4.6, z0, x0 + 6.1, z0 + .9);
       rooms.push({ nome: s.nome, floor, x0, z0 });
-      const pl = new G.Group(); pl.position.set(x0 + 1.9, 0, z0 + RD + 1.0); pl.rotation.y = Math.PI / 4; pl.scale.setScalar(1.45); scene.add(pl);
+      const pl = new G.Group(); pl.position.set(x0 + 2.4, 0, z0 + RD + 1.05); pl.rotation.y = Math.PI / 4; pl.scale.setScalar(1.9); scene.add(pl);
       [-1, 1].forEach((sd) => cyl(.045, .05, 1.35, M.lampPole, sd * .95, .68, 0, pl, 8));
       box(2.34, .66, .08, M.dark, 0, 1.6, -.02, pl);
       const accentP = new G.MeshStandardMaterial({ color: s.cor, emissive: s.cor, emissiveIntensity: 1.4 }); box(2.34, .04, .1, accentP, 0, 1.25, -.02, pl, false);
