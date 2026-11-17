@@ -74,7 +74,7 @@
   "rewrites": [
     {
       "source": "/a/:t",
-      "destination": "/pub/avaliacao.html"
+      "destination": "/pub/avaliacao"
     }
   ]
 }
