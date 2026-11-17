@@ -3229,12 +3229,14 @@
   /* =========================== USUÁRIOS & PERMISSÕES (admin) =========================== */
   // menu da conta (topo)
   function userChip() {
-    const b = $('#tbUser'); if (!b) return;
-    if (!Perm.on()) { b.hidden = true; return; }
-    const p = CCAuth.perfil; b.hidden = false;
-    b.innerHTML = `<span class="tb-uav" style="--h:${pvHue(p.nome || p.email || '?')}">${esc(pvInitials(p.nome || p.email || '?'))}</span>`;
-    b.title = `${p.nome || ''} — minha conta`;
-    b.onclick = (e) => { e.stopPropagation(); userMenu(); };
+    ['#tbUser', '#homeUser'].forEach((sel) => {
+      const b = $(sel); if (!b) return;
+      if (!Perm.on()) { b.hidden = true; return; }
+      const p = CCAuth.perfil; b.hidden = false;
+      b.innerHTML = `<span class="tb-uav" style="--h:${pvHue(p.nome || p.email || '?')}">${esc(pvInitials(p.nome || p.email || '?'))}</span>`;
+      b.title = `${p.nome || ''} — minha conta`;
+      b.onclick = (e) => { e.stopPropagation(); userMenu(); };
+    });
   }
   function userMenu() {
     if (!Perm.on()) return;
@@ -3248,7 +3250,7 @@
       <button type="button" data-um="sair" class="danger">${ic('logOut')}Sair</button>`;
     document.body.appendChild(pop); Icons.apply(pop);
     const fechar = () => { pop.remove(); document.removeEventListener('click', fora, true); };
-    const fora = (e) => { if (!pop.contains(e.target) && !e.target.closest('#tbUser')) fechar(); };
+    const fora = (e) => { if (!pop.contains(e.target) && !e.target.closest('#tbUser, #homeUser')) fechar(); };
     setTimeout(() => document.addEventListener('click', fora, true), 0);
     $$('[data-um]', pop).forEach((x) => (x.onclick = () => { const a = x.dataset.um; fechar(); if (a === 'usuarios') navTo('usuarios', 'ti'); if (a === 'senha') CCAuth.trocarSenha(); if (a === 'boneco') meuBoneco(); if (a === 'sair') confirmDialog('Sair do Control Center neste aparelho?', () => CCAuth.sair(), 'primary'); }));
   }

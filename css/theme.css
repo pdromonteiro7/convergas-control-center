@@ -2765,3 +2765,11 @@ body.st-dragging, body.st-dragging * { cursor: grabbing !important; user-select:
 .av-tg { flex-direction: row; gap: 8px; }
 @media (max-width: 760px) { .av-wrap { grid-template-columns: 1fr; } .av-prev { height: 300px; } }
 body.cc-ro #rpBoneco { display: none !important; }
+
+/* Home: hub do canto (tema, tela cheia e conta) */
+.hx-tools { align-items: center; justify-self: end; gap: 4px; padding: 5px; border-radius: 16px; background: color-mix(in srgb, var(--card) 55%, transparent); border: 1px solid var(--hx-line); backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px); box-shadow: 0 10px 30px -18px rgba(0,0,0,.7); }
+.hx-tools .hx-tool { border-color: transparent; }
+.hx-tools .hx-tool:hover { background: color-mix(in srgb, var(--text) 6%, transparent); }
+.hx-user { padding: 0; overflow: hidden; margin-left: 4px; border: 1px solid color-mix(in srgb, var(--accent) 35%, transparent) !important; }
+.hx-user[hidden] { display: none; }
+.hx-user .tb-uav { border-radius: 10px; font-size: .74rem; }
