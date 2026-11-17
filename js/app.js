@@ -2146,7 +2146,7 @@
     el.innerHTML = `
       <div class="pvd-orbit">
         <div class="pvd-dial">${qaDialSvg(segs, pctT)}
-          <div class="pvd-core"><b data-count="${ativos.length}">0</b><span>${ativos.length === 1 ? 'colaborador' : 'colaboradores'}</span><small><i class="pvd-dot ok"></i><em data-count="${pctT}" data-suf="%">0%</em> treinamentos em dia</small></div>
+          <div class="pvd-core"><b data-count="${ativos.length}">0</b><span>${ativos.length === 1 ? 'colaborador' : 'colaboradores'}</span><small class="rh-core-t ${pctT < 80 ? 'low' : ''}"><em data-count="${pctT}" data-suf="%">0%</em><i>treinos em dia</i></small></div>
         </div>
         <div class="pvd-legend rhd-leg">${segs.slice(0, 6).map((x) => `<button type="button" data-set="${esc(x.l)}" style="--c:${x.c}"><i></i><span>${esc(x.l)}</span><b>${x.n}</b></button>`).join('')}</div>
       </div>

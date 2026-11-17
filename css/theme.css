@@ -2308,3 +2308,11 @@ button.rh-card:hover { transform: translateY(-2px); border-color: color-mix(in s
 @media (max-width: 760px) { .rh-rev-ck { grid-template-columns: 1fr; } .rh-rev-ck span { justify-self: start; } }
 .wz-next > span[data-icon], .wz-prev > span[data-icon] { flex: none; width: 16px; height: 16px; }
 [data-theme="light"] .rh-dev-t small, [data-theme="light"] .rh-dev-ic { filter: brightness(.78) saturate(1.2); }
+/* núcleo do mostrador do RH: % de treinamentos em duas linhas, dentro do círculo */
+.rhd .pvd-core small.rh-core-t { flex-direction: column; gap: 1px; margin-top: 10px; padding: 8px 0 0; border: 0; border-top: 1px solid var(--line); border-radius: 0; background: none; width: 56%; max-width: 150px; }
+.rhd .pvd-core small.rh-core-t em { font-size: 1.05rem; line-height: 1.1; }
+.rhd .pvd-core small.rh-core-t i { font-style: normal; font-size: .68rem; letter-spacing: .02em; color: var(--text-3); white-space: nowrap; }
+.rhd .pvd-core small.rh-core-t.low em { color: #F5B840; }
+.rhd .pvd-core b { font-size: 3rem; }
+.rhd .pvd-core small.rh-core-t { margin-top: 6px; padding-top: 6px; width: 46%; }
+@media (max-width: 760px) { .rhd .pvd-core b { font-size: 2.6rem; } }
