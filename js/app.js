@@ -2210,7 +2210,7 @@
       <div class="pvp-card" style="--d:160ms"><div class="pvp-card-h"><b>Treinamentos exigidos</b><span>${tt} no total</span></div>
         ${tt ? `<div class="qband-bar pvp-pbar">${['ok', 'vencendo', 'vencido', 'faltando'].filter((k) => tCount[k]).map((k, i) => `<i style="--w:${(100 * tCount[k]) / tt}%;--c:${RH_TST[k].c};--d:${300 + i * 120}ms"></i>`).join('')}</div>
           <div class="pvp-proc">${['ok', 'vencendo', 'vencido', 'faltando'].map((k) => `<div style="--c:${RH_TST[k].c}"><i></i><span><b>${RH_TST[k].l}</b><small>${{ ok: 'dentro da validade', vencendo: 'vencem em até 30 dias', vencido: 'fora da validade', faltando: 'exigido pelo cargo e não feito' }[k]}</small></span><em>${tCount[k]}</em><small class="pc">${Math.round((100 * tCount[k]) / tt)}%</small></div>`).join('')}</div>`
-          : `<div class="qf-empty">${ic('award')}<span>Defina os treinamentos exigidos em Cargos & setores.</span></div>`}
+          : `<div class="qf-empty">${ic('award')}<span>Defina os treinamentos exigidos por cargo em Pessoas & setores.</span></div>`}
       </div>`;
     view.appendChild(an); Icons.apply(an);
     const c3 = pie3d(contr, { center: { v: ativos.length, l: 'ativos' } }); $('#rh3d', an).appendChild(c3); $('#rh3d', an).appendChild(pie3dLegend(c3, contr));
@@ -2222,11 +2222,7 @@
   let rhPessoaId = null; try { rhPessoaId = sessionStorage.getItem('rh_pessoa') || null; } catch (e) {}
   function rhOpenPessoa(id) { rhPessoaId = id; try { sessionStorage.setItem('rh_pessoa', id); } catch (e) {} go('rh-pessoa'); }
 
-  PAGES['rh-colab'] = () => {
-    pageShell('RH', 'Colaboradores', 'Cadastro único de pessoas da Convergas — usado também pela T.I. e pelo controle de EPI.',
-      `<button class="btn" id="rhNovo">${ic('plus')}Cadastro rápido</button><button class="btn primary" id="rhAdm">${ic('userPlus')}Admissão</button>`);
-    $('#rhNovo').onclick = () => rhFormPessoa(null);
-    $('#rhAdm').onclick = () => rhNovaMov('admissao');
+  function rhViewLista() {
     const all = rhPessoas(); const setores = rhSetores();
     const grp = { ativos: (u) => u.situacao !== 'desligado', experiencia: (u) => rhSit(u) === 'experiencia', fora: (u) => ['ferias', 'afastado'].includes(rhSit(u)), desligados: (u) => u.situacao === 'desligado', todos: () => true };
     const tabs = [['ativos', 'Ativos'], ['experiencia', 'Em experiência'], ['fora', 'Férias / afastados'], ['desligados', 'Desligados'], ['todos', 'Todos']];
@@ -2262,7 +2258,7 @@
     $('#rhQ', tb).oninput = (e) => { rhFilt.q = e.target.value; render(); };
     $('#rhQx', tb).onclick = (e) => { e.preventDefault(); rhFilt.q = ''; $('#rhQ', tb).value = ''; render(); };
     render(); tabsThumbInit(tabsEl, 'rh');
-  };
+  }
 
   /* ---------- PERFIL DO COLABORADOR ---------- */
   PAGES['rh-pessoa'] = () => {
@@ -2278,7 +2274,7 @@
     const movs = rhList('rhMovs').filter((m) => m.colaboradorId === u.id);
     const subs = rhAtivos().filter((p) => p.gestorId === u.id);
     pageShell('RH', u.name, `${(c && c.nome) || u.role || 'Sem cargo'}${u.sector ? ' · ' + u.sector : ''}`,
-      `<button class="btn" id="rpBack">${ic('chevron')}Colaboradores</button><button class="btn" id="rpEdit">${ic('edit')}Editar</button>${u.situacao !== 'desligado' ? `<button class="btn" id="rpDesl">${ic('x')}Desligar</button>` : ''}<button class="btn primary" id="rpTr">${ic('award')}Registrar treinamento</button>`);
+      `<button class="btn" id="rpBack">${ic('chevron')}Pessoas & setores</button><button class="btn" id="rpEdit">${ic('edit')}Editar</button>${u.situacao !== 'desligado' ? `<button class="btn" id="rpDesl">${ic('x')}Desligar</button>` : ''}<button class="btn primary" id="rpTr">${ic('award')}Registrar treinamento</button>`);
     $('#rpBack').onclick = () => go('rh-colab');
     $('#rpEdit').onclick = () => rhFormPessoa(u, () => go('rh-pessoa'));
     $('#rpTr').onclick = () => rhFormTreinoReg({ colabs: [u.id] }, () => go('rh-pessoa'));
@@ -2405,50 +2401,181 @@
       toast(editing ? 'Setor atualizado' : 'Setor criado'); closeModal(); go(currentRoute);
     };
   }
-  PAGES['rh-cargos'] = () => {
-    pageShell('RH', 'Cargos & setores', 'Estrutura da empresa: setores, cargos com as competências exigidas e o organograma.',
-      `<button class="btn" id="rhNs">${ic('plus')}Setor</button><button class="btn primary" id="rhNc">${ic('briefcase')}Novo cargo</button>`);
-    $('#rhNs').onclick = () => rhFormSetor(null);
-    $('#rhNc').onclick = () => rhFormCargo(null);
-    const setores = rhSetores(), cargos = rhList('rhCargos').slice().sort((a, b) => a.nome.localeCompare(b.nome)), ativos = rhAtivos();
-    const tabs = [['cargos', 'Cargos', cargos.length], ['setores', 'Setores', setores.length], ['org', 'Organograma', ativos.length]];
-    const tb = document.createElement('div'); tb.className = 'pvf';
-    tb.innerHTML = `<div class="pvf-tabs" id="rcTabs"><span class="pvf-thumb"></span>${tabs.map(([k, l, n]) => `<button data-s="${k}" class="${rhCargoTab === k ? 'on' : ''}">${l}<span class="pvf-n">${n}</span></button>`).join('')}</div>`;
-    view.appendChild(tb);
-    const holder = document.createElement('div'); view.appendChild(holder);
-    const render = () => {
-      if (rhCargoTab === 'cargos') {
-        holder.innerHTML = cargos.length ? `<div class="rh-cards">${cargos.map((c, i) => { const ppl = ativos.filter((u) => u.cargoId === c.id); const tr = (c.treinos || []).map((t) => Store.find('rhTreinos', t)).filter(Boolean);
-          return `<button type="button" class="rh-card" data-c="${c.id}" style="--d:${i * 40}ms;--c:${RH_PAL[setores.findIndex((s) => s.nome === c.setor) % RH_PAL.length] || RH_COR}">
-            <span class="rh-card-h"><span class="rh-card-ic">${ic('briefcase')}</span><span><b>${esc(c.nome)}</b><small>${esc(c.setor || 'Sem setor')}</small></span></span>
-            ${c.descricao ? `<span class="rh-card-d">${esc(c.descricao)}</span>` : ''}
-            <span class="rh-card-tags">${tr.length ? tr.slice(0, 4).map((t) => `<em>${esc(t.nome.split(' · ')[0])}</em>`).join('') + (tr.length > 4 ? `<em>+${tr.length - 4}</em>` : '') : '<em class="mut">Nenhum treinamento exigido</em>'}</span>
-            <span class="rh-card-f"><span class="rh-stack">${ppl.slice(0, 4).map((u) => rhAvatar(u.name)).join('')}</span><small>${ppl.length} ${ppl.length === 1 ? 'pessoa' : 'pessoas'}</small></span></button>`; }).join('')}</div>`
-          : `<div class="tbl-wrap">${emptyState('briefcase', 'Nenhum cargo cadastrado', 'Crie os cargos e marque os treinamentos que cada um exige — a matriz de competências se monta sozinha.')}</div>`;
-        $$('[data-c]', holder).forEach((b) => (b.onclick = () => rhFormCargo(Store.find('rhCargos', b.dataset.c))));
-      } else if (rhCargoTab === 'setores') {
-        holder.innerHTML = `<div class="rh-cards">${setores.map((s, i) => { const ppl = ativos.filter((u) => u.sector === s.nome); const nc = cargos.filter((c) => c.setor === s.nome).length;
-          return `<button type="button" class="rh-card" data-s="${s.id}" style="--d:${i * 40}ms;--c:${RH_PAL[i % RH_PAL.length]}">
-            <span class="rh-card-h"><span class="rh-card-ic">${ic('grid')}</span><span><b>${esc(s.nome)}</b><small>${s.responsavelId ? 'Responsável: ' + esc(rhNome(s.responsavelId)) : 'Sem responsável definido'}</small></span></span>
-            <span class="rh-card-kpis"><span><b>${ppl.length}</b><small>pessoas</small></span><span><b>${nc}</b><small>cargos</small></span></span>
-            <span class="rh-card-f"><span class="rh-stack">${ppl.slice(0, 6).map((u) => rhAvatar(u.name)).join('')}</span></span></button>`; }).join('')}</div>`;
-        $$('[data-s]', holder).forEach((b) => (b.onclick = () => rhFormSetor(Store.find('rhSetores', b.dataset.s))));
-      } else {
-        const ids = new Set(ativos.map((u) => u.id));
-        const kids = (id) => ativos.filter((u) => u.gestorId === id);
-        const roots = ativos.filter((u) => !u.gestorId || !ids.has(u.gestorId));
-        const lideres = roots.filter((u) => kids(u.id).length), soltos = roots.filter((u) => !kids(u.id).length);
-        const node = (u, depth) => { const k = kids(u.id); if (depth > 8) return ''; return `<li><button type="button" class="rh-org-n" data-p="${u.id}">${rhAvatar(u.name)}<span><b>${esc(u.name)}</b><small>${esc((rhCargo(u.cargoId) || {}).nome || u.role || u.sector || '')}</small></span>${k.length ? `<em>${k.length}</em>` : ''}</button>${k.length ? `<ul>${k.map((x) => node(x, depth + 1)).join('')}</ul>` : ''}</li>`; };
-        holder.innerHTML = `<div class="pvp-card rh-org">${lideres.length ? `<ul class="rh-org-t">${lideres.map((u) => node(u, 0)).join('')}</ul>` : `<div class="qf-empty">${ic('users')}<span>Defina o <b>gestor imediato</b> de cada pessoa (em Colaboradores → Editar) para montar o organograma.</span></div>`}
-          ${soltos.length ? `<div class="rh-org-s"><span class="sv-msg-h">Sem gestor definido · ${soltos.length}</span><div class="rh-org-sl">${soltos.map((u) => `<button type="button" class="rh-org-n" data-p="${u.id}">${rhAvatar(u.name)}<span><b>${esc(u.name)}</b><small>${esc(u.sector || '')}</small></span></button>`).join('')}</div></div>` : ''}</div>`;
-        $$('[data-p]', holder).forEach((b) => (b.onclick = () => rhOpenPessoa(b.dataset.p)));
-      }
-      Icons.apply(holder);
+  /* =========================== PESSOAS & SETORES (mapa) ===========================
+     Colaboradores, cargos e setores numa tela só. Cada setor é uma região; cada pessoa,
+     um bonequinho 3D que se arrasta entre as regiões. Cargos se arrastam até a pessoa. */
+  let rhView = 'mapa'; try { rhView = localStorage.getItem('rh_view') || 'mapa'; } catch (e) {}
+  let rhMapQ = '', rhLanded = null, rhBorn = null;
+  const rhSetCor = (nome, i) => RH_PAL[(i == null ? Math.abs([...String(nome)].reduce((a, c) => a + c.charCodeAt(0), 0)) : i) % RH_PAL.length];
+  const rhPrimeiro = (n) => String(n || '').trim().split(/\s+/)[0] || '—';
+  function rhPawn(u, opt) {
+    const c = rhCargo(u.cargoId); const sit = rhSit(u);
+    return `<button type="button" class="st-pawn${opt && opt.lead ? ' lead' : ''}${rhLanded === u.id ? ' land' : ''}" data-p="${u.id}" style="--h:${pvHue(u.name)}" title="${esc(u.name)}${c ? ' · ' + esc(c.nome) : ''}">
+      <span class="st-fig" aria-hidden="true"><span class="st-shadow"></span><span class="st-body"><i>${esc(pvInitials(u.name))}</i></span><span class="st-head"></span>${opt && opt.lead ? `<span class="st-crown">${ic('award')}</span>` : ''}${sit === 'ferias' || sit === 'afastado' ? `<span class="st-away">${ic('sun2')}</span>` : ''}</span>
+      <span class="st-nm">${esc(rhPrimeiro(u.name))}</span><span class="st-cg">${c ? esc(c.nome) : 'sem cargo'}</span></button>`;
+  }
+  // arrastar com o dedo ou com o mouse (pointer events) — o que é arrastável tem data-drag
+  function rhDragInit(root, cfg) {
+    let st = null;
+    const ro = () => document.body.classList.contains('cc-ro');
+    const alvo = (x, y, tipo) => { const el = document.elementFromPoint(x, y); if (!el) return null; return tipo === 'p' ? el.closest('.st-drop') : el.closest('.st-pawn'); };
+    const fim = (ok) => {
+      if (!st) return;
+      const s = st; st = null;
+      document.removeEventListener('pointermove', mover); document.removeEventListener('pointerup', soltar); document.removeEventListener('pointercancel', cancelar);
+      document.body.classList.remove('st-dragging');
+      if (s.over) s.over.classList.remove('over');
+      if (s.el) s.el.classList.remove('dragging');
+      if (s.ghost) { s.ghost.classList.add(ok ? 'drop' : 'back'); setTimeout(() => s.ghost.remove(), 220); }
+      if (!s.started && s.click) s.click();
+      else if (ok && s.over) cfg.onDrop(s.tipo, s.id, s.over);
     };
-    const tabsEl = $('#rcTabs', tb); Icons.apply(tb);
-    $$('button', tabsEl).forEach((b) => (b.onclick = () => { rhCargoTab = b.dataset.s; $$('button', tabsEl).forEach((x) => x.classList.toggle('on', x === b)); tabsThumb(tabsEl); render(); }));
-    render(); tabsThumbInit(tabsEl, 'rhc');
+    const mover = (e) => {
+      if (!st) return;
+      const dx = e.clientX - st.x0, dy = e.clientY - st.y0;
+      if (!st.started) {
+        if (Math.hypot(dx, dy) < 6) return;
+        if (ro()) { st.click = null; fim(false); toast('Você só tem permissão para visualizar aqui', 'warn'); return; }
+        st.started = true; document.body.classList.add('st-dragging'); st.el.classList.add('dragging');
+        const r = st.el.getBoundingClientRect();
+        st.ghost = st.el.cloneNode(true); st.ghost.classList.add('st-ghost'); st.ghost.classList.remove('dragging', 'land');
+        st.ghost.style.width = r.width + 'px'; st.ghost.style.left = r.left + 'px'; st.ghost.style.top = r.top + 'px';
+        st.ox = st.x0 - r.left; st.oy = st.y0 - r.top;
+        document.body.appendChild(st.ghost);
+      }
+      e.preventDefault();
+      st.ghost.style.transform = `translate(${e.clientX - st.ox - parseFloat(st.ghost.style.left)}px, ${e.clientY - st.oy - parseFloat(st.ghost.style.top)}px) rotate(${Math.max(-12, Math.min(12, (e.clientX - (st.lx || e.clientX)) * 1.4))}deg) scale(1.12)`;
+      st.lx = e.clientX;
+      const t = alvo(e.clientX, e.clientY, st.tipo);
+      if (t !== st.over) { if (st.over) st.over.classList.remove('over'); st.over = t; if (t) t.classList.add('over'); }
+      // rolagem automática perto das bordas
+      const m = 70; if (e.clientY > innerHeight - m) scrollBy(0, 14); else if (e.clientY < m) scrollBy(0, -14);
+    };
+    const soltar = () => fim(true);
+    const cancelar = () => fim(false);
+    root.addEventListener('pointerdown', (e) => {
+      if (e.button > 0) return;
+      const el = e.target.closest('[data-drag]'); if (!el || e.target.closest('[data-nodrag]')) return;
+      const [tipo, id] = el.dataset.drag.split(':');
+      st = { el, tipo, id, x0: e.clientX, y0: e.clientY, started: false, click: cfg.onClick ? () => cfg.onClick(tipo, id, el) : null };
+      document.addEventListener('pointermove', mover, { passive: false }); document.addEventListener('pointerup', soltar); document.addEventListener('pointercancel', cancelar);
+    });
+  }
+  function rhPawnPop(u, anchor) {
+    $$('.st-pop').forEach((x) => x.remove());
+    const c = rhCargo(u.cargoId); const tr = rhTreinoResumo(u);
+    const pop = document.createElement('div'); pop.className = 'st-pop';
+    pop.innerHTML = `<div class="st-pop-h">${rhAvatar(u.name)}<span><b>${esc(u.name)}</b><small>${esc([c ? c.nome : 'Sem cargo', u.sector || 'Sem setor'].join(' · '))}</small></span></div>
+      <div class="st-pop-k">${rhSitBadge(u)}${tr.total ? `<span class="badge ${tr.vencido + tr.faltando ? 'danger' : 'ok'} plain">${tr.ok + tr.vencendo}/${tr.total} treinos</span>` : ''}${u.admissao ? `<span class="badge neutral plain">${esc(rhTempoCasa(u))} de casa</span>` : ''}</div>
+      <div class="st-pop-a"><button type="button" class="btn sm" data-a="perfil">${ic('users')}Perfil</button><button type="button" class="btn sm" data-a="editar">${ic('edit')}Editar</button>${u.sector ? `<button type="button" class="btn sm ghost" data-a="lider" title="Responsável pelo setor">${ic('award')}Responsável</button>` : ''}</div>`;
+    document.body.appendChild(pop); Icons.apply(pop);
+    const r = anchor.getBoundingClientRect(); const pw = Math.min(300, innerWidth - 24);
+    pop.style.width = pw + 'px';
+    pop.style.left = Math.max(12, Math.min(innerWidth - pw - 12, r.left + r.width / 2 - pw / 2)) + 'px';
+    const below = r.bottom + 10 + 170 < innerHeight;
+    pop.style.top = (below ? r.bottom + 8 : Math.max(12, r.top - 8 - pop.offsetHeight)) + 'px';
+    const fechar = () => { pop.remove(); document.removeEventListener('pointerdown', fora, true); removeEventListener('scroll', fechar, true); };
+    const fora = (e) => { if (!pop.contains(e.target)) fechar(); };
+    setTimeout(() => { document.addEventListener('pointerdown', fora, true); addEventListener('scroll', fechar, true); }, 0);
+    $$('[data-a]', pop).forEach((b) => (b.onclick = () => {
+      const a = b.dataset.a; fechar();
+      if (a === 'perfil') rhOpenPessoa(u.id);
+      if (a === 'editar') rhFormPessoa(u, () => go('rh-colab'));
+      if (a === 'lider') { const s = rhSetores().find((x) => x.nome === u.sector); if (s && Store.find('rhSetores', s.id)) { Store.update('rhSetores', s.id, { responsavelId: s.responsavelId === u.id ? '' : u.id }); toast(s.responsavelId === u.id ? 'Responsável removido' : `${rhPrimeiro(u.name)} é responsável por ${s.nome}`); go('rh-colab'); } }
+    }));
+  }
+
+  function rhViewMapa(host) {
+    const setores = rhSetores(); const cargos = rhList('rhCargos').slice().sort((a, b) => a.nome.localeCompare(b.nome)); const ativos = rhAtivos();
+    const nomes = new Set(setores.map((s) => s.nome));
+    const semSetor = ativos.filter((u) => !u.sector || !nomes.has(u.sector));
+    const match = (u) => !rhMapQ || [u.name, u.sector, (rhCargo(u.cargoId) || {}).nome].join(' ').toLowerCase().includes(rhMapQ.toLowerCase());
+    const pawns = (l, lead) => l.map((u) => rhPawn(u, { lead: lead === u.id })).join('');
+    host.innerHTML = `<div class="st-wrap">
+      <div class="st-main">
+        <div class="st-top"><label class="rh-pk-q">${ic('search')}<input id="stQ" placeholder="Procurar pessoa, cargo ou setor…" value="${esc(rhMapQ)}" autocomplete="off"></label>
+          <span class="st-hint">${ic('activity')}<span>Arraste a pessoa para o setor · toque para abrir</span></span></div>
+        <section class="st-bench st-drop" data-set="">
+          <header class="st-rh"><span class="st-dot"></span><b>Sem setor</b><em>${semSetor.length}</em><small>${semSetor.length ? 'arraste para um setor abaixo' : 'todos alocados'}</small></header>
+          <div class="st-floor">${pawns(semSetor) || `<span class="st-empty">${ativos.length ? 'Todo mundo já tem setor.' : 'Nenhum colaborador ainda — use “Cadastro rápido” ou “Admissão”.'}</span>`}</div>
+        </section>
+        <div class="st-grid">${setores.map((s, i) => { const l = ativos.filter((u) => u.sector === s.nome).sort((a, b) => (a.id === s.responsavelId ? -1 : b.id === s.responsavelId ? 1 : a.name.localeCompare(b.name)));
+          return `<section class="st-reg st-drop${rhBorn === s.nome ? ' born' : ''}" data-set="${esc(s.nome)}" style="--c:${rhSetCor(s.nome, i)};--d:${i * 50}ms">
+            <header class="st-rh"><span class="st-dot"></span><b>${esc(s.nome)}</b><em>${l.length}</em><button type="button" class="st-ed" data-sedit="${s.id}" data-nodrag aria-label="Editar setor">${ic('edit')}</button></header>
+            <div class="st-floor">${pawns(l, s.responsavelId) || '<span class="st-empty">Arraste alguém para cá</span>'}</div></section>`; }).join('')}
+          <div class="st-new" id="stNew"><button type="button" class="st-new-b">${ic('plus')}<b>Novo setor</b><small>cria uma nova região</small></button><form class="st-new-f" hidden><input maxlength="40" placeholder="Nome do setor" aria-label="Nome do setor"><button class="btn sm primary" type="submit">${ic('check')}Criar</button></form></div>
+        </div>
+      </div>
+      <aside class="st-cargos">
+        <header class="st-ch"><b>${ic('briefcase')}Cargos</b><em>${cargos.length}</em><button type="button" class="btn sm" id="stCnew" data-nodrag>${ic('plus')}Novo</button></header>
+        <p class="st-tip">Arraste o cargo até a pessoa para definir.</p>
+        <div class="st-cl">${cargos.map((c) => { const n = ativos.filter((u) => u.cargoId === c.id).length; const tr = (c.treinos || []).length;
+          return `<div class="st-cargo" data-drag="c:${c.id}" style="--c:${c.setor ? rhSetCor(c.setor, setores.findIndex((s) => s.nome === c.setor)) : '#94A3B8'}"><span class="st-ci">${ic('briefcase')}</span><span class="st-ct"><b>${esc(c.nome)}</b><small>${n} ${n === 1 ? 'pessoa' : 'pessoas'}${tr ? ` · ${tr} treino${tr > 1 ? 's' : ''}` : ''}${c.setor ? ' · ' + esc(c.setor) : ''}</small></span><button type="button" class="st-ed" data-cedit="${c.id}" data-nodrag aria-label="Editar cargo">${ic('edit')}</button></div>`; }).join('') || '<p class="st-empty">Nenhum cargo. Crie o primeiro.</p>'}</div>
+      </aside></div>`;
+    Icons.apply(host);
+    $$('.st-pawn', host).forEach((b) => { b.dataset.drag = 'p:' + b.dataset.p; if (rhMapQ) b.classList.toggle('dim', !match(rhPessoa(b.dataset.p))); });
+    rhLanded = null; rhBorn = null;
+    $('#stQ', host).oninput = (e) => { rhMapQ = e.target.value; $$('.st-pawn', host).forEach((b) => b.classList.toggle('dim', !!rhMapQ && !match(rhPessoa(b.dataset.p)))); };
+    $$('[data-sedit]', host).forEach((b) => (b.onclick = (e) => { e.stopPropagation(); rhFormSetor(Store.find('rhSetores', b.dataset.sedit) || setores.find((s) => s.id === b.dataset.sedit)); }));
+    $$('[data-cedit]', host).forEach((b) => (b.onclick = (e) => { e.stopPropagation(); rhFormCargo(Store.find('rhCargos', b.dataset.cedit)); }));
+    $('#stCnew', host).onclick = () => rhFormCargo(null);
+    // novo setor: o cartão vira um campo e, ao criar, nasce a região
+    const nw = $('#stNew', host), nf = $('.st-new-f', nw), ni = $('input', nf);
+    $('.st-new-b', nw).onclick = () => { if (document.body.classList.contains('cc-ro')) return toast('Você só tem permissão para visualizar aqui', 'warn'); nw.classList.add('on'); nf.hidden = false; ni.focus(); };
+    ni.addEventListener('keydown', (e) => { if (e.key === 'Escape') { nw.classList.remove('on'); nf.hidden = true; ni.value = ''; } });
+    nf.onsubmit = (e) => {
+      e.preventDefault(); const nome = ni.value.trim().replace(/\s+/g, ' ');
+      if (nome.length < 2) return toast('Digite o nome do setor', 'warn');
+      if (rhSetores().some((x) => x.nome.toLowerCase() === nome.toLowerCase())) return toast('Esse setor já existe', 'warn');
+      Store.add('rhSetores', { id: 'rs_' + rhSlug(nome), nome }); rhBorn = nome; toast(`Setor "${nome}" criado`); go('rh-colab');
+    };
+    rhDragInit(host, {
+      onClick: (tipo, id, el) => { if (tipo === 'p') rhPawnPop(rhPessoa(id), el); },
+      onDrop: (tipo, id, over) => {
+        if (tipo === 'p') {
+          const u = rhPessoa(id); const novo = over.dataset.set || '';
+          if (!u || (u.sector || '') === novo) return;
+          Store.update('team', id, { sector: novo }); rhLanded = id;
+          toast(novo ? `${rhPrimeiro(u.name)} → ${novo}` : `${rhPrimeiro(u.name)} ficou sem setor`); go('rh-colab');
+        } else {
+          const u = rhPessoa(over.dataset.p), c = rhCargo(id); if (!u || !c) return;
+          const patch = { cargoId: c.id, role: c.nome }; if (!u.sector && c.setor) patch.sector = c.setor;
+          Store.update('team', u.id, patch); rhLanded = u.id;
+          toast(`${rhPrimeiro(u.name)} agora é ${c.nome}`); go('rh-colab');
+        }
+      },
+    });
+  }
+
+  function rhViewOrg(host) {
+    const ativos = rhAtivos(); const ids = new Set(ativos.map((u) => u.id));
+    const kids = (id) => ativos.filter((u) => u.gestorId === id);
+    const roots = ativos.filter((u) => !u.gestorId || !ids.has(u.gestorId));
+    const lideres = roots.filter((u) => kids(u.id).length), soltos = roots.filter((u) => !kids(u.id).length);
+    const node = (u, depth) => { const k = kids(u.id); if (depth > 8) return ''; return `<li><button type="button" class="rh-org-n" data-p="${u.id}">${rhAvatar(u.name)}<span><b>${esc(u.name)}</b><small>${esc((rhCargo(u.cargoId) || {}).nome || u.role || u.sector || '')}</small></span>${k.length ? `<em>${k.length}</em>` : ''}</button>${k.length ? `<ul>${k.map((x) => node(x, depth + 1)).join('')}</ul>` : ''}</li>`; };
+    host.innerHTML = `<div class="pvp-card rh-org">${lideres.length ? `<ul class="rh-org-t">${lideres.map((u) => node(u, 0)).join('')}</ul>` : `<div class="qf-empty">${ic('users')}<span>Defina o <b>gestor imediato</b> de cada pessoa (toque na pessoa → Editar) para montar o organograma.</span></div>`}
+      ${soltos.length ? `<div class="rh-org-s"><span class="sv-msg-h">Sem gestor definido · ${soltos.length}</span><div class="rh-org-sl">${soltos.map((u) => `<button type="button" class="rh-org-n" data-p="${u.id}">${rhAvatar(u.name)}<span><b>${esc(u.name)}</b><small>${esc(u.sector || '')}</small></span></button>`).join('')}</div></div>` : ''}</div>`;
+    Icons.apply(host);
+    $$('[data-p]', host).forEach((b) => (b.onclick = () => rhOpenPessoa(b.dataset.p)));
+  }
+
+  PAGES['rh-colab'] = () => {
+    pageShell('RH', 'Pessoas & setores', 'Colaboradores, cargos e setores num lugar só. Arraste as pessoas entre os setores.',
+      `<button class="btn" id="rhNovo">${ic('plus')}Cadastro rápido</button><button class="btn primary" id="rhAdm">${ic('userPlus')}Admissão</button>`);
+    $('#rhNovo').onclick = () => rhFormPessoa(null, () => go('rh-colab'));
+    $('#rhAdm').onclick = () => rhNovaMov('admissao');
+    const vs = [['mapa', 'Mapa', 'grid'], ['lista', 'Lista', 'list'], ['org', 'Organograma', 'users']];
+    const tb = document.createElement('div'); tb.className = 'pvf st-views';
+    tb.innerHTML = `<div class="pvf-tabs" id="stTabs"><span class="pvf-thumb"></span>${vs.map(([k, l, i]) => `<button data-v="${k}" class="${rhView === k ? 'on' : ''}">${ic(i)}${l}</button>`).join('')}</div>`;
+    view.appendChild(tb); Icons.apply(tb);
+    const tabsEl = $('#stTabs', tb);
+    $$('button', tabsEl).forEach((b) => (b.onclick = () => { rhView = b.dataset.v; try { localStorage.setItem('rh_view', rhView); } catch (e) {} go('rh-colab'); }));
+    tabsThumbInit(tabsEl, 'rhv2');
+    if (rhView === 'lista') return rhViewLista();
+    const host = document.createElement('div'); view.appendChild(host);
+    if (rhView === 'org') rhViewOrg(host); else rhViewMapa(host);
   };
+  PAGES['rh-cargos'] = () => { rhView = 'mapa'; go('rh-colab'); };
 
   /* =========================== TREINAMENTOS & COMPETÊNCIAS =========================== */
   let rhTreinoTab = 'matriz'; const rhMxF = { q: '', f: 'todos' };
@@ -2562,7 +2689,7 @@
               <span class="rh-card-h">${rhAvatar(u.name)}<span><b>${esc(u.name)}</b><small>${esc([(rhCargo(u.cargoId) || {}).nome || 'Sem cargo', u.sector].filter(Boolean).join(' · '))}</small></span>
                 ${r.total ? `<span class="rh-mc-pct"><b>${pct}%</b><small>${r.ok + r.vencendo}/${r.total}</small></span>` : ''}</span>
               ${r.total ? `<span class="rh-mc-bar"><i style="width:${pct}%"></i></span>` : ''}
-              <span class="rh-mc-l">${ex.length || extras.length ? ex.map((t) => chip(t)).join('') + extras.map((t) => chip(t, true)).join('') : `<small class="rh-mc-none">${u.cargoId ? 'O cargo desta pessoa não exige treinamentos — defina em Cargos & setores.' : 'Sem cargo definido — escolha o cargo em Colaboradores → Editar.'}</small>`}</span></button>`; }).join('')}</div>`
+              <span class="rh-mc-l">${ex.length || extras.length ? ex.map((t) => chip(t)).join('') + extras.map((t) => chip(t, true)).join('') : `<small class="rh-mc-none">${u.cargoId ? 'O cargo desta pessoa não exige treinamentos — defina em Pessoas & setores.' : 'Sem cargo definido — escolha o cargo em Colaboradores → Editar.'}</small>`}</span></button>`; }).join('')}</div>`
             : `<div class="tbl-wrap">${emptyState('users', 'Ninguém neste filtro', 'Ajuste a busca ou o filtro.')}</div>`;
           Icons.apply($('#mxG', holder));
           $$('#mxG [data-p]', holder).forEach((b) => (b.onclick = () => rhOpenPessoa(b.dataset.p)));
@@ -7035,9 +7162,8 @@
       { label: 'Manutenção', items: [ { r: 'manutencao-home', t: 'Indicadores', s: 'Painel', i: 'grid' }, { r: 'mnt-equip', t: 'Máquinas', s: 'Máquinas', i: 'cpu' }, { r: 'mnt-os', t: 'Ordens de Serviço', s: 'OS', i: 'file' }, { r: 'mnt-prev', t: 'Preventivas', s: 'Prevent.', i: 'refresh' }, { r: 'mnt-cal', t: 'Calendário', s: 'Agenda', i: 'calendar' }, { r: 'mnt-pecas', t: 'Peças', s: 'Peças', i: 'box' } ] },
     ] },
     rh: { label: 'RH', groups: [
-      { label: 'Pessoas', items: [ { r: 'rh-painel', t: 'Painel', s: 'Painel', i: 'grid' }, { r: 'rh-colab', t: 'Colaboradores', s: 'Pessoas', i: 'users' }, { r: 'rh-movs', t: 'Admissão / Desligamento', s: 'Entradas', i: 'refresh' } ] },
+      { label: 'Pessoas', items: [ { r: 'rh-painel', t: 'Painel', s: 'Painel', i: 'grid' }, { r: 'rh-colab', t: 'Pessoas & setores', s: 'Pessoas', i: 'users' }, { r: 'rh-movs', t: 'Admissão / Desligamento', s: 'Entradas', i: 'refresh' } ] },
       { label: 'Desenvolvimento & rotina', items: [ { r: 'rh-treinos', t: 'Treinamentos & competências', s: 'Treinos', i: 'award' }, { r: 'rh-ferias', t: 'Férias & ausências', s: 'Férias', i: 'sun2' }, { r: 'rh-veiculos', t: 'Controle de veículos', s: 'Veículos', i: 'car' } ] },
-      { label: 'Estrutura', items: [ { r: 'rh-cargos', t: 'Cargos & setores', s: 'Cargos', i: 'briefcase' } ] },
     ] },
     programacao: { label: 'Programação', groups: [
       { label: 'Operação', items: [ { r: 'prog-atividades', t: 'Atividades', s: 'Atividades', i: 'list' }, { r: 'prog-pedidos', t: 'Pedidos', s: 'Pedidos', i: 'file' }, { r: 'prog-rnc', t: 'Não Conformidades', s: 'RNC', i: 'alert' } ] },
@@ -7050,12 +7176,12 @@
   ROUTE_AREA['pv-novo'] = 'pos-vendas'; ROUTE_AREA['pv-detalhe'] = 'pos-vendas'; ROUTE_AREA['pv-cliente'] = 'pos-vendas'; TITLES['pv-cliente'] = 'Perfil do cliente';
   TITLES['pv-novo'] = 'Novo chamado'; TITLES['pv-detalhe'] = 'Chamado';
   ROUTE_AREA['rh-pessoa'] = 'rh'; TITLES['rh-pessoa'] = 'Perfil do colaborador'; ROUTE_AREA['rh-mov-novo'] = 'rh'; TITLES['rh-mov-novo'] = 'Admissão / Desligamento';
-  const NAV_PARENT = { 'pv-cliente': 'pv-clientes', 'rh-pessoa': 'rh-colab', 'rh-mov-novo': 'rh-movs' };
+  const NAV_PARENT = { 'pv-cliente': 'pv-clientes', 'rh-pessoa': 'rh-colab', 'rh-mov-novo': 'rh-movs', 'rh-cargos': 'rh-colab' };
   /* =========================== PERMISSÕES (login) ===========================
      Cada aba do menu tem um nível por usuário: editar | ver | nenhum.
      Admin = tudo. Sem login configurado (modo aberto) = tudo, como antes.
      As gravações também são barradas no banco (RLS por área — supabase/login.sql). */
-  const ROUTE_PARENT = { servidor: 'infra', 'pv-cliente': 'pv-clientes', 'pv-novo': 'pv-chamados', 'prog-pedido': 'prog-pedidos', 'rh-pessoa': 'rh-colab', 'rh-mov-novo': 'rh-movs' };
+  const ROUTE_PARENT = { servidor: 'infra', 'pv-cliente': 'pv-clientes', 'pv-novo': 'pv-chamados', 'prog-pedido': 'prog-pedidos', 'rh-pessoa': 'rh-colab', 'rh-mov-novo': 'rh-movs', 'rh-cargos': 'rh-colab' };
   const NIV_ORD = { nenhum: 0, ver: 1, editar: 2 };
   const nivMax = (a, b) => (NIV_ORD[a] >= NIV_ORD[b] ? a : b);
   // mesma tabela do banco (cc_areas_da_colecao)
