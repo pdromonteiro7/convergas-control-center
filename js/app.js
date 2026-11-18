@@ -2614,7 +2614,7 @@
   const rhIntBadge = (st) => `<span class="badge ${RH_INT_ST[st].cls} plain">${RH_INT_ST[st].l}</span>`;
 
   /* ---------- impressão ---------- */
-  function rhPrintDoc(titulo, corpo) {
+  function rhPrintDoc(titulo, corpo, setor) {
     const logo = location.origin + '/assets/logo-icone.png';
     const html = `<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><title>${esc(titulo)}</title><style>
       @page { size: A4; margin: 16mm 14mm; }
@@ -2635,9 +2635,9 @@
       .st { font-weight: 700; } .st.ok { color: #127a4b; } .st.vencendo { color: #a26500; } .st.vencido { color: #b42318; } .st.pendente { color: #667; }
       footer { margin-top: 22px; color: #778; font-size: 9.5px; border-top: 1px solid #d5dbe4; padding-top: 6px; }
     </style></head><body>
-      <header><img src="${logo}" alt=""><div class="t"><h1>${esc(titulo)}</h1><div class="s">Convergas · Recursos Humanos</div></div><div class="e">Emitido em<br><b>${esc(pvFmtDT(new Date().toISOString()))}</b></div></header>
+      <header><img src="${logo}" alt=""><div class="t"><h1>${esc(titulo)}</h1><div class="s">Convergas · ${esc(setor || 'Recursos Humanos')}</div></div><div class="e">Emitido em<br><b>${esc(pvFmtDT(new Date().toISOString()))}</b></div></header>
       ${corpo}
-      <footer>Convergas · Control Center · RH</footer></body></html>`;
+      <footer>Convergas · Control Center · ${esc(setor || 'RH')}</footer></body></html>`;
     const win = window.open('', '_blank');
     if (!win) { toast('Permita pop-ups para imprimir', 'warn'); return; }
     win.document.open(); win.document.write(html); win.document.close();
@@ -3709,6 +3709,215 @@
   function campusFit() { if (window.Campus3D) Campus3D.resize(); }
   addEventListener('resize', () => { clearTimeout(CP.rz); CP.rz = setTimeout(() => { if (window.Campus3D) Campus3D.resize(); else campusBuild(); }, 150); });
   window.campusDemo = (on) => { window.__campusDemo = on || null; CP.built = ''; campusBuild(true); };
+
+  /* =========================== INDICADORES IATF 16949 / ISO 9001 ===========================
+     Tudo calculado a partir do que já é registrado no sistema (chamados, avaliações, certificados,
+     OS, RH e Programação). Metas guardadas na coleção "qaKpi" (registro "metas"). */
+  const KPI_AREAS = {
+    'pos-vendas': { l: 'Pós-Vendas', i: 'phone' }, qualidade: { l: 'Qualidade', i: 'award' }, manutencao: { l: 'Manutenção', i: 'wrench' },
+    rh: { l: 'RH', i: 'users' }, programacao: { l: 'Programação', i: 'calendar' },
+  };
+  const kpiCor = (a) => (HOME_AREAS_ALL.find((x) => x.area === a) || {}).color || '#5CE1E6';
+  const mKey = (iso) => String(iso || '').slice(0, 7);
+  const mIni = (k) => k + '-01';
+  const mFim = (k) => { const [y, m] = k.split('-').map(Number); return new Date(y, m, 0).toISOString().slice(0, 10); };
+  const mDias = (k) => { const [y, m] = k.split('-').map(Number); return new Date(y, m, 0).getDate(); };
+  const mAdd = (k, n) => { const [y, m] = k.split('-').map(Number); const d = new Date(y, m - 1 + n, 1); return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0'); };
+  const MES_C = ['jan', 'fev', 'mar', 'abr', 'mai', 'jun', 'jul', 'ago', 'set', 'out', 'nov', 'dez'];
+  const MES_L = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'];
+  const mNome = (k, longo) => { const [y, m] = k.split('-').map(Number); return longo ? `${MES_L[m - 1]} ${y}` : `${MES_C[m - 1]}/${String(y).slice(2)}`; };
+  const pctOf = (a, b) => (b ? (100 * a) / b : null);
+  const media = (l) => (l.length ? l.reduce((x, y) => x + y, 0) / l.length : null);
+  const dd = (a, b) => (a && b ? daysBetween(String(a).slice(0, 10), String(b).slice(0, 10)) : null);
+  const naMes = (iso, k) => mKey(iso) === k;
+
+  // definição dos indicadores: v(k) devolve { v, n } para o mês k (n = base usada no cálculo)
+  function kpiDefs() {
+    const ch = () => (Store.get('pvChamados') || []).filter((c) => c.status !== 'cancelado');
+    const avs = () => (Store.get('pvAvaliacoes') || []).filter((a) => a.status === 'respondida' && a.resposta);
+    const os = () => Store.get('serviceOrders') || [];
+    const maq = () => Math.max(1, (Store.get('equipments') || []).length);
+    const T = (Store.get('settings') || {}).mntTargets || { disp: 95, mttr: 4, prev: 90 };
+    const prev180 = (c) => ch().some((o) => o.id !== c.id && o.criadoEm < c.criadoEm && dd(o.criadoEm, c.criadoEm) <= 180 && o.clienteId === c.clienteId && ((o.produto || {}).codigo || '') === ((c.produto || {}).codigo || '') && ((c.produto || {}).codigo || o.tipo === c.tipo));
+    const certs = (tipos) => (Store.get('certificates') || []).filter((c) => tipos.includes(c.type));
+    const regs = () => (rhList('rhTreinoReg') || []).filter((r) => !r.anulado);
+    const prnc = () => Store.get('progRNC') || [];
+    return [
+      // ---------------- Pós-Vendas ----------------
+      { k: 'pv_recl', a: 'pos-vendas', t: 'Reclamações recebidas', c: '9.1.2.1 · 10.2.6', u: 'n', melhor: 'menor', meta: null, como: 'Chamados abertos no mês.',
+        v: (k) => { const l = ch().filter((c) => naMes(c.criadoEm, k)); return { v: l.length, n: l.length }; } },
+      { k: 'pv_prazo', a: 'pos-vendas', t: 'Chamados resolvidos no prazo', c: '10.2.6', u: '%', melhor: 'maior', meta: 90, como: 'Encerrados até o prazo ÷ encerrados no mês.',
+        v: (k) => { const l = ch().filter((c) => c.status === 'encerrado' && naMes((c.encerramento || {}).data, k)); return { v: pctOf(l.filter((c) => !c.prazo || c.encerramento.data <= c.prazo).length, l.length), n: l.length }; } },
+      { k: 'pv_tempo', a: 'pos-vendas', t: 'Tempo médio de solução', c: '10.2.6', u: 'd', melhor: 'menor', meta: 15, como: 'Dias entre a abertura e o encerramento.',
+        v: (k) => { const l = ch().filter((c) => c.status === 'encerrado' && naMes((c.encerramento || {}).data, k)).map((c) => dd(c.criadoEm, c.encerramento.data)).filter((x) => x != null && x >= 0); return { v: media(l), n: l.length }; } },
+      { k: 'pv_proc', a: 'pos-vendas', t: 'Reclamações procedentes', c: '10.2.6', u: '%', melhor: 'menor', meta: null, como: 'Procedentes ÷ chamados com procedência definida.',
+        v: (k) => { const l = ch().filter((c) => naMes(c.criadoEm, k) && ['Procedente', 'Improcedente'].includes((c.triagem || {}).procedencia)); return { v: pctOf(l.filter((c) => c.triagem.procedencia === 'Procedente').length, l.length), n: l.length }; } },
+      { k: 'pv_ntf', a: 'pos-vendas', t: 'Peças sem defeito (NTF)', c: '10.2.5', u: '%', melhor: 'menor', meta: 20, como: 'Atendimentos com NTF ÷ atendimentos registrados.',
+        v: (k) => { const l = ch().filter((c) => naMes(c.criadoEm, k) && (c.atendimento || {}).descricao); return { v: pctOf(l.filter((c) => c.atendimento.ntf && c.atendimento.ntf !== 'Não' && c.atendimento.ntf !== 'nao').length, l.length), n: l.length }; } },
+      { k: 'pv_reinc', a: 'pos-vendas', t: 'Reincidência', c: '10.2.3', u: '%', melhor: 'menor', meta: 10, como: 'Chamados do mesmo cliente e produto nos 180 dias anteriores.',
+        v: (k) => { const l = ch().filter((c) => naMes(c.criadoEm, k)); return { v: pctOf(l.filter(prev180).length, l.length), n: l.length }; } },
+      { k: 'pv_rnc', a: 'pos-vendas', t: 'Tempo de resposta da RNC', c: '10.2.3 · 10.2.6', u: 'd', melhor: 'menor', meta: 10, como: 'Dias entre a abertura e a resposta da RNC ao cliente.',
+        v: (k) => { const l = ch().filter((c) => naMes((c.rnc || {}).respostaEm, k)).map((c) => dd(c.criadoEm, c.rnc.respostaEm)).filter((x) => x != null && x >= 0); return { v: media(l), n: l.length }; } },
+      { k: 'pv_efic', a: 'pos-vendas', t: 'Eficácia das ações corretivas', c: '10.2.3', u: '%', melhor: 'maior', meta: 90, como: 'Verificações "eficaz" ÷ verificações no mês.',
+        v: (k) => { const l = ch().filter((c) => naMes((c.verificacao || {}).data, k) && c.verificacao.eficaz); return { v: pctOf(l.filter((c) => c.verificacao.eficaz === 'Sim').length, l.length), n: l.length }; } },
+      { k: 'pv_sat', a: 'pos-vendas', t: 'Satisfação do cliente', c: '9.1.2', u: 'nota', melhor: 'maior', meta: 4, como: 'Média das notas (encerramento e avaliações), de 1 a 5.',
+        v: (k) => { const l = ch().filter((c) => naMes((c.encerramento || {}).data, k)).map((c) => Number(c.encerramento.satisfacao)).filter((x) => x > 0).concat(avs().filter((a) => naMes(a.respostaEm, k)).map((a) => Number(a.resposta.nota)).filter((x) => x > 0)); return { v: media(l), n: l.length }; } },
+      { k: 'pv_nps', a: 'pos-vendas', t: 'NPS', c: '9.1.2', u: 'nps', melhor: 'maior', meta: 50, como: '% promotores (9–10) − % detratores (0–6).',
+        v: (k) => { const l = avs().filter((a) => naMes(a.respostaEm, k)).map((a) => Number(a.resposta.recomenda)).filter((x) => !isNaN(x) && x >= 0); return { v: l.length ? Math.round(pctOf(l.filter((x) => x >= 9).length, l.length) - pctOf(l.filter((x) => x <= 6).length, l.length)) : null, n: l.length }; } },
+      { k: 'pv_custo', a: 'pos-vendas', t: 'Custo de garantia e atendimento', c: '9.3.2.1 · 10.2.5', u: 'R$', melhor: 'menor', meta: null, como: 'Soma dos custos lançados nos atendimentos.',
+        v: (k) => { const l = ch().filter((c) => naMes(c.criadoEm, k) && Number((c.atendimento || {}).custoTotal) > 0); return { v: l.length ? l.reduce((s, c) => s + Number(c.atendimento.custoTotal), 0) : 0, n: l.length }; } },
+      // ---------------- Qualidade (situação atual) ----------------
+      { k: 'qa_calib', a: 'qualidade', t: 'Calibrações em dia', c: '7.1.5.1.1 · 7.1.5.2', u: '%', melhor: 'maior', meta: 100, atual: true, como: 'Equipamentos com calibração válida ÷ equipamentos.',
+        v: () => { const l = certs(['equipamento']); return { v: pctOf(l.filter((c) => certStatus(c.expiryDate).key !== 'vencido').length, l.length), n: l.length }; } },
+      { k: 'qa_cert', a: 'qualidade', t: 'Certificados válidos', c: '8.4.2.3 · 8.6', u: '%', melhor: 'maior', meta: 100, atual: true, como: 'Certificados InMetro e de manutenção dentro da validade.',
+        v: () => { const l = certs(['cata', 'manutencao']); return { v: pctOf(l.filter((c) => certStatus(c.expiryDate).key !== 'vencido').length, l.length), n: l.length }; } },
+      { k: 'qa_v90', a: 'qualidade', t: 'Vencimentos nos próximos 90 dias', c: '7.1.5', u: 'n', melhor: 'menor', meta: null, atual: true, como: 'Certificados e calibrações que vencem em até 90 dias.',
+        v: () => { const l = certs(['equipamento', 'cata', 'manutencao']); return { v: l.filter((c) => certStatus(c.expiryDate).key === 'vencendo').length, n: l.length }; } },
+      // ---------------- Manutenção ----------------
+      { k: 'mn_mttr', a: 'manutencao', t: 'MTTR · tempo médio de reparo', c: '8.5.1.5', u: 'h', melhor: 'menor', meta: T.mttr, como: 'Horas entre a abertura e o fechamento das OS.',
+        v: (k) => { const l = os().filter((o) => o.kind === 'os' && o.status === 'finalizada' && naMes(o.closeDate, k)).map(hoursOf).filter((x) => !isNaN(x)); return { v: media(l), n: l.length }; } },
+      { k: 'mn_mtbf', a: 'manutencao', t: 'MTBF · tempo médio entre falhas', c: '8.5.1.5', u: 'd', melhor: 'maior', meta: null, como: 'Dias de operação das máquinas ÷ falhas no mês.',
+        v: (k) => { const f = os().filter((o) => o.kind === 'os' && naMes(o.openDate, k)).length; return { v: f ? (mDias(k) * maq()) / f : null, n: f }; } },
+      { k: 'mn_disp', a: 'manutencao', t: 'Disponibilidade das máquinas', c: '8.5.1.5', u: '%', melhor: 'maior', meta: T.disp, como: '1 − horas paradas ÷ horas disponíveis.',
+        v: (k) => { const l = os().filter((o) => o.kind === 'os' && o.status === 'finalizada' && naMes(o.closeDate, k)).map(hoursOf).filter((x) => !isNaN(x)); const tot = maq() * mDias(k) * 24; return { v: Math.max(0, Math.min(100, 100 * (1 - l.reduce((a, b) => a + b, 0) / tot))), n: l.length }; } },
+      { k: 'mn_prev', a: 'manutencao', t: 'Preventivas no prazo', c: '8.5.1.5', u: '%', melhor: 'maior', meta: T.prev, como: 'Preventivas concluídas até a data prevista ÷ concluídas.',
+        v: (k) => { const l = os().filter((o) => o.kind === 'preventiva' && o.status === 'concluida' && naMes(o.closeDate, k)); return { v: pctOf(l.filter((o) => o.dueDate && o.closeDate <= o.dueDate).length, l.length), n: l.length }; } },
+      { k: 'mn_os', a: 'manutencao', t: 'OS corretivas abertas', c: '8.5.1.5', u: 'n', melhor: 'menor', meta: null, como: 'Ordens de serviço abertas no mês.',
+        v: (k) => { const l = os().filter((o) => o.kind === 'os' && naMes(o.openDate, k)); return { v: l.length, n: l.length }; } },
+      // ---------------- RH ----------------
+      { k: 'rh_int', a: 'rh', t: 'Integração em dia', c: '7.2 · 7.3', u: '%', melhor: 'maior', meta: 100, atual: true, como: 'Colaboradores com integração válida ÷ ativos.',
+        v: () => { const l = rhAtivos(); return { v: pctOf(l.filter((u) => ['ok', 'vencendo'].includes(rhIntDe(u.id).st)).length, l.length), n: l.length }; } },
+      { k: 'rh_treino', a: 'rh', t: 'Treinamentos exigidos em dia', c: '7.2.1 · 7.2.2', u: '%', melhor: 'maior', meta: 95, atual: true, como: 'Treinamentos válidos ÷ exigidos pelos cargos.',
+        v: () => { let ok = 0, tot = 0; rhAtivos().forEach((u) => { const r = rhTreinoResumo(u); ok += r.ok + r.vencendo; tot += r.total; }); return { v: pctOf(ok, tot), n: tot }; } },
+      { k: 'rh_efic', a: 'rh', t: 'Eficácia dos treinamentos', c: '7.2.1', u: '%', melhor: 'maior', meta: 90, como: 'Treinamentos avaliados como eficazes ÷ avaliados.',
+        v: (k) => { const l = regs().filter((r) => naMes(r.data, k) && ['eficaz', 'nao'].includes(r.eficacia)); return { v: pctOf(l.filter((r) => r.eficacia === 'eficaz').length, l.length), n: l.length }; } },
+      { k: 'rh_horas', a: 'rh', t: 'Horas de treinamento por pessoa', c: '7.2', u: 'h', melhor: 'maior', meta: null, como: 'Carga horária realizada no mês ÷ colaboradores ativos.',
+        v: (k) => { const l = regs().filter((r) => naMes(r.data, k)); const at = Math.max(1, rhAtivos().length); return { v: l.reduce((s, r) => s + (Number(r.cargaHoras) || 0), 0) / at, n: l.length }; } },
+      { k: 'rh_turn', a: 'rh', t: 'Turnover', c: '7.1.2', u: '%', melhor: 'menor', meta: 2, como: 'Desligamentos no mês ÷ colaboradores ativos.',
+        v: (k) => { const at = rhList('team').filter((u) => (!u.admissao || u.admissao <= mFim(k)) && (u.situacao !== 'desligado' || (u.desligamento && u.desligamento >= mIni(k)))).length; const des = rhList('team').filter((u) => naMes(u.desligamento, k)).length; return { v: at ? pctOf(des, at) : null, n: at }; } },
+      // ---------------- Programação ----------------
+      { k: 'pg_rnc', a: 'programacao', t: 'RNCs internas abertas', c: '8.7 · 10.2', u: 'n', melhor: 'menor', meta: null, como: 'Não conformidades abertas no mês.',
+        v: (k) => { const l = prnc().filter((r) => naMes(r.criadoEm, k)); return { v: l.length, n: l.length }; } },
+      { k: 'pg_acoes', a: 'programacao', t: 'Ações de RNC no prazo', c: '10.2.3', u: '%', melhor: 'maior', meta: 90, como: 'Ações concluídas ÷ ações com prazo no mês (já vencido).',
+        v: (k) => { const h = todayISO(); const l = []; prnc().forEach((r) => (r.planoAcao || []).forEach((p) => { if (p.prazo && naMes(p.prazo, k) && (p.prazo < h || p.status === 'concluida')) l.push(p); })); return { v: pctOf(l.filter((p) => p.status === 'concluida').length, l.length), n: l.length }; } },
+      { k: 'pg_efic', a: 'programacao', t: 'Eficácia das ações (RNC internas)', c: '10.2.3', u: '%', melhor: 'maior', meta: 90, como: 'RNCs verificadas como eficazes ÷ verificadas.',
+        v: (k) => { const l = prnc().filter((r) => naMes((r.verificacao || {}).data, k) && r.verificacao.eficaz); return { v: pctOf(l.filter((r) => r.verificacao.eficaz === 'Sim').length, l.length), n: l.length }; } },
+      { k: 'pg_atv', a: 'programacao', t: 'Atividades no prazo', c: '8.5.1', u: '%', melhor: 'maior', meta: 90, como: 'Atividades concluídas ÷ atividades com prazo no mês (já vencido).',
+        v: (k) => { const h = todayISO(); const l = (Store.get('progAtividades') || []).filter((a) => a.prazo && naMes(a.prazo, k) && (a.prazo < h || a.status === 'done')); return { v: pctOf(l.filter((a) => a.status === 'done').length, l.length), n: l.length }; } },
+    ];
+  }
+  const kpiMetas = () => { const r = Store.find('qaKpi', 'metas'); return (r && r.metas) || {}; };
+  const kpiMeta = (d) => { const m = kpiMetas(); return Object.prototype.hasOwnProperty.call(m, d.k) ? m[d.k] : d.meta; };
+  function kpiFmt(v, u) {
+    if (v == null || isNaN(v)) return '—';
+    if (u === '%') return (Math.round(v * 10) / 10).toLocaleString('pt-BR', { maximumFractionDigits: 1 }) + '%';
+    if (u === 'R$') return 'R$ ' + Number(v).toLocaleString('pt-BR', { maximumFractionDigits: 0 });
+    if (u === 'nota') return Number(v).toLocaleString('pt-BR', { minimumFractionDigits: 1, maximumFractionDigits: 1 });
+    if (u === 'nps') return (v > 0 ? '+' : '') + Math.round(v);
+    if (u === 'h') return Number(v).toLocaleString('pt-BR', { maximumFractionDigits: 1 }) + ' h';
+    if (u === 'd') return Number(v).toLocaleString('pt-BR', { maximumFractionDigits: 1 }) + ' d';
+    return Math.round(v).toLocaleString('pt-BR');
+  }
+  // situação frente à meta: ok | atencao | fora | info (sem meta) | sem (sem dados)
+  function kpiSt(d, r) {
+    if (!r || r.v == null || isNaN(r.v) || (!r.n && d.u !== 'n' && d.u !== 'R$')) return 'sem';
+    const meta = kpiMeta(d); if (meta == null || meta === '') return 'info';
+    const ok = d.melhor === 'maior' ? r.v >= meta : r.v <= meta;
+    if (ok) return 'ok';
+    const folga = Math.max(Math.abs(meta) * 0.1, d.u === '%' ? 5 : 0.5);
+    return (d.melhor === 'maior' ? r.v >= meta - folga : r.v <= meta + folga) ? 'atencao' : 'fora';
+  }
+  const KPI_ST = { ok: { l: 'Na meta', c: '#46D39A' }, atencao: { l: 'Atenção', c: '#F5B840' }, fora: { l: 'Fora da meta', c: '#FF7A7A' }, info: { l: 'Acompanhar', c: '#5CE1E6' }, sem: { l: 'Sem dados', c: '#94A3B8' } };
+  const kpiMetaTxt = (d) => { const m = kpiMeta(d); return m == null || m === '' ? 'sem meta' : `meta ${d.melhor === 'maior' ? '≥' : '≤'} ${kpiFmt(m, d.u)}`; };
+  function kpiSerie(d, ref) { const ms = []; for (let i = 11; i >= 0; i--) ms.push(mAdd(ref, -i)); return ms.map((k) => ({ k, ...(d.atual ? (k === ref ? d.v(k) : { v: null, n: 0 }) : d.v(k)) })); }
+  function kpiSpark(d, serie, w, h, grande) {
+    const vals = serie.map((x) => (x.v == null || isNaN(x.v) ? null : x.v)); const meta = kpiMeta(d);
+    const mx = Math.max(1e-9, ...vals.filter((x) => x != null).map(Math.abs), meta != null ? Math.abs(meta) : 0) * 1.12;
+    const bw = w / serie.length; const y = (v) => h - 2 - (Math.max(0, v) / mx) * (h - (grande ? 26 : 6));
+    const bars = serie.map((x, i) => { const v = vals[i]; if (v == null) return `<rect x="${(i * bw + bw * .22).toFixed(1)}" y="${h - 3}" width="${(bw * .56).toFixed(1)}" height="2" rx="1" class="kp-z"/>`;
+      const st = kpiSt(d, x); const yy = y(v); return `<rect x="${(i * bw + bw * .22).toFixed(1)}" y="${yy.toFixed(1)}" width="${(bw * .56).toFixed(1)}" height="${(h - 2 - yy).toFixed(1)}" rx="${grande ? 4 : 2}" fill="${KPI_ST[st].c}" opacity="${i === serie.length - 1 ? 1 : .55}" style="--d:${i * 30}ms"/>${grande ? `<text x="${(i * bw + bw / 2).toFixed(1)}" y="${(yy - 6).toFixed(1)}">${esc(kpiFmt(v, d.u).replace(' h', '').replace(' d', ''))}</text>` : ''}`; }).join('');
+    const ml = meta != null && meta !== '' ? `<line x1="0" x2="${w}" y1="${y(meta).toFixed(1)}" y2="${y(meta).toFixed(1)}" class="kp-meta"/>` : '';
+    return `<svg viewBox="0 0 ${w} ${h}" preserveAspectRatio="none" class="kp-spark${grande ? ' big' : ''}" aria-hidden="true">${ml}${bars}</svg>`;
+  }
+
+  let kpiRef = null, kpiArea = 'todas';
+  function kpiDetalhe(d, ref) {
+    const serie = kpiSerie(d, ref); const atual = serie[serie.length - 1]; const st = kpiSt(d, atual); const meta = kpiMeta(d);
+    const pode = Perm.podeGravar('qaKpi');
+    const card = modal({
+      title: d.t, sub: `${KPI_AREAS[d.a].l} · IATF ${d.c}`, wide: true,
+      body: `<div class="kpd" style="--c:${kpiCor(d.a)};--s:${KPI_ST[st].c}">
+          <div class="kpd-top"><div class="kpd-val"><small>${esc(d.atual ? 'Situação atual' : mNome(ref, true))}</small><b>${st === 'sem' ? '—' : esc(kpiFmt(atual.v, d.u))}</b><span class="kpd-st">${KPI_ST[st].l}</span></div>
+            <div class="kpd-info"><span><small>Meta</small><b>${esc(kpiMetaTxt(d).replace('meta ', ''))}</b></span><span><small>Base</small><b>${atual.n || 0}</b></span><span><small>Cálculo</small><b>${esc(d.como)}</b></span></div></div>
+          ${d.atual ? '' : `<div class="kpd-chart">${kpiSpark(d, serie, 640, 190, true)}<div class="kpd-axis">${serie.map((x) => `<span>${mNome(x.k)}</span>`).join('')}</div></div>`}
+          ${pode ? `<div class="kpd-meta"><label>Meta</label><input type="text" inputmode="decimal" id="kpMeta" value="${meta == null ? '' : String(meta).replace('.', ',')}" placeholder="sem meta"><span>${d.melhor === 'maior' ? 'quanto maior, melhor' : 'quanto menor, melhor'}</span><button type="button" class="btn sm primary" id="kpSave">${ic('check')}Salvar meta</button></div>` : ''}
+        </div>`,
+      footer: '<button class="btn primary" data-close>Fechar</button>',
+    });
+    Icons.apply(card);
+    const sv = $('#kpSave', card);
+    if (sv) sv.onclick = () => {
+      const raw = $('#kpMeta', card).value.trim().replace(',', '.'); const val = raw === '' ? null : Number(raw);
+      if (raw !== '' && isNaN(val)) return toast('Meta inválida', 'warn');
+      const cur = Store.find('qaKpi', 'metas'); const metas = { ...kpiMetas(), [d.k]: val };
+      if (cur) Store.update('qaKpi', 'metas', { metas }); else Store.add('qaKpi', { id: 'metas', metas });
+      toast('Meta salva'); closeModal(); go('qa-indicadores');
+    };
+  }
+  function kpiRelatorio(ref, defs) {
+    const meses = []; for (let i = 5; i >= 0; i--) meses.push(mAdd(ref, -i));
+    const rows = Object.keys(KPI_AREAS).map((a) => { const l = defs.filter((d) => d.a === a); if (!l.length) return '';
+      return `<tr class="ar"><td colspan="${5 + meses.length}">${esc(KPI_AREAS[a].l)}</td></tr>` + l.map((d) => { const s = kpiSerie(d, ref).slice(-6); const st = kpiSt(d, s[s.length - 1]);
+        return `<tr><td><b>${esc(d.t)}</b><small>${esc(d.como)}</small></td><td class="c">${esc(d.c)}</td><td class="c">${esc(kpiMetaTxt(d).replace('meta ', ''))}</td>${s.map((x, i) => `<td class="n${i === s.length - 1 ? ' cur' : ''}">${d.atual && i < s.length - 1 ? '' : kpiSt(d, x) === 'sem' ? '—' : esc(kpiFmt(x.v, d.u))}</td>`).join('')}<td class="kst k-${st}">${KPI_ST[st].l}</td></tr>`; }).join(''); }).join('');
+    const tot = defs.map((d) => kpiSt(d, kpiSerie(d, ref).slice(-1)[0])); const cm = tot.filter((x) => ['ok', 'atencao', 'fora'].includes(x));
+    const corpo = `<div class="info"><div><small>Período de referência</small><b>${mNome(ref, true)}</b></div><div><small>Indicadores com meta</small><b>${cm.length}</b></div><div><small>Na meta</small><b>${tot.filter((x) => x === 'ok').length}</b></div><div><small>Fora da meta</small><b>${tot.filter((x) => x === 'fora').length}</b></div></div>
+      <table class="kpt"><thead><tr><th>Indicador</th><th>IATF</th><th>Meta</th>${meses.map((k) => `<th class="n">${mNome(k)}</th>`).join('')}<th>Situação</th></tr></thead><tbody>${rows}</tbody></table>
+      <h3 style="margin:20px 0 6px;font-size:12px;color:#0b3d6b;text-transform:uppercase;letter-spacing:.05em">Análise crítica pela direção (IATF 9.3)</h3>
+      <table class="kpa"><tbody><tr><th>Conclusões</th><td></td></tr><tr><th>Ações e responsáveis</th><td></td></tr><tr><th>Participantes</th><td></td></tr></tbody></table>
+      <div class="ass"><div>&nbsp;<small>Direção</small></div><div>&nbsp;<small>Qualidade</small></div></div>`;
+    const extra = `<style>@page{size:A4 landscape;margin:12mm}.kpt td small{display:block;color:#667;font-size:9.5px;font-weight:400}.kpt td.c{white-space:nowrap;color:#445;font-size:10.5px}.kpt td.n,.kpt th.n{text-align:center;white-space:nowrap}.kpt td.cur{font-weight:700;background:#f4f8fd}.kpt tr.ar td{background:#0b3d6b;color:#fff;font-weight:700;text-transform:uppercase;letter-spacing:.06em;font-size:10px;padding:5px 8px}.kpt td.kst{font-weight:700;white-space:nowrap}.kpt td.k-ok{color:#127a4b}.kpt td.k-atencao{color:#a26500}.kpt td.k-fora{color:#b42318}.kpt td.k-info,.kpt td.k-sem{color:#667;font-weight:400}.kpa th{width:22%}.kpa td{height:42px}</style>`;
+    rhPrintDoc('Indicadores da Qualidade · IATF 16949 / ISO 9001', extra + corpo, 'Qualidade');
+  }
+
+  PAGES['qa-indicadores'] = () => {
+    const hoje = mKey(todayISO()); if (!kpiRef) kpiRef = mAdd(hoje, -1);
+    const ref = kpiRef; const defs = kpiDefs();
+    pageShell('Qualidade', 'Indicadores IATF', 'IATF 16949 · ISO 9001',
+      `<div class="kp-mes"><button type="button" class="icon-btn" id="kpPrev" aria-label="Mês anterior">${ic('chevron')}</button><b>${mNome(ref, true)}${ref === hoje ? '<small>parcial</small>' : ''}</b><button type="button" class="icon-btn" id="kpNext" aria-label="Próximo mês" ${ref >= hoje ? 'disabled' : ''}>${ic('chevron')}</button></div><button class="btn primary" id="kpRel">${ic('file')}Relatório</button>`);
+    $('#kpPrev').onclick = () => { kpiRef = mAdd(ref, -1); go('qa-indicadores'); };
+    $('#kpNext').onclick = () => { if (ref < hoje) { kpiRef = mAdd(ref, 1); go('qa-indicadores'); } };
+    $('#kpRel').onclick = () => kpiRelatorio(ref, defs);
+    const calc = defs.map((d) => { const serie = kpiSerie(d, ref); const cur = serie[serie.length - 1]; const ant = serie[serie.length - 2]; return { d, serie, cur, ant, st: kpiSt(d, cur) }; });
+    const cnt = { ok: 0, atencao: 0, fora: 0, info: 0, sem: 0 }; calc.forEach((x) => cnt[x.st]++);
+    const comMeta = cnt.ok + cnt.atencao + cnt.fora; const pct = comMeta ? Math.round((100 * cnt.ok) / comMeta) : 0;
+    // topo: anel + resumo por área
+    const R = 54, C = 2 * Math.PI * R; let off = 0;
+    const arcs = ['ok', 'atencao', 'fora'].map((k) => { const f = comMeta ? cnt[k] / comMeta : 0; const s = `<circle r="${R}" cx="70" cy="70" fill="none" stroke="${KPI_ST[k].c}" stroke-width="12" stroke-dasharray="${(f * C).toFixed(1)} ${C.toFixed(1)}" stroke-dashoffset="${(-off * C).toFixed(1)}" stroke-linecap="${f > .02 ? 'round' : 'butt'}" transform="rotate(-90 70 70)" class="kp-arc" style="--d:${off * 600}ms"/>`; off += f; return s; }).join('');
+    const top = document.createElement('section'); top.className = 'kp-top';
+    top.innerHTML = `<div class="kp-ring"><svg viewBox="0 0 140 140"><circle r="${R}" cx="70" cy="70" fill="none" class="kp-trk" stroke-width="12"/>${arcs}</svg><div class="kp-core"><b>${comMeta ? pct + '%' : '—'}</b><span>na meta</span></div></div>
+      <div class="kp-legend">${['ok', 'atencao', 'fora', 'info', 'sem'].map((k) => `<span style="--c:${KPI_ST[k].c}"><i></i><b>${cnt[k]}</b>${KPI_ST[k].l}</span>`).join('')}</div>
+      <div class="kp-areas">${Object.keys(KPI_AREAS).map((a) => { const l = calc.filter((x) => x.d.a === a); const cm = l.filter((x) => ['ok', 'atencao', 'fora'].includes(x.st)); const okA = l.filter((x) => x.st === 'ok').length; const fora = l.filter((x) => x.st === 'fora').length;
+        return `<button type="button" class="kp-area${kpiArea === a ? ' on' : ''}" data-a="${a}" style="--c:${kpiCor(a)}"><span class="kp-ai">${ic(KPI_AREAS[a].i)}</span><span class="kp-at"><b>${esc(KPI_AREAS[a].l)}</b><small>${cm.length ? `${okA}/${cm.length} na meta` : `${l.length} indicadores`}</small></span>${fora ? `<em>${fora}</em>` : ''}<span class="kp-abar"><i style="width:${cm.length ? (100 * okA) / cm.length : 0}%"></i></span></button>`; }).join('')}</div>`;
+    view.appendChild(top); Icons.apply(top);
+    const holder = document.createElement('div'); view.appendChild(holder);
+    const render = () => {
+      const areas = kpiArea === 'todas' ? Object.keys(KPI_AREAS) : [kpiArea];
+      holder.innerHTML = `${kpiArea !== 'todas' ? `<div class="kp-filt"><button type="button" class="btn sm ghost" id="kpAll">${ic('grid')}Todas as áreas</button></div>` : ''}` + areas.map((a) => { const l = calc.filter((x) => x.d.a === a);
+        return `<section class="kp-sec" style="--c:${kpiCor(a)}"><header class="kp-sh"><span class="kp-ai">${ic(KPI_AREAS[a].i)}</span><b>${esc(KPI_AREAS[a].l)}</b><em>${l.length}</em></header>
+          <div class="kp-grid">${l.map((x, i) => { const S = KPI_ST[x.st]; const dv = !x.d.atual && x.st !== 'sem' && x.ant && x.ant.v != null && x.cur.v != null && kpiSt(x.d, x.ant) !== 'sem' ? x.cur.v - x.ant.v : null; const bom = dv == null || dv === 0 ? null : (x.d.melhor === 'maior' ? dv > 0 : dv < 0);
+            return `<button type="button" class="kp-card" data-k="${x.d.k}" style="--s:${S.c};--d:${i * 35}ms">
+              <span class="kp-ch"><span class="kp-t">${esc(x.d.t)}</span><span class="kp-cl">${esc(x.d.c.split(' · ')[0])}</span></span>
+              <span class="kp-vr"><b class="kp-v">${x.st === 'sem' ? '—' : esc(kpiFmt(x.cur.v, x.d.u))}</b>${dv != null && dv !== 0 ? `<span class="kp-dl ${bom ? 'up' : 'dn'}">${dv > 0 ? '▲' : '▼'} ${esc(kpiFmt(Math.abs(dv), x.d.u === 'nps' ? 'n' : x.d.u))}</span>` : ''}</span>
+              <span class="kp-mt"><span class="kp-pill">${S.l}</span><small>${esc(kpiMetaTxt(x.d))}</small></span>
+              ${x.d.atual ? `<span class="kp-now">${ic('clock')}situação atual · base ${x.cur.n || 0}</span>` : kpiSpark(x.d, x.serie, 220, 46, false)}
+            </button>`; }).join('')}</div></section>`; }).join('');
+      Icons.apply(holder);
+      $$('.kp-card', holder).forEach((b) => (b.onclick = () => kpiDetalhe(defs.find((d) => d.k === b.dataset.k), ref)));
+      const all = $('#kpAll', holder); if (all) all.onclick = () => { kpiArea = 'todas'; $$('.kp-area', top).forEach((x) => x.classList.remove('on')); render(); };
+    };
+    $$('.kp-area', top).forEach((b) => (b.onclick = () => { kpiArea = kpiArea === b.dataset.a ? 'todas' : b.dataset.a; $$('.kp-area', top).forEach((x) => x.classList.toggle('on', x.dataset.a === kpiArea)); render(); }));
+    render();
+  };
 
   /* =========================== GRÁFICO DE ROSCA 3D ===========================
      Rosca em perspectiva (topo + paredes laterais) desenhada em SVG e girando devagar.
@@ -7600,7 +7809,7 @@
       { label: 'Sistema', items: [ { r: 'usuarios', t: 'Usuários & permissões', s: 'Usuários', i: 'key' }, { r: 'settings', t: 'Settings', s: 'Config', i: 'settings' } ] },
     ] },
     qualidade: { label: 'Qualidade', groups: [
-      { label: 'Visão geral', items: [ { r: 'qa-dashboard', t: 'Painel', s: 'Painel', i: 'grid' }, { r: 'pv-qualidade', t: 'Fila de RNC', s: 'RNC', i: 'upload' } ] },
+      { label: 'Visão geral', items: [ { r: 'qa-dashboard', t: 'Painel', s: 'Painel', i: 'grid' }, { r: 'qa-indicadores', t: 'Indicadores IATF', s: 'Indicadores', i: 'activity' }, { r: 'pv-qualidade', t: 'Fila de RNC', s: 'RNC', i: 'upload' } ] },
       { label: 'Certificados', items: [ { r: 'qa-cata', t: 'Certificados InMetro', s: 'Certif.', i: 'award' }, { r: 'qa-equipamentos', t: 'Calibração de Equipamentos', s: 'Calibr.', i: 'activity' }, { r: 'qa-manutencao', t: 'Manutenção Certificados', s: 'Renov.', i: 'refresh' } ] },
       { label: 'Segurança & parceiros', items: [ { r: 'epi', t: 'Controle de EPI', s: 'EPI', i: 'shield' }, { r: 'qa-labs', t: 'Laboratórios parceiros', s: 'Labs', i: 'flask' } ] },
     ] },
@@ -7641,7 +7850,7 @@
   const COLL_AREAS = (c) => {
     if (['printers', 'commands', 'runbooks', 'inventory', 'phones', 'sharepoint', 'webDomains', 'dnsRecords', 'computers', 'vault'].includes(c)) return ['ti'];
     if (c === 'licenses') return ['ti', 'qualidade'];
-    if (['certificates', 'labs', 'epis', 'epiEntregas', 'epiFichas'].includes(c)) return ['qualidade'];
+    if (['certificates', 'labs', 'epis', 'epiEntregas', 'epiFichas', 'qaKpi'].includes(c)) return ['qualidade'];
     if (['equipments', 'serviceOrders', 'parts'].includes(c)) return ['manutencao'];
     if (c === 'pvChamados') return ['pos-vendas', 'qualidade'];
     if (c === 'pvClientes' || c === 'pvAvaliacoes') return ['pos-vendas'];

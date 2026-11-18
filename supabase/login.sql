@@ -190,3 +190,24 @@ $$;
 drop policy if exists cc_ent_select on public.entities;
 create policy cc_ent_select on public.entities for select to authenticated
   using (public.cc_ativo() and (entity <> 'rhDocs' or public.cc_pode_ver('rh')));
+
+
+-- =============================================================================
+-- Indicadores IATF: metas (coleção "qaKpi") gravadas por quem edita a Qualidade
+-- =============================================================================
+create or replace function public.cc_areas_da_colecao(ent text)
+returns text[] language sql immutable as $$
+  select case
+    when ent in ('printers','commands','runbooks','inventory','phones','sharepoint','webDomains','dnsRecords','computers') then array['ti']
+    when ent = 'licenses' then array['ti','qualidade']
+    when ent in ('certificates','labs','epis','epiEntregas','epiFichas','qaKpi') then array['qualidade']
+    when ent in ('equipments','serviceOrders','parts') then array['manutencao']
+    when ent = 'pvChamados' then array['pos-vendas','qualidade']
+    when ent in ('pvClientes','pvAvaliacoes') then array['pos-vendas']
+    when ent = 'team' then array['rh','ti','programacao']
+    when ent like 'rh%' then array['rh']
+    when ent like 'prog%' then array['programacao']
+    when ent = 'history' then array['*']
+    else array[]::text[]
+  end;
+$$;
