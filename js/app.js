@@ -9251,7 +9251,7 @@ void main(){
     $('#iaAsk', grid).onclick = () => iaAskFn('');
     $('#iaSend', grid).onclick = () => { const q = $('#iaQ', grid).value.trim(); if (q) { $('#iaQ', grid).value = ''; iaAskFn(q); } };
     $('#iaQ', grid).addEventListener('keydown', (e) => { if (e.key === 'Enter') { const q = e.target.value.trim(); if (q) { e.target.value = ''; iaAskFn(q); } } });
-    $('#pedBack', grid).onclick = () => go('prog-pedidos');
+    // voltar: link padrão no topo da página (pg-back)
     $$('.ped-eq', grid).forEach((c) => (c.onclick = () => { c.classList.toggle('on'); renderAnalise(); }));
     const bindBomDel = () => $$('.bom-del', grid).forEach((b) => (b.onclick = () => { b.closest('.bom-row').remove(); renderAnalise(); }));
     bindBomDel();

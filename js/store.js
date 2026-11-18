@@ -625,9 +625,11 @@
       if (window.Cloud && window.Cloud.ok) window.Cloud.pushItem(coll, item).then((ok) => { if (ok !== false && data._pend) { delete data._pend[k]; persist(); } }).catch(() => {});
     } catch (e) {}
   }
+  // exclusões ficam na fila até a nuvem confirmar (antes, uma falha de rede fazia o item "voltar")
   function cloudDelete(coll, id) {
-    try { if (data._pend) { delete data._pend[pendKey(coll, id)]; persist(); } } catch (e) {}
-    try { if (window.Cloud && window.Cloud.ok) window.Cloud.deleteItem(coll, id).catch(() => {}); } catch (e) {}
+    const k = pendKey(coll, id);
+    try { if (data._pend) delete data._pend[k]; if (!data._del) data._del = {}; data._del[k] = 1; persist(); } catch (e) {}
+    try { if (window.Cloud && window.Cloud.ok) window.Cloud.deleteItem(coll, id).then((ok) => { if (ok !== false && data._del) { delete data._del[k]; persist(); } }).catch(() => {}); } catch (e) {}
   }
   function cloudSettings() {
     try { if (window.Cloud && window.Cloud.ok) window.Cloud.pushSettings(data.settings).catch(() => {}); } catch (e) {}
@@ -923,13 +925,22 @@
         // a nuvem é a fonte: só sobe o que foi criado/alterado aqui (pendente) e nunca a base de exemplo
         local.forEach((it) => { if (it && it.id && isSeed(coll, it.id)) delete data._pend[pendKey(coll, it.id)]; });
         let rowsOk = rows;
+        // exclusões feitas aqui que a nuvem ainda não confirmou: some da lista e tenta excluir de novo
+        if (data._del) {
+          const dels = rows.filter((r) => data._del[pendKey(coll, r.id)]);
+          if (dels.length) { rowsOk = rows.filter((r) => !data._del[pendKey(coll, r.id)]); dels.forEach((r) => window.Cloud.deleteItem(coll, r.id).then((ok) => { if (ok !== false) { delete data._del[pendKey(coll, r.id)]; persist(); } }).catch(() => {})); }
+          Object.keys(data._del).forEach((k) => { if (k.startsWith(coll + '|') && !cloudIds.has(k.slice(coll.length + 1))) delete data._del[k]; });
+        }
         if (SEED_PURGE.includes(coll)) {
           const lixo = rows.filter((r) => isSeed(coll, r.id));
-          if (lixo.length) { rowsOk = rows.filter((r) => !isSeed(coll, r.id)); lixo.forEach((r) => window.Cloud.deleteItem(coll, r.id).catch(() => {})); }
+          if (lixo.length) { rowsOk = rowsOk.filter((r) => !isSeed(coll, r.id)); lixo.forEach((r) => window.Cloud.deleteItem(coll, r.id).catch(() => {})); }
         }
         const localOnly = local.filter((it) => it && it.id && !cloudIds.has(it.id) && !isSeed(coll, it.id) && data._pend[pendKey(coll, it.id)]);
         localOnly.forEach((it) => window.Cloud.pushItem(coll, it).then((ok) => { if (ok !== false) { delete data._pend[pendKey(coll, it.id)]; persist(); } }).catch(() => {}));
         // o que estava aqui, não está na nuvem e não é pendente = foi apagado em outro lugar
+        // alterações daqui ainda não confirmadas pela nuvem: a versão local vence e é reenviada
+        const byId = new Map(local.map((it) => [it && it.id, it]));
+        rowsOk = rowsOk.map((r) => { const k = pendKey(coll, r.id); const l = byId.get(r.id); if (data._pend[k] && l) { window.Cloud.pushItem(coll, l).then((ok) => { if (ok !== false) { delete data._pend[k]; persist(); } }).catch(() => {}); return l; } return r; });
         const merged = rowsOk.concat(localOnly);
         if (JSON.stringify(merged) !== JSON.stringify(local)) { data[coll] = merged; changed = true; }
       } catch (e) {}
