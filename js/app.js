@@ -2820,6 +2820,215 @@
     render(); tabsThumbInit(tabsEl, 'rhi');
   };
 
+  /* =========================== PERFIL DO TREINAMENTO + TURMAS ===========================
+     Turma: programada → (lista de presença emitida, versionada) → presença registrada → realizada.
+     Só quem precisa é convocado (vencidos, pendentes e quem vence até 30 dias após a turma);
+     só quem compareceu recebe o registro e entra no comprovante. */
+  const rhIsNR = (t) => !!t && (t.tipo === 'Norma Regulamentadora (NR)' || /^NR[\s-]?\d/i.test(t.nome || ''));
+  const rhValTx = (m) => !m ? 'Não vence' : m % 12 ? `A cada ${m} meses` : m === 12 ? 'Anual' : `A cada ${m / 12} anos`;
+  let rhTreinoId = null; try { rhTreinoId = sessionStorage.getItem('rh_treino') || null; } catch (e) {}
+  function rhOpenTreino(id) { rhTreinoId = id; try { sessionStorage.setItem('rh_treino', id); } catch (e) {} go('rh-treino'); }
+  // pessoas relevantes para um treinamento: quem o cargo exige + quem já fez
+  function rhTreinoPessoas(t) {
+    const regs = rhList('rhTreinoReg').filter((r) => r.treinoId === t.id && !r.anulado);
+    const ids = new Set(regs.map((r) => r.colaboradorId));
+    rhAtivos().forEach((u) => { if (rhExigidos(u).includes(t.id)) ids.add(u.id); });
+    return Array.from(ids).map((id) => rhPessoa(id)).filter((u) => u && u.situacao !== 'desligado').map((u) => {
+      const s = rhTreinoSt(u.id, t.id); const req = rhExigidos(u).includes(t.id);
+      return { u, req, st: s.st, r: s.r, validade: s.r ? s.r.validade : '', data: s.r ? s.r.data : '' };
+    });
+  }
+  // precisa ser convocado para uma turma na data "dt"?
+  const rhPrecisa = (p, dt) => p.st === 'faltando' || p.st === 'vencido' || (p.validade && p.validade <= addDays(dt || rhHoje(), 30));
+  const rhTurmas = (tid) => rhList('rhTurmas').filter((x) => x.treinoId === tid).sort((a, b) => String(b.data).localeCompare(String(a.data)));
+  function rhTurmaNum() { const y = new Date().getFullYear(); const n = rhList('rhTurmas').filter((x) => String(x.numero || '').startsWith(`TR-${y}-`)).length + 1; return `TR-${y}-${String(n).padStart(4, '0')}`; }
+  const RH_TURMA_ST = { programada: { l: 'Programada', cls: 'info' }, realizada: { l: 'Realizada', cls: 'ok' }, cancelada: { l: 'Cancelada', cls: 'neutral' } };
+  const rhConvSig = (tu) => (tu.convocados || []).slice().sort().join(',');
+
+  /* ---------- programar / editar turma ---------- */
+  function rhFormTurma(t, tu) {
+    const editing = !!(tu && tu.id); tu = tu || {};
+    const me = typeof pvMe === 'function' ? pvMe() : '';
+    const card = modal({
+      title: editing ? `Turma ${tu.numero}` : 'Programar turma', sub: t.nome, wide: true,
+      body: `<div class="form-grid">
+          ${field('Data', 'data', tu.data || addDays(rhHoje(), 7), 'date')}${field('Carga horária (horas)', 'cargaHoras', tu.cargaHoras || t.cargaHoras || '', 'text')}
+          ${field('Instrutor / instituição', 'instrutor', tu.instrutor || '', 'text', { ph: 'Ex.: SENAI, interno' })}${field('Local', 'local', tu.local || '', 'text')}
+        </div>
+        <div class="form-sec">${ic('users')}Convocados</div><div id="tuConv"></div>`,
+      footer: `<button class="btn ghost" data-close>Cancelar</button><button class="btn primary" id="saveBtn">${ic('check')}${editing ? 'Salvar' : 'Programar'}</button>`,
+    });
+    rhMaskNum($('[name="cargaHoras"]', card), 400); rhLimDates(card, { data: [rhAnos(-1), rhAnos(2)] });
+    const sel = new Set(editing ? tu.convocados || [] : []);
+    let primeira = !editing;
+    const paint = () => {
+      const dt = $('[name="data"]', card).value || rhHoje();
+      const ps = rhTreinoPessoas(t); const outras = rhAtivos().filter((u) => !ps.some((p) => p.u.id === u.id)).map((u) => ({ u, req: false, st: 'faltando', validade: '', extra: true }));
+      const precisa = ps.filter((p) => rhPrecisa(p, dt)), validos = ps.filter((p) => !rhPrecisa(p, dt));
+      if (primeira) { precisa.filter((p) => p.req || p.st !== 'faltando').forEach((p) => sel.add(p.u.id)); primeira = false; }
+      const linha = (p, aviso) => { const S = RH_TST[p.st] || RH_TST.faltando; const on = sel.has(p.u.id);
+        return `<button type="button" class="tu-p${on ? ' on' : ''}${aviso && on ? ' warn' : ''}" data-id="${p.u.id}">${rhAvatar(p.u.name)}<span class="tu-t"><b>${esc(p.u.name)}</b><small>${esc(p.u.sector || '—')}</small><span class="tu-s" style="--c:${S.c}">${p.extra ? 'Não exigido' : p.validade ? (p.st === 'vencido' ? 'Venceu em ' : 'Válido até ') + fmtDate(p.validade) : 'Nunca fez'}</span></span><i>${ic('check')}</i></button>`; };
+      $('#tuConv', card).innerHTML = `<div class="tu-g"><div class="tu-gh"><b>Precisam fazer</b><em>${precisa.length}</em><small>vencidos, pendentes e vencendo até 30 dias após a turma</small><button type="button" class="btn sm ghost" data-allp>${ic('check')}Marcar todos</button></div>
+          ${precisa.length ? `<div class="tu-l">${precisa.map((p) => linha(p)).join('')}</div>` : '<p class="tu-vz">Ninguém precisa deste treinamento agora.</p>'}</div>
+        ${validos.length ? `<details class="tu-g tu-ok"><summary><b>Ainda válidos</b><em>${validos.length}</em><small>não entram na lista, a não ser que você marque</small></summary><div class="tu-l">${validos.map((p) => linha(p, true)).join('')}</div></details>` : ''}
+        <details class="tu-g tu-ok"><summary><b>Outros colaboradores</b><em>${outras.length}</em><small>não exigido pelo cargo</small></summary><div class="tu-l">${outras.map((p) => linha(p)).join('')}</div></details>
+        <div class="tu-n" id="tuN"></div>`;
+      Icons.apply($('#tuConv', card));
+      const nfx = () => { const ant = validos.filter((p) => sel.has(p.u.id)).length; $('#tuN', card).innerHTML = `<b>${sel.size}</b> convocado${sel.size === 1 ? '' : 's'}${ant ? ` · <span class="w">${ant} reciclagem antecipada</span>` : ''}`; };
+      $$('.tu-p', card).forEach((b) => (b.onclick = () => { const id = b.dataset.id; sel.has(id) ? sel.delete(id) : sel.add(id); b.classList.toggle('on', sel.has(id)); if (b.closest('.tu-ok') && b.parentNode.closest('details') && validos.some((p) => p.u.id === id)) b.classList.toggle('warn', sel.has(id)); nfx(); }));
+      $('[data-allp]', card).onclick = () => { precisa.forEach((p) => sel.add(p.u.id)); paint(); };
+      nfx();
+    };
+    $('[name="data"]', card).addEventListener('change', paint); paint();
+    $('#saveBtn', card).onclick = () => {
+      const d = readForm(card);
+      if (!d.data) return toast('Informe a data', 'warn');
+      const de = rhDateErr(d.data, 'Data', rhAnos(-1), rhAnos(2)); if (de) return toast(de, 'warn');
+      if (!sel.size) return toast('Selecione os convocados', 'warn');
+      const obj = { data: d.data, cargaHoras: rhNum(d.cargaHoras) || t.cargaHoras || '', instrutor: d.instrutor, local: d.local, convocados: Array.from(sel) };
+      let salvo;
+      if (editing) salvo = Store.update('rhTurmas', tu.id, obj);
+      else salvo = Store.add('rhTurmas', { ...obj, treinoId: t.id, numero: rhTurmaNum(), status: 'programada', emissoes: [], criadoEm: new Date().toISOString(), criadoPor: me });
+      closeModal(); toast(editing ? 'Turma atualizada' : 'Turma programada');
+      go('rh-treino'); setTimeout(() => rhVerTurma(salvo.id), 300);
+    };
+  }
+
+  /* ---------- emissão da lista de presença (versionada) ---------- */
+  function rhEmitirLista(tu) {
+    const t = Store.find('rhTreinos', tu.treinoId) || { nome: 'Treinamento' };
+    const emis = (tu.emissoes || []).slice(); const v = emis.length + 1;
+    emis.push({ v, em: new Date().toISOString(), por: (typeof pvMe === 'function' && pvMe()) || '', sig: rhConvSig(tu), qtd: (tu.convocados || []).length });
+    Store.update('rhTurmas', tu.id, { emissoes: emis });
+    const ps = (tu.convocados || []).map((id) => rhPessoa(id)).filter(Boolean).sort((a, b) => a.name.localeCompare(b.name));
+    const corpo = `<div class="info"><div><small>Turma</small><b>${esc(tu.numero)}</b></div><div><small>Data</small><b>${fmtDate(tu.data)}</b></div><div><small>Carga horária</small><b>${esc(tu.cargaHoras || '—')} h</b></div><div><small>Instrutor</small><b>${esc(tu.instrutor || '—')}</b></div></div>
+      <p class="decl"><b>${esc(t.nome)}</b>${tu.local ? ` · ${esc(tu.local)}` : ''}${t.validadeMeses ? ` · reciclagem ${esc(rhValTx(t.validadeMeses).toLowerCase())}` : ''}</p>
+      <table><thead><tr><th>Nº</th><th>Nome</th><th>CPF</th><th>Setor</th><th>Assinatura</th></tr></thead><tbody>${ps.map((u, i) => `<tr><td class="n">${i + 1}</td><td>${esc(u.name)}</td><td class="cpf">${esc(rhCpf(u.id) || '')}</td><td>${esc(u.sector || '—')}</td><td class="sig"></td></tr>`).join('')}</tbody></table>
+      <div class="ass"><div>${tu.instrutor ? esc(tu.instrutor) : '&nbsp;'}<small>Instrutor</small></div><div>&nbsp;<small>Recursos Humanos</small></div></div>
+      <p style="margin-top:14px;font-size:9.5px;color:#778">Lista v${v} · ${ps.length} convocado${ps.length === 1 ? '' : 's'} · emitida em ${esc(pvFmtDT(new Date().toISOString()))}${emis[emis.length - 1].por ? ' por ' + esc(emis[emis.length - 1].por) : ''}</p>`;
+    rhPrintDoc(`Lista de presença · ${tu.numero}`, corpo);
+  }
+  function rhComprovanteTurma(tu) {
+    const t = Store.find('rhTreinos', tu.treinoId) || { nome: 'Treinamento' };
+    const ps = (tu.presentes || []).map((id) => rhPessoa(id)).filter(Boolean).sort((a, b) => a.name.localeCompare(b.name));
+    const val = t.validadeMeses ? rhAddMeses(tu.data, t.validadeMeses) : '';
+    const corpo = `<div class="info"><div><small>Turma</small><b>${esc(tu.numero)}</b></div><div><small>Data</small><b>${fmtDate(tu.data)}</b></div><div><small>Carga horária</small><b>${esc(tu.cargaHoras || '—')} h</b></div><div><small>Válido até</small><b>${val ? fmtDate(val) : 'Não vence'}</b></div></div>
+      <p class="decl">Declaramos que os colaboradores relacionados abaixo participaram do treinamento <b>${esc(t.nome)}</b>, realizado em <b>${fmtDate(tu.data)}</b>${tu.local ? `, em ${esc(tu.local)}` : ''}, com carga horária de <b>${esc(tu.cargaHoras || '—')} hora(s)</b>, ministrado por <b>${esc(tu.instrutor || '—')}</b>${val ? `, com validade até <b>${fmtDate(val)}</b>` : ''}.</p>
+      <table><thead><tr><th>Nº</th><th>Nome</th><th>CPF</th><th>Setor</th><th>Assinatura</th></tr></thead><tbody>${ps.map((u, i) => `<tr><td class="n">${i + 1}</td><td>${esc(u.name)}</td><td class="cpf">${esc(rhCpf(u.id) || '')}</td><td>${esc(u.sector || '—')}</td><td class="sig"></td></tr>`).join('')}</tbody></table>
+      <div class="ass"><div>${tu.instrutor ? esc(tu.instrutor) : '&nbsp;'}<small>Instrutor</small></div><div>&nbsp;<small>Recursos Humanos</small></div></div>`;
+    rhPrintDoc(`Comprovante de participação · ${tu.numero}`, corpo);
+  }
+  function rhRegistrarPresenca(tu, done) {
+    const t = Store.find('rhTreinos', tu.treinoId); if (!t) return;
+    const ps = (tu.convocados || []).map((id) => rhPessoa(id)).filter(Boolean).sort((a, b) => a.name.localeCompare(b.name));
+    const pres = new Set(ps.map((u) => u.id));
+    const card = modal({
+      title: `Presença · ${tu.numero}`, sub: `${t.nome} · ${fmtDate(tu.data)}`, wide: true,
+      body: `<div class="form-grid">${field('Data de realização', 'data', tu.data <= rhHoje() ? tu.data : rhHoje(), 'date')}<div class="field"><label>Avaliação de eficácia</label><select name="eficacia"><option value="pendente">A avaliar</option><option value="eficaz">Eficaz</option></select></div></div>
+        <div class="form-sec">${ic('check')}Quem compareceu</div>
+        <div class="tu-l tu-pres">${ps.map((u) => `<button type="button" class="tu-p on" data-id="${u.id}">${rhAvatar(u.name)}<span class="tu-t"><b>${esc(u.name)}</b><small>${esc(u.sector || '—')}</small></span><span class="tu-s pres">Presente</span><i>${ic('check')}</i></button>`).join('')}</div>
+        <p class="sv-note" id="tuFalt"></p>`,
+      footer: `<button class="btn ghost" data-close>Cancelar</button><button class="btn primary" id="saveBtn">${ic('check')}Concluir turma</button>`,
+    });
+    ccSelect($('[name="eficacia"]', card), { icon: 'check' }); rhLimDates(card, { data: [rhAnos(-1), rhHoje()] });
+    const nf = () => { const f = ps.length - pres.size; const el = $('#tuFalt', card); el.innerHTML = f ? `${ic('alert')}<span>${f} falta${f > 1 ? 's' : ''}: continua${f > 1 ? 'm' : ''} pendente${f > 1 ? 's' : ''} para a próxima turma.</span>` : ''; Icons.apply(el); };
+    $$('.tu-p', card).forEach((b) => (b.onclick = () => { const id = b.dataset.id; pres.has(id) ? pres.delete(id) : pres.add(id); b.classList.toggle('on', pres.has(id)); $('.tu-s', b).textContent = pres.has(id) ? 'Presente' : 'Faltou'; $('.tu-s', b).classList.toggle('pres', pres.has(id)); nf(); }));
+    nf();
+    $('#saveBtn', card).onclick = () => {
+      const d = readForm(card); if (!d.data || d.data > rhHoje()) return toast('A data de realização não pode ser futura', 'warn');
+      if (!pres.size) return toast('Marque quem compareceu', 'warn');
+      const validade = t.validadeMeses ? rhAddMeses(d.data, t.validadeMeses) : '';
+      pres.forEach((id) => Store.add('rhTreinoReg', { treinoId: t.id, colaboradorId: id, data: d.data, validade, instrutor: tu.instrutor, cargaHoras: tu.cargaHoras || t.cargaHoras, eficacia: d.eficacia, turmaId: tu.id }));
+      Store.update('rhTurmas', tu.id, { status: 'realizada', data: d.data, presentes: Array.from(pres), faltas: (tu.convocados || []).filter((id) => !pres.has(id)), realizadaEm: new Date().toISOString() });
+      closeModal(); toast(`${pres.size} registro${pres.size > 1 ? 's' : ''} lançado${pres.size > 1 ? 's' : ''}`); if (done) done();
+    };
+  }
+  function rhVerTurma(id) {
+    const tu = Store.find('rhTurmas', id); if (!tu) return; const t = Store.find('rhTreinos', tu.treinoId) || { nome: '—' };
+    const S = RH_TURMA_ST[tu.status] || RH_TURMA_ST.programada; const emis = tu.emissoes || []; const ult = emis[emis.length - 1];
+    const desat = tu.status === 'programada' && ult && ult.sig !== rhConvSig(tu);
+    const ids = tu.status === 'realizada' ? (tu.convocados || []) : (tu.convocados || []);
+    const ps = ids.map((x) => rhPessoa(x)).filter(Boolean).sort((a, b) => a.name.localeCompare(b.name));
+    const card = modal({
+      title: `Turma ${tu.numero}`, sub: t.nome, wide: true,
+      body: `<div class="ri-meta"><span>${ic('calendar')}<b>${fmtDate(tu.data)}</b><small>Data</small></span><span>${ic('clock')}<b>${esc(tu.cargaHoras || '—')} h</b><small>Carga</small></span><span>${ic('users')}<b>${esc(tu.instrutor || '—')}</b><small>Instrutor</small></span><span>${ic('check')}<b><span class="badge ${S.cls} plain">${S.l}</span></b><small>Situação</small></span></div>
+        ${desat ? `<div class="tu-alerta">${ic('alert')}<span>A lista de convocados mudou depois da última emissão (v${ult.v}). Emita novamente.</span></div>` : ''}
+        <div class="tu-l tu-view">${ps.map((u) => { const fz = tu.status === 'realizada' ? ((tu.presentes || []).includes(u.id) ? '<span class="tu-s pres">Presente</span>' : '<span class="tu-s falt">Faltou</span>') : `<span class="tu-s" style="--c:#94A3B8">${esc(rhCpf(u.id) || 'sem CPF')}</span>`;
+          return `<div class="tu-p on">${rhAvatar(u.name)}<span class="tu-t"><b>${esc(u.name)}</b><small>${esc(u.sector || '—')}</small></span>${fz}</div>`; }).join('')}</div>
+        ${emis.length ? `<div class="tu-emis"><span class="sv-msg-h">Emissões da lista</span>${emis.slice().reverse().map((e) => `<div>${ic('file')}<b>v${e.v}</b><span>${esc(pvFmtDT(e.em))}${e.por ? ' · ' + esc(e.por) : ''} · ${e.qtd} convocado${e.qtd === 1 ? '' : 's'}</span></div>`).join('')}</div>` : ''}`,
+      footer: tu.status === 'programada'
+        ? `<button class="btn ghost" id="tuCanc" style="margin-right:auto">${ic('x')}Cancelar turma</button><button class="btn" id="tuEd">${ic('edit')}Convocados</button><button class="btn" id="tuLista">${ic('file')}${emis.length ? 'Emitir novamente' : 'Emitir lista de presença'}</button><button class="btn primary" id="tuPres">${ic('check')}Registrar presença</button>`
+        : tu.status === 'realizada' ? `<button class="btn ghost" data-close>Fechar</button><button class="btn primary" id="tuComp">${ic('award')}Comprovante</button>` : '<button class="btn primary" data-close>Fechar</button>',
+    });
+    Icons.apply(card);
+    const on = (sel, fn) => { const b = $(sel, card); if (b) b.onclick = fn; };
+    on('#tuLista', () => { rhEmitirLista(Store.find('rhTurmas', tu.id)); closeModal(); setTimeout(() => { go('rh-treino'); rhVerTurma(tu.id); }, 200); });
+    on('#tuEd', () => { closeModal(); setTimeout(() => rhFormTurma(t, Store.find('rhTurmas', tu.id)), 250); });
+    on('#tuPres', () => { closeModal(); setTimeout(() => rhRegistrarPresenca(Store.find('rhTurmas', tu.id), () => { go('rh-treino'); setTimeout(() => rhVerTurma(tu.id), 300); }), 250); });
+    on('#tuComp', () => rhComprovanteTurma(tu));
+    on('#tuCanc', () => confirmDialog(`Cancelar a turma ${tu.numero}?`, () => { Store.update('rhTurmas', tu.id, { status: 'cancelada', canceladaEm: new Date().toISOString() }); toast('Turma cancelada', 'info'); go('rh-treino'); }));
+  }
+
+  /* ---------- perfil do treinamento ---------- */
+  let rhTrF = 'todos';
+  PAGES['rh-treino'] = () => {
+    const t = rhTreinoId && Store.find('rhTreinos', rhTreinoId);
+    if (!t) { go('rh-treinos'); return; }
+    const nr = rhIsNR(t);
+    pageShell('RH', t.nome, `${t.tipo || 'Treinamento'}`,
+      `<button class="btn" id="tpEd">${ic('edit')}Editar</button><button class="btn primary" id="tpTurma">${ic('calendar')}Programar turma</button>`);
+    $('#tpEd').onclick = () => rhFormTreino(t);
+    $('#tpTurma').onclick = () => rhFormTurma(t, null);
+    const ps = rhTreinoPessoas(t);
+    const cnt = { ok: 0, vencendo: 0, vencido: 0, faltando: 0 }; ps.forEach((p) => cnt[p.st]++);
+    const exig = ps.filter((p) => p.req); const exOk = exig.filter((p) => p.st === 'ok' || p.st === 'vencendo').length;
+    const cobertura = exig.length ? Math.round((100 * exOk) / exig.length) : null;
+    const cargos = rhList('rhCargos').filter((c) => (c.treinos || []).includes(t.id));
+    const turmas = rhTurmas(t.id); const prox = turmas.filter((x) => x.status === 'programada').sort((a, b) => String(a.data).localeCompare(String(b.data)))[0];
+    const cor = nr ? '#F5B840' : RH_COR;
+    const R = 46, C = 2 * Math.PI * R; const f = cobertura == null ? 0 : cobertura / 100;
+    const hero = document.createElement('section'); hero.className = 'tp-hero'; hero.style.setProperty('--c', cor);
+    hero.innerHTML = `
+      <div class="tp-id"><span class="tp-ic">${ic(nr ? 'shield' : 'award')}</span><div><div class="tp-chips">${nr ? `<span class="tp-nr">${esc((t.nome.match(/NR[\s-]?\d+/i) || ['NR'])[0].toUpperCase().replace(/\s/, '-'))}</span>` : ''}</div>
+        <div class="tp-facts"><span>${ic('refresh')}<b>${esc(rhValTx(t.validadeMeses))}</b><small>periodicidade</small></span><span>${ic('clock')}<b>${t.cargaHoras || 0} h</b><small>carga horária</small></span><span>${ic('briefcase')}<b>${cargos.length}</b><small>${cargos.length === 1 ? 'cargo exige' : 'cargos exigem'}</small></span></div>
+        ${cargos.length ? `<div class="tp-cargos">${cargos.map((c) => `<em>${esc(c.nome)}</em>`).join('')}</div>` : ''}</div></div>
+      <div class="tp-ring"><svg viewBox="0 0 110 110"><circle r="${R}" cx="55" cy="55" class="kp-trk" fill="none" stroke-width="10"/><circle r="${R}" cx="55" cy="55" fill="none" stroke="${cobertura == null ? '#94A3B8' : cobertura >= 95 ? '#46D39A' : cobertura >= 80 ? '#F5B840' : '#FF7A7A'}" stroke-width="10" stroke-linecap="round" stroke-dasharray="${(f * C).toFixed(1)} ${C.toFixed(1)}" transform="rotate(-90 55 55)" class="kp-arc"/></svg>
+        <div class="kp-core"><b>${cobertura == null ? '—' : cobertura + '%'}</b><span>cobertura</span></div></div>`;
+    view.appendChild(hero); Icons.apply(hero);
+    const tile = (cls, icn, v, l, s, f2) => `<button type="button" class="pvd-tile ${cls}" data-tf="${f2}"><span class="pvd-ti">${ic(icn)}</span><b>${v}</b><span>${esc(l)}</span><small>${esc(s)}</small></button>`;
+    const tiles = document.createElement('section'); tiles.className = 'pc-tiles tp-tiles';
+    tiles.innerHTML = tile('t-ok', 'check', cnt.ok, 'Com a competência', 'em dia', 'ok') + tile('t-warn', 'clock', cnt.vencendo, 'Vencendo', 'em até 30 dias', 'vencendo') + tile(cnt.vencido ? 't-danger' : '', 'alert', cnt.vencido, 'Vencidos', 'reciclar', 'vencido') + tile('', 'users', cnt.faltando, 'Pendentes', 'nunca fizeram', 'faltando')
+      + `<div class="pvd-tile t-info"><span class="pvd-ti">${ic('calendar')}</span><b>${prox ? fmtDate(prox.data).slice(0, 5) : '—'}</b><span>Próxima turma</span><small>${prox ? `${prox.numero} · ${(prox.convocados || []).length} convocados` : 'nenhuma programada'}</small></div>`;
+    view.appendChild(tiles); Icons.apply(tiles);
+    const grid = document.createElement('div'); grid.className = 'tp-grid'; view.appendChild(grid);
+    const paint = () => {
+      const FL = [['todos', 'Todos', ps.length], ['precisa', 'Precisam fazer', ps.filter((p) => rhPrecisa(p)).length], ['ok', 'Em dia', cnt.ok], ['vencendo', 'Vencendo', cnt.vencendo], ['vencido', 'Vencidos', cnt.vencido], ['faltando', 'Pendentes', cnt.faltando]];
+      const l = ps.filter((p) => rhTrF === 'todos' || (rhTrF === 'precisa' ? rhPrecisa(p) : p.st === rhTrF)).sort((a, b) => ({ vencido: 0, faltando: 1, vencendo: 2, ok: 3 }[a.st] - { vencido: 0, faltando: 1, vencendo: 2, ok: 3 }[b.st]) || a.u.name.localeCompare(b.u.name));
+      grid.innerHTML = `<section class="pvp-card tp-pessoas"><div class="pvp-card-h"><b>Colaboradores</b><span>${ps.length}</span></div>
+          <div class="rh-mxf-c tp-f">${FL.map(([k, lb, n]) => `<button type="button" class="rh-fc${rhTrF === k ? ' on' : ''}" data-f="${k}">${lb}<em>${n}</em></button>`).join('')}</div>
+          ${l.length ? `<div class="tp-list">${l.map((p) => { const S = RH_TST[p.st]; const dias = p.validade ? rhDias(rhHoje(), p.validade) : null;
+            return `<button type="button" class="tp-row" data-p="${p.u.id}" style="--c:${S.c}">${rhAvatar(p.u.name)}<span class="tp-rt"><b>${esc(p.u.name)}</b><small>${esc([(rhCargo(p.u.cargoId) || {}).nome, p.u.sector].filter(Boolean).join(' · ') || '—')}${p.req ? '' : ' · extra'}</small></span>
+              <span class="tp-rd"><small>Realizado</small><b>${p.data ? fmtDate(p.data) : '—'}</b></span><span class="tp-rd"><small>Validade</small><b>${p.validade ? fmtDate(p.validade) : p.r ? 'não vence' : '—'}</b></span>
+              <span class="tp-rs"><span class="badge ${S.cls} plain">${S.l}</span>${dias != null && dias >= 0 && p.st !== 'ok' ? `<small>${dias} dia${dias === 1 ? '' : 's'}</small>` : dias != null && dias < 0 ? `<small>há ${-dias} dias</small>` : ''}</span></button>`; }).join('')}</div>`
+            : `<div class="qf-empty">${ic('users')}<span>${ps.length ? 'Ninguém neste filtro' : 'Nenhum cargo exige este treinamento'}</span></div>`}
+        </section>
+        <section class="pvp-card tp-turmas"><div class="pvp-card-h"><b>Turmas</b><span>${turmas.length}</span></div>
+          ${turmas.length ? `<div class="tp-tl">${turmas.map((tu) => { const S = RH_TURMA_ST[tu.status] || RH_TURMA_ST.programada; const emis = tu.emissoes || []; const ult = emis[emis.length - 1]; const desat = tu.status === 'programada' && ult && ult.sig !== rhConvSig(tu);
+            return `<button type="button" class="tp-tu st-${tu.status}" data-tu="${tu.id}"><span class="tp-tud"><b>${fmtDate(tu.data).slice(0, 5)}</b><small>${String(tu.data).slice(0, 4)}</small></span><span class="tp-tut"><b>${esc(tu.numero)}</b><small>${tu.status === 'realizada' ? `${(tu.presentes || []).length} presentes${(tu.faltas || []).length ? ' · ' + tu.faltas.length + ' faltas' : ''}` : `${(tu.convocados || []).length} convocados`}${emis.length ? ` · lista v${emis.length}` : ''}</small></span>
+              ${desat ? `<span class="badge warn plain">Reemitir lista</span>` : `<span class="badge ${S.cls} plain">${S.l}</span>`}</button>`; }).join('')}</div>`
+            : `<div class="qf-empty">${ic('calendar')}<span>Nenhuma turma</span></div>`}
+          <button type="button" class="btn tp-add" id="tpTurma2">${ic('plus')}Programar turma</button>
+        </section>`;
+      Icons.apply(grid);
+      $$('[data-f]', grid).forEach((b) => (b.onclick = () => { rhTrF = b.dataset.f; paint(); }));
+      $$('.tp-row', grid).forEach((b) => (b.onclick = () => rhOpenPessoa(b.dataset.p)));
+      $$('[data-tu]', grid).forEach((b) => (b.onclick = () => rhVerTurma(b.dataset.tu)));
+      $('#tpTurma2', grid).onclick = () => rhFormTurma(t, null);
+    };
+    $$('[data-tf]', tiles).forEach((b) => (b.onclick = () => { rhTrF = b.dataset.tf; paint(); grid.scrollIntoView({ behavior: 'smooth', block: 'start' }); }));
+    paint();
+  };
+
   /* =========================== TREINAMENTOS & COMPETÊNCIAS =========================== */
   let rhTreinoTab = 'matriz'; const rhMxF = { q: '', f: 'todos' };
   function rhFormTreino(t) {
@@ -2835,7 +3044,7 @@
     ccSelect($('[name="tipo"]', card), { icon: 'award' }); ccSelect($('[name="validadeMeses"]', card), { icon: 'refresh' });
     rhMaskNum($('[name="cargaHoras"]', card), 400);
     const del = $('#delBtn', card);
-    if (del) del.onclick = () => rhList('rhTreinoReg').some((r) => r.treinoId === t.id) ? toast('Treinamento com registros não pode ser excluído', 'warn') : confirmDialog(`Excluir "${t.nome}" do catálogo?`, () => { Store.remove('rhTreinos', t.id); rhList('rhCargos').filter((c) => (c.treinos || []).includes(t.id)).forEach((c) => Store.update('rhCargos', c.id, { treinos: c.treinos.filter((x) => x !== t.id) })); toast('Treinamento excluído', 'info'); go(currentRoute); });
+    if (del) del.onclick = () => rhList('rhTreinoReg').some((r) => r.treinoId === t.id) || rhList('rhTurmas').some((x) => x.treinoId === t.id) ? toast('Treinamento com registros não pode ser excluído', 'warn') : confirmDialog(`Excluir "${t.nome}" do catálogo?`, () => { Store.remove('rhTreinos', t.id); rhList('rhCargos').filter((c) => (c.treinos || []).includes(t.id)).forEach((c) => Store.update('rhCargos', c.id, { treinos: c.treinos.filter((x) => x !== t.id) })); toast('Treinamento excluído', 'info'); go(currentRoute); });
     $('#saveBtn', card).onclick = () => {
       const d = readForm(card); if (d.nome.length < 3) return toast('Informe o nome do treinamento', 'warn');
       const ch = rhNum(d.cargaHoras); if (!ch) return toast('Informe a carga horária', 'warn');
@@ -2906,7 +3115,7 @@
     $('#rtNovo').onclick = () => rhFormTreino(null);
     $('#rtReg').onclick = () => rhFormTreinoReg({});
     const tr = rhTreinos(), ativos = rhAtivos(), regs = rhList('rhTreinoReg').slice().sort((a, b) => String(b.data).localeCompare(String(a.data)));
-    const tabs = [['matriz', 'Matriz', ativos.length], ['catalogo', 'Catálogo', tr.length], ['registros', 'Registros', regs.filter((r) => !r.anulado).length]];
+    const tabs = [['matriz', 'Matriz', ativos.length], ['catalogo', 'Catálogo', tr.length], ['nr', 'Normas regulamentadoras', tr.filter(rhIsNR).length], ['registros', 'Registros', regs.filter((r) => !r.anulado).length]];
     const tb = document.createElement('div'); tb.className = 'pvf';
     tb.innerHTML = `<div class="pvf-tabs" id="rtTabs"><span class="pvf-thumb"></span>${tabs.map(([k, l, n]) => `<button data-s="${k}" class="${rhTreinoTab === k ? 'on' : ''}">${l}<span class="pvf-n">${n}</span></button>`).join('')}</div>`;
     view.appendChild(tb);
@@ -2940,18 +3149,23 @@
         $$('[data-f]', holder).forEach((b) => (b.onclick = () => { rhMxF.f = b.dataset.f; $$('[data-f]', holder).forEach((x) => x.classList.toggle('on', x === b)); paintG(); }));
         $('#mxQ', holder).oninput = (e) => { rhMxF.q = e.target.value; paintG(); };
         paintG();
-      } else if (rhTreinoTab === 'catalogo') {
+      } else if (rhTreinoTab === 'catalogo' || rhTreinoTab === 'nr') {
+        const isNr = rhTreinoTab === 'nr'; const trAll = tr; const tr2 = isNr ? trAll.filter(rhIsNR) : trAll;
+        if (isNr && !tr2.length) {
+          holder.innerHTML = `<div class="tbl-wrap">${emptyState('shield', 'Nenhuma NR no catálogo', '')}<div class="rh-sug"><button type="button" class="btn" id="rtNr">${ic('plus')}Cadastrar NR</button></div></div>`;
+          Icons.apply(holder); $('#rtNr', holder).onclick = () => rhFormTreino({ tipo: 'Norma Regulamentadora (NR)' }); return;
+        }
         const valTx = (m) => !m ? 'não vence' : m % 12 ? `${m} meses` : `${m / 12} ano${m > 12 ? 's' : ''}`;
         if (!tr.length) {
           holder.innerHTML = `<div class="tbl-wrap">${emptyState('award', 'Catálogo vazio', '')}<div class="rh-sug"><button type="button" class="btn" id="rtSug">${ic('award')}Usar sugestões</button></div></div>`;
           Icons.apply(holder); $('#rtSug', holder).onclick = () => { rhTreinosSugestoes(); toast('Sugestões adicionadas — edite ou apague as que não servirem'); go('rh-treinos'); };
           return;
         }
-        holder.innerHTML = `<div class="rh-cards">${tr.map((t, i) => { const quem = new Set(regs.filter((r) => r.treinoId === t.id && !r.anulado).map((r) => r.colaboradorId)).size; const exige = rhList('rhCargos').filter((c) => (c.treinos || []).includes(t.id)).length;
-          return `<button type="button" class="rh-card rh-tc" data-t="${t.id}" style="--d:${i * 40}ms;--c:${RH_PAL[RH_TIPOS_TREINO.indexOf(t.tipo) % RH_PAL.length] || RH_COR}">
-            <span class="rh-card-h"><span class="rh-card-ic">${ic('award')}</span><span><b>${esc(t.nome)}</b><small>${esc(t.tipo || '')}</small></span></span>
+        holder.innerHTML = `<div class="rh-cards">${tr2.map((t, i) => { const nrT = rhIsNR(t); const tst = rhTreinoPessoas(t); const venc = tst.filter((p) => p.st === 'vencido' || p.st === 'faltando').length; const quem = new Set(regs.filter((r) => r.treinoId === t.id && !r.anulado).map((r) => r.colaboradorId)).size; const exige = rhList('rhCargos').filter((c) => (c.treinos || []).includes(t.id)).length;
+          return `<button type="button" class="rh-card rh-tc${nrT ? ' is-nr' : ''}" data-t="${t.id}" style="--d:${i * 40}ms;--c:${nrT ? '#F5B840' : RH_PAL[RH_TIPOS_TREINO.indexOf(t.tipo) % RH_PAL.length] || RH_COR}">
+            <span class="rh-card-h"><span class="rh-card-ic">${ic(nrT ? 'shield' : 'award')}</span><span><b>${esc(t.nome)}</b><small>${esc(t.tipo || '')}</small></span>${venc ? `<em class="rh-tc-al">${venc} pendente${venc > 1 ? 's' : ''}</em>` : ''}</span>
             <span class="rh-tc-k"><span>${ic('clock')}<b>${t.cargaHoras || 0} h</b><small>carga horária</small></span><span>${ic('refresh')}<b>${valTx(t.validadeMeses)}</b><small>reciclagem</small></span><span>${ic('users')}<b>${quem}</b><small>${quem === 1 ? 'pessoa treinada' : 'pessoas treinadas'}</small></span><span>${ic('briefcase')}<b>${exige}</b><small>${exige === 1 ? 'cargo exige' : 'cargos exigem'}</small></span></span></button>`; }).join('')}</div>`;
-        $$('[data-t]', holder).forEach((b) => (b.onclick = () => rhFormTreino(Store.find('rhTreinos', b.dataset.t))));
+        $$('[data-t]', holder).forEach((b) => (b.onclick = () => rhOpenTreino(b.dataset.t)));
       } else {
         const EF = { eficaz: ['ok', 'Eficaz'], nao: ['danger', 'Não eficaz'], pendente: ['neutral', 'A avaliar'] };
         const l = regs.slice().sort((a, b) => (a.anulado ? 1 : 0) - (b.anulado ? 1 : 0));
@@ -7398,10 +7612,11 @@
   try { NAVH.stack = JSON.parse(sessionStorage.getItem('cc_navh') || '[]'); } catch (e) {}
   const navhSave = () => { try { sessionStorage.setItem('cc_navh', JSON.stringify(NAVH.stack.slice(-20))); } catch (e) {} };
   // contexto de telas de detalhe (qual pessoa, chamado, cliente…) para voltar exatamente ao mesmo lugar
-  const navCtx = (r) => r === 'rh-pessoa' ? rhPessoaId : r === 'pv-detalhe' ? pvCurrentId : r === 'pv-cliente' ? pvCliId : null;
+  const navCtx = (r) => r === 'rh-pessoa' ? rhPessoaId : r === 'rh-treino' ? rhTreinoId : r === 'pv-detalhe' ? pvCurrentId : r === 'pv-cliente' ? pvCliId : null;
   function navhRestore(e) {
     if (!e || e.ctx == null) return;
     if (e.r === 'rh-pessoa') { rhPessoaId = e.ctx; try { sessionStorage.setItem('rh_pessoa', e.ctx); } catch (x) {} }
+    if (e.r === 'rh-treino') { rhTreinoId = e.ctx; try { sessionStorage.setItem('rh_treino', e.ctx); } catch (x) {} }
     if (e.r === 'pv-detalhe') { pvCurrentId = e.ctx; try { sessionStorage.setItem('pv_current', e.ctx); } catch (x) {} }
     if (e.r === 'pv-cliente') { pvCliId = e.ctx; try { sessionStorage.setItem('pv_cli', e.ctx); } catch (x) {} }
   }
@@ -7837,13 +8052,13 @@
   // páginas internas (fora do menu) que pertencem a uma área
   ROUTE_AREA['pv-novo'] = 'pos-vendas'; ROUTE_AREA['pv-detalhe'] = 'pos-vendas'; ROUTE_AREA['pv-cliente'] = 'pos-vendas'; TITLES['pv-cliente'] = 'Perfil do cliente';
   TITLES['pv-novo'] = 'Novo chamado'; TITLES['pv-detalhe'] = 'Chamado';
-  ROUTE_AREA['rh-pessoa'] = 'rh'; TITLES['rh-pessoa'] = 'Perfil do colaborador'; ROUTE_AREA['rh-mov-novo'] = 'rh'; TITLES['rh-mov-novo'] = 'Admissão / Desligamento';
-  const NAV_PARENT = { 'pv-cliente': 'pv-clientes', 'rh-pessoa': 'rh-colab', 'rh-mov-novo': 'rh-movs', 'rh-cargos': 'rh-colab' };
+  ROUTE_AREA['rh-pessoa'] = 'rh'; TITLES['rh-pessoa'] = 'Perfil do colaborador'; ROUTE_AREA['rh-treino'] = 'rh'; TITLES['rh-treino'] = 'Treinamento'; ROUTE_AREA['rh-mov-novo'] = 'rh'; TITLES['rh-mov-novo'] = 'Admissão / Desligamento';
+  const NAV_PARENT = { 'pv-cliente': 'pv-clientes', 'rh-pessoa': 'rh-colab', 'rh-treino': 'rh-treinos', 'rh-mov-novo': 'rh-movs', 'rh-cargos': 'rh-colab' };
   /* =========================== PERMISSÕES (login) ===========================
      Cada aba do menu tem um nível por usuário: editar | ver | nenhum.
      Admin = tudo. Sem login configurado (modo aberto) = tudo, como antes.
      As gravações também são barradas no banco (RLS por área — supabase/login.sql). */
-  const ROUTE_PARENT = { servidor: 'infra', 'pv-cliente': 'pv-clientes', 'pv-novo': 'pv-chamados', 'prog-pedido': 'prog-pedidos', 'rh-pessoa': 'rh-colab', 'rh-mov-novo': 'rh-movs', 'rh-cargos': 'rh-colab' };
+  const ROUTE_PARENT = { servidor: 'infra', 'pv-cliente': 'pv-clientes', 'pv-novo': 'pv-chamados', 'prog-pedido': 'prog-pedidos', 'rh-pessoa': 'rh-colab', 'rh-treino': 'rh-treinos', 'rh-mov-novo': 'rh-movs', 'rh-cargos': 'rh-colab' };
   const NIV_ORD = { nenhum: 0, ver: 1, editar: 2 };
   const nivMax = (a, b) => (NIV_ORD[a] >= NIV_ORD[b] ? a : b);
   // mesma tabela do banco (cc_areas_da_colecao)
