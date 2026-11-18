@@ -584,6 +584,11 @@
     return d;
   }
 
+  // ids da base de exemplo antiga: NUNCA são enviados para a nuvem (um navegador com cache antigo
+  // recriava as pessoas de exemplo no primeiro login). Pessoas de exemplo que já chegaram à nuvem são removidas.
+  const SEED_IDS = {}; Object.keys(SEED).forEach((k) => { if (Array.isArray(SEED[k])) SEED_IDS[k] = new Set(SEED[k].map((x) => x && x.id).filter(Boolean)); });
+  const isSeed = (coll, id) => !!(SEED_IDS[coll] && SEED_IDS[coll].has(id));
+  const SEED_PURGE = ['team'];
   let data = load();
 
   function load() {
@@ -915,11 +920,17 @@
         const cloudIds = new Set(rows.map((r) => r.id));
         if (!data._pend) data._pend = {};
         // 1ª vez com esta regra: o que só existe aqui é tratado como pendente (comportamento antigo, uma única vez)
-        if (!data._pendInit) local.forEach((it) => { if (it && it.id && !cloudIds.has(it.id)) data._pend[pendKey(coll, it.id)] = 1; });
-        const localOnly = local.filter((it) => it && it.id && !cloudIds.has(it.id) && data._pend[pendKey(coll, it.id)]);
+        // a nuvem é a fonte: só sobe o que foi criado/alterado aqui (pendente) e nunca a base de exemplo
+        local.forEach((it) => { if (it && it.id && isSeed(coll, it.id)) delete data._pend[pendKey(coll, it.id)]; });
+        let rowsOk = rows;
+        if (SEED_PURGE.includes(coll)) {
+          const lixo = rows.filter((r) => isSeed(coll, r.id));
+          if (lixo.length) { rowsOk = rows.filter((r) => !isSeed(coll, r.id)); lixo.forEach((r) => window.Cloud.deleteItem(coll, r.id).catch(() => {})); }
+        }
+        const localOnly = local.filter((it) => it && it.id && !cloudIds.has(it.id) && !isSeed(coll, it.id) && data._pend[pendKey(coll, it.id)]);
         localOnly.forEach((it) => window.Cloud.pushItem(coll, it).then((ok) => { if (ok !== false) { delete data._pend[pendKey(coll, it.id)]; persist(); } }).catch(() => {}));
         // o que estava aqui, não está na nuvem e não é pendente = foi apagado em outro lugar
-        const merged = rows.concat(localOnly);
+        const merged = rowsOk.concat(localOnly);
         if (JSON.stringify(merged) !== JSON.stringify(local)) { data[coll] = merged; changed = true; }
       } catch (e) {}
     }
