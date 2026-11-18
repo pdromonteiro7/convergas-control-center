@@ -2277,8 +2277,7 @@
     const movs = rhList('rhMovs').filter((m) => m.colaboradorId === u.id);
     const subs = rhAtivos().filter((p) => p.gestorId === u.id);
     pageShell('RH', u.name, `${(c && c.nome) || u.role || 'Sem cargo'}${u.sector ? ' · ' + u.sector : ''}`,
-      `<button class="btn" id="rpBack">${ic('chevron')}Pessoas & setores</button><button class="btn" id="rpEdit">${ic('edit')}Editar</button><button class="btn" id="rpBoneco">${ic('users')}Boneco</button>${u.situacao !== 'desligado' ? `<button class="btn" id="rpDesl">${ic('x')}Desligar</button>` : ''}<button class="btn primary" id="rpTr">${ic('award')}Registrar treinamento</button>`);
-    $('#rpBack').onclick = () => go('rh-colab');
+      `<button class="btn" id="rpEdit">${ic('edit')}Editar</button><button class="btn" id="rpBoneco">${ic('users')}Boneco</button>${u.situacao !== 'desligado' ? `<button class="btn" id="rpDesl">${ic('x')}Desligar</button>` : ''}<button class="btn primary" id="rpTr">${ic('award')}Registrar treinamento</button>`);
     $('#rpEdit').onclick = () => rhFormPessoa(u, () => go('rh-pessoa'));
     $('#rpTr').onclick = () => rhFormTreinoReg({ colabs: [u.id] }, () => go('rh-pessoa'));
     $('#rpBoneco').onclick = () => avatarEditor(u, () => go('rh-pessoa'));
@@ -3004,8 +3003,7 @@
     const dr = rhMovDraft || { tipo: 'admissao' }; rhMovDraft = null;
     const adm = dr.tipo === 'admissao';
     pageShell('RH', adm ? 'Nova admissão' : 'Novo desligamento', adm ? 'Dados, cargo e checklist.' : 'Motivo, devoluções e checklist.',
-      `<button class="btn" id="rmBack">${ic('chevron')}Admissão / Desligamento</button>`);
-    $('#rmBack').onclick = () => go('rh-movs');
+      '');
     const setores = rhSetores(), cargos = rhList('rhCargos').slice().sort((a, b) => a.nome.localeCompare(b.nome)), ativos = rhAtivos();
     const opt = (v, t, s) => `<option value="${esc(v)}" ${s ? 'selected' : ''}>${esc(t)}</option>`;
     const ck = new Set(); let ckList = [];
@@ -3913,8 +3911,7 @@
     const ult = ch.map((c) => pvDay(c.criadoEm)).sort().pop();
 
     pageShell('Pós-Vendas', k.fantasia || k.nome, 'Perfil do cliente.',
-      `<button class="btn" id="pcBack">${ic('chevron')}Clientes</button><button class="btn" id="pcEdit">${ic('edit')}Editar</button><button class="btn primary" id="pcNew">${ic('plus')}Novo chamado</button>`);
-    $('#pcBack').onclick = () => go('pv-clientes');
+      `<button class="btn" id="pcEdit">${ic('edit')}Editar</button><button class="btn primary" id="pcNew">${ic('plus')}Novo chamado</button>`);
     $('#pcEdit').onclick = () => pvFormCliente(k, () => go('pv-cliente'));
     $('#pcNew').onclick = () => { pvNovoPreCli = k.id; go('pv-novo'); };
 
@@ -4557,9 +4554,8 @@
     pvNovoDraft = null;
     const preCli = editing ? null : pvNovoPreCli; pvNovoPreCli = null;
     pageShell('Pós-Vendas', editing ? `Editar abertura · ${c.numero}` : 'Novo chamado', editing ? 'Dados da abertura.' : 'Abertura em 5 etapas.',
-      `<button class="btn" id="pvBack">${ic('chevron')}${editing ? 'Voltar ao chamado' : 'Chamados'}</button>`);
+      '');
     const leave = () => (editing ? pvOpen(c.id) : go('pv-chamados'));
-    $('#pvBack').onclick = leave;
 
     let clis = Store.get('pvClientes').slice().sort((a, b) => a.nome.localeCompare(b.nome));
     const pr = c.produto || {}, lc = c.local || {}, ct = c.contato || {}, rc = c.rncCliente || {};
@@ -4876,8 +4872,7 @@
     const t = PV_TIPOS[c.tipo] || PV_TIPOS.reclamacao;
     const rerender = () => { if (currentRoute === 'pv-detalhe') { view.innerHTML = ''; PAGES['pv-detalhe'](); } };
     pageShell(currentArea === 'qualidade' ? 'Qualidade' : 'Pós-Vendas', `${c.numero} · ${pvClienteNome(c)}`, `${t.label} · aberto em ${pvFmtDT(c.criadoEm)} por ${c.abertoPor || '—'}`,
-      `<button class="btn" id="pvBack">${ic('chevron')}${esc(TITLES[pvBackRoute] || 'Chamados')}</button><button class="btn" id="pvPrint">${ic('download')}Imprimir / PDF</button>`);
-    $('#pvBack').onclick = () => go(pvBackRoute);
+      `<button class="btn" id="pvPrint">${ic('download')}Imprimir / PDF</button>`);
     $('#pvPrint').onclick = () => pvPrint(Store.find('pvChamados', c.id));
 
     const steps = pvSteps(c);
@@ -6074,7 +6069,7 @@
     const cc = $('#crumbCur'); if (cc) cc.textContent = e.name;
     const photo = equipFileUrl(e.id, 'photo', e.photoName);
     view.innerHTML = `<div class="mdetail">
-      <button class="btn ghost sm mdetail-back" id="mBack">${ic('chevron')}Voltar para Máquinas</button>
+      <button type="button" class="pg-back" id="mBack">${ic('chevron')}<span>Máquinas</span></button>
       <div class="mdetail-head">
         <div class="mdh-photo">${photo ? `<img src="${esc(photo)}" alt="">` : `<span class="mc-ph">${ic('cpu')}</span>`}</div>
         <div class="mdh-info"><div class="mdh-badges">${eqBadge(e.status)}${critBadge(e.criticality)}</div><h1>${esc(e.name)}</h1><div class="mdh-sub mono">${e.tag ? esc(e.tag) : ''}${e.tag && e.serial ? ' · ' : ''}${e.serial ? 'S/N ' + esc(e.serial) : ''}</div></div>
@@ -7184,14 +7179,54 @@
     $$('[data-ent-del]', card).forEach((b) => (b.onclick = () => confirmDialog('Excluir esta entrega?', () => { Store.remove('epiEntregas', b.dataset.entDel); reopen(); toast('Entrega excluída', 'info'); })));
   }
 
+  /* =========================== HISTÓRICO DE NAVEGAÇÃO ===========================
+     Cada tela sabe de onde a pessoa veio. O "voltar" (acima do título) leva sempre para a tela anterior:
+     a mesma tela pode ter "← Início", "← Pessoas & setores", "← Chamados"… conforme o caminho.
+     - menu lateral / barra do celular: começa um caminho novo (sem voltar);
+     - vindo da Home: voltar = Início;
+     - abrir uma tela que já está no caminho: o caminho é cortado até ela (sem voltas infinitas). */
+  const NAVH = { stack: [], reset: false, back: false, boot: false };
+  try { NAVH.stack = JSON.parse(sessionStorage.getItem('cc_navh') || '[]'); } catch (e) {}
+  const navhSave = () => { try { sessionStorage.setItem('cc_navh', JSON.stringify(NAVH.stack.slice(-20))); } catch (e) {} };
+  // contexto de telas de detalhe (qual pessoa, chamado, cliente…) para voltar exatamente ao mesmo lugar
+  const navCtx = (r) => r === 'rh-pessoa' ? rhPessoaId : r === 'pv-detalhe' ? pvCurrentId : r === 'pv-cliente' ? pvCliId : null;
+  function navhRestore(e) {
+    if (!e || e.ctx == null) return;
+    if (e.r === 'rh-pessoa') { rhPessoaId = e.ctx; try { sessionStorage.setItem('rh_pessoa', e.ctx); } catch (x) {} }
+    if (e.r === 'pv-detalhe') { pvCurrentId = e.ctx; try { sessionStorage.setItem('pv_current', e.ctx); } catch (x) {} }
+    if (e.r === 'pv-cliente') { pvCliId = e.ctx; try { sessionStorage.setItem('pv_cli', e.ctx); } catch (x) {} }
+  }
+  function navhTrack(route) {
+    const naHome = $('#homeScreen').classList.contains('show');
+    if (NAVH.boot) NAVH.boot = false;
+    else if (NAVH.back) NAVH.back = false;
+    else if (NAVH.reset) { NAVH.reset = false; NAVH.stack = []; }
+    else if (naHome) NAVH.stack = [{ r: 'home', t: 'Início' }];
+    else if (PAGES[currentRoute] && (route !== currentRoute || navCtx(route) !== NAVH.lastCtx))
+      NAVH.stack.push({ r: currentRoute, t: crumb.textContent || TITLES[currentRoute] || '', ctx: NAVH.lastCtx });
+    const i = NAVH.stack.findIndex((x) => x.r === route && (x.ctx == null || x.ctx === navCtx(route)));
+    if (i >= 0) NAVH.stack = NAVH.stack.slice(0, i);
+    NAVH.stack = NAVH.stack.slice(-20); navhSave();
+  }
+  function navBack() {
+    const e = NAVH.stack.pop(); navhSave();
+    if (!e || e.r === 'home') { NAVH.stack = []; navhSave(); goHome(); return; }
+    navhRestore(e); NAVH.back = true;
+    if (!PAGES[e.r] || Perm.aba(e.r) === 'nenhum') { NAVH.back = false; goHome(); return; }
+    go(e.r);
+  }
+  window.navBack = navBack;
+  const navBackHtml = () => { const e = NAVH.stack[NAVH.stack.length - 1]; return e ? `<button type="button" class="pg-back" id="pgBack" title="Voltar">${ic('chevron')}<span>${esc(e.t || 'Voltar')}</span></button>` : ''; };
+
   function pageShell(crumbName, title, sub, actions) {
     crumb.textContent = title || crumbName; // trilha do topo: Área › Página
     view.innerHTML = `
       <div class="page-head">
-        <div class="page-title"><span class="eyebrow">${esc(crumbName)}</span><h1>${esc(title)}</h1><p>${esc(sub)}</p></div>
+        <div class="page-title">${navBackHtml()}<span class="eyebrow">${esc(crumbName)}</span><h1>${esc(title)}</h1><p>${esc(sub)}</p></div>
         <div class="page-actions">${actions || ''}</div>
       </div>`;
     Icons.apply(view);
+    const pb = $('#pgBack', view); if (pb) pb.onclick = navBack;
   }
 
   function renderTable(head, rowsFn, coll) {
@@ -7659,7 +7694,7 @@
       g.items.map((it) => `<a class="nav-item" data-route="${it.r}"><span class="ni-ico" data-icon="${it.i}"></span><span class="ni-tx">${esc(it.t)}</span></a>`).join('')).join('');
     $('#brandArea').textContent = cfg.label;
     Icons.apply(nav);
-    $$('.nav-item', nav).forEach((a) => (a.onclick = (e) => { e.preventDefault(); navTo(a.dataset.route); }));
+    $$('.nav-item', nav).forEach((a) => (a.onclick = (e) => { e.preventDefault(); NAVH.reset = true; navTo(a.dataset.route); }));
   }
 
   /* ---------- navegação mobile: tab bar + bottom sheet (ref. LifeGas) ---------- */
@@ -7675,7 +7710,7 @@
     mnav.innerHTML = tabs.map((it) => `<button class="mtab${it.r === route ? ' on' : ''}" data-route="${it.r}"><span class="mt-ico" data-icon="${it.i}"></span><span class="mt-tx">${esc(it.s || it.t)}</span></button>`).join('')
       + `<button class="mtab mtab-menu" id="mtabMenu"><span class="mt-ico" data-icon="menu"></span><span class="mt-tx">Menu</span></button>`;
     Icons.apply(mnav);
-    $$('.mtab[data-route]', mnav).forEach((b) => (b.onclick = () => navTo(b.dataset.route)));
+    $$('.mtab[data-route]', mnav).forEach((b) => (b.onclick = () => { NAVH.reset = true; navTo(b.dataset.route); }));
     $('#mtabMenu').onclick = openSheet;
     // bottom sheet: navegação completa da área + trocar de área + tema
     const body = $('#msheetBody');
@@ -7687,7 +7722,7 @@
            ${Perm.on() ? '<button id="msUser"><span data-icon="users"></span>Minha conta</button>' : ''}
          </div>`;
     Icons.apply(body);
-    $$('.ms-item', body).forEach((b) => (b.onclick = () => { closeSheet(); navTo(b.dataset.route); }));
+    $$('.ms-item', body).forEach((b) => (b.onclick = () => { closeSheet(); NAVH.reset = true; navTo(b.dataset.route); }));
     $('#msArea').onclick = () => { closeSheet(); goHome(); };
     const msu = $('#msUser'); if (msu) msu.onclick = () => { closeSheet(); userMenu(); };
     $('#msTheme').onclick = () => { setTheme(document.documentElement.getAttribute('data-theme') === 'dark' ? 'light' : 'dark'); };
@@ -7695,6 +7730,7 @@
 
   function showApp() { document.body.classList.remove('home-on'); $('#homeScreen').classList.remove('show'); $('#homeScreen').setAttribute('aria-hidden', 'true'); $('.app-shell').style.display = ''; }
   function goHome() {
+    NAVH.stack = []; navhSave();
     document.body.classList.add('home-on'); closeSheet();
     try { buildHome(); } catch (e) {}
     $('#homeScreen').classList.add('show'); $('#homeScreen').setAttribute('aria-hidden', 'false');
@@ -7726,6 +7762,7 @@
       if (alt && alt !== route) { toast('Você não tem acesso a essa aba', 'warn'); route = alt; }
       else { toast('Você não tem acesso a essa área', 'warn'); goHome(); return; }
     }
+    navhTrack(route); NAVH.lastCtx = navCtx(route);
     const ro = Perm.aba(route) === 'ver';
     document.body.classList.toggle('cc-ro', ro);
     const rb = $('#tbRo'); if (rb) rb.hidden = !ro;
@@ -8220,7 +8257,7 @@ void main(){
   function progRenderForm() {
     const spec = progFormSpec;
     if (!spec) { go('prog-atividades'); return; }
-    pageShell('Programação', spec.title, spec.sub || '', `<button class="btn" id="fBack">${ic('chevron')}Voltar</button>`);
+    pageShell('Programação', spec.title, spec.sub || '', '');
     const wrap = document.createElement('div'); wrap.className = 'prog-formwrap';
     wrap.innerHTML = spec.html + `<div class="prog-form-actions"><button class="btn primary" id="fSave">${ic('check')}${spec.editing ? 'Salvar alterações' : 'Criar'}</button>${(spec.editing && spec.onDelete) ? `<button class="btn danger" id="fDel">${ic('trash')}Excluir</button>` : ''}<button class="btn ghost" id="fCancel">Cancelar</button></div>`;
     view.appendChild(wrap); Icons.apply(wrap);
@@ -8721,7 +8758,7 @@ void main(){
     const base = id ? Store.find('progPedidos', id) : null;
     const p = base ? Object.assign({}, base) : { titulo: '', cliente: '', produto: '', quantidade: 1, ritmoMensal: 0, inicio: pToday(), deadline: pAddDays(pToday(), 30), familiaId: '', equipeIds: [], bom: [], status: 'analise' };
     pageShell('Programação', editing ? 'Editar pedido' : 'Novo pedido', 'Dados do pedido.',
-      `<button class="btn" id="pedBack">${ic('chevron')}Voltar</button>`);
+      '');
     const famOpts = [{ v: '', t: '— selecione —' }].concat(Store.get('progFamilias').map((f) => ({ v: f.id, t: `${f.nome} · ${f.baselineDias}d · ${f.pessoasNecessarias}p` })));
     const grid = document.createElement('div'); grid.className = 'prog-ped-grid';
     grid.innerHTML = `
@@ -8907,7 +8944,7 @@ void main(){
       if (hash && hash !== 'home' && PAGES[hash]) {
         const area = ROUTE_AREA[hash]; if (area) currentArea = area;
         renderSidebar(currentArea);
-        go(hash);
+        NAVH.boot = true; go(hash);
       } else {
         renderSidebar('ti');
         goHome();

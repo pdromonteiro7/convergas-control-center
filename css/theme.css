@@ -2881,3 +2881,13 @@ body.cc-ro #rpBoneco { display: none !important; }
 .ri-pring { flex: none; width: 44px; height: 44px; border-radius: 50%; display: grid; place-items: center; color: var(--c); background: color-mix(in srgb, var(--c) 16%, transparent); box-shadow: 0 0 0 4px color-mix(in srgb, var(--c) 10%, transparent); }
 .ri-pring > span { display: grid; line-height: 0; } .ri-pring svg { width: 19px; height: 19px; display: block; }
 .ri-pst > span:last-child { display: flex; flex-direction: column; gap: 2px; } .ri-pst b { font-size: .95rem; color: var(--text); } .ri-pst small { font-size: .76rem; color: var(--text-3); }
+
+/* ---- voltar (acima do título, conforme o caminho) ---- */
+.pg-back { display: inline-flex; align-items: center; gap: 6px; align-self: flex-start; margin: -4px 0 10px -6px; padding: 4px 10px 4px 6px; border: 0; border-radius: 9px; background: transparent; font: inherit; font-size: .82rem; font-weight: 500; color: var(--text-3); cursor: pointer; transition: color .2s, background .2s; }
+.pg-back > span[data-icon] { display: grid; line-height: 0; transform: scaleX(-1); transition: transform .25s var(--ease); }
+.pg-back svg { width: 15px; height: 15px; display: block; }
+.pg-back:hover { color: var(--text); background: color-mix(in srgb, var(--text) 6%, transparent); }
+.pg-back:hover > span[data-icon] { transform: scaleX(-1) translateX(3px); }
+.pg-back > span:last-child { max-width: 260px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.page-title { display: flex; flex-direction: column; }
+.mdetail .pg-back { margin: 0 0 12px -6px; }
