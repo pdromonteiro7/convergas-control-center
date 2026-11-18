@@ -178,3 +178,15 @@ begin
 end $$;
 revoke all on function public.cc_salvar_avatar(jsonb) from public;
 grant execute on function public.cc_salvar_avatar(jsonb) to authenticated;
+
+
+-- =============================================================================
+-- RH: documentos pessoais (CPF) — coleção "rhDocs" só é lida por quem tem acesso ao RH
+-- =============================================================================
+create or replace function public.cc_pode_ver(area text)
+returns boolean language sql stable security definer set search_path = public as $$
+  select coalesce((select ativo and (admin or coalesce(permissoes -> 'areas' ->> area, '') in ('ver', 'editar')) from public.cc_perfis where id = auth.uid()), false);
+$$;
+drop policy if exists cc_ent_select on public.entities;
+create policy cc_ent_select on public.entities for select to authenticated
+  using (public.cc_ativo() and (entity <> 'rhDocs' or public.cc_pode_ver('rh')));

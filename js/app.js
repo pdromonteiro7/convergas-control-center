@@ -2090,6 +2090,7 @@
       body: `<div class="form-sec">${ic('users')}Identificação</div>
         <div class="form-grid">
           ${field('Nome completo', 'name', u.name, 'text', { full: true, ph: 'Nome e sobrenome' })}
+          ${field('CPF', 'cpf', editing ? rhCpf(u.id) : '', 'text', { ph: '000.000.000-00' })}
           ${field('E-mail corporativo', 'email', u.email, 'email', { ph: 'nome@convergas.com.br' })}
           ${field('Celular corporativo', 'celular', u.celular, 'tel', { ph: '(00) 00000-0000' })}
           ${field('Ramal', 'ramal', u.ramal, 'text', { ph: 'Ex.: 215' })}
@@ -2112,11 +2113,14 @@
     const cel = $('[name="celular"]', card); cel.addEventListener('input', () => { cel.value = pvMaskFone(cel.value); });
     const ani = $('[name="aniversario"]', card); ani.addEventListener('input', () => { const d = pvDig(ani.value).slice(0, 4); ani.value = d.length > 2 ? d.slice(0, 2) + '/' + d.slice(2) : d; });
     rhMaskDig($('[name="ramal"]', card), 6);
+    const cpfI = $('[name="cpf"]', card); cpfI.setAttribute('inputmode', 'numeric'); cpfI.addEventListener('input', () => { cpfI.value = rhMaskCpf(cpfI.value); });
     rhLimDates(card, { admissao: [rhAnos(-60), rhAnos(1)], cnhValidade: [rhAnos(-10), rhAnos(15)] });
     $('#saveBtn', card).onclick = () => {
       const d = readForm(card);
       if (d.name.length < 3) return toast('Informe o nome completo', 'warn');
       if (!editing && !d.sexo) return toast('Selecione o sexo', 'warn');
+      if (d.cpf && !rhCpfOk(d.cpf)) return toast('CPF inválido', 'warn');
+      if (d.cpf && rhCpfDup(d.cpf, u.id)) return toast('CPF já cadastrado', 'warn');
       if (!rhEmailOk(d.email)) return toast('E-mail inválido', 'warn');
       if (d.celular && pvDig(d.celular).length < 10) return toast('Celular incompleto', 'warn');
       const de = rhDateErr(d.admissao, 'Admissão', rhAnos(-60), rhAnos(1)) || rhDateErr(d.cnhValidade, 'Validade da CNH', rhAnos(-10), rhAnos(15)); if (de) return toast(de, 'warn');
@@ -2124,6 +2128,7 @@
       const c = rhCargo(d.cargoId);
       const obj = { name: d.name, email: (d.email || '').toLowerCase(), celular: d.celular, ramal: d.ramal, aniversario: d.aniversario, sexo: d.sexo || u.sexo || '', sector: d.sector || (c && c.setor) || '', cargoId: d.cargoId, role: c ? c.nome : (u.role || ''), gestorId: d.gestorId, contrato: d.contrato || 'CLT', admissao: d.admissao, cnhValidade: d.cnhValidade };
       const saved = editing ? Store.update('team', u.id, obj) : Store.add('team', { ...obj, situacao: 'ativo', vpn: false, engServer: false, machineId: '' });
+      if (saved && (d.cpf || (editing && rhCpf(u.id)))) rhSetCpf(saved.id, d.cpf);
       toast(editing ? 'Colaborador atualizado' : 'Colaborador cadastrado'); closeModal();
       if (onDone) onDone(saved); else go(currentRoute);
     };
@@ -2156,6 +2161,7 @@
     const ag = [];
     exp.forEach((u) => { const e = rhExperiencia(u); if (e && rhDias(h, e.vence) <= 15) ag.push({ d: e.vence, i: 'clock', c: '#3FA9F5', t: `Experiência de ${u.name} (${e.fase})`, s: 'Decidir se efetiva', go: () => rhOpenPessoa(u.id) }); });
     ativos.forEach((u) => rhExigidos(u).forEach((t) => { const st = rhTreinoSt(u.id, t); const tr = Store.find('rhTreinos', t); if (tr && (st.st === 'vencendo' || st.st === 'vencido')) ag.push({ d: st.r.validade, i: 'award', c: st.st === 'vencido' ? '#FF7A7A' : '#F5B840', t: `${tr.nome} — ${u.name}`, s: st.st === 'vencido' ? 'Treinamento vencido' : 'Treinamento vencendo', go: () => navTo('rh-treinos') }); }));
+    ativos.forEach((u) => { const ii = rhIntDe(u.id); if (ii.validade && rhDias(h, ii.validade) <= 30) ag.push({ d: ii.validade, i: 'shield', c: ii.st === 'vencido' ? '#FF7A7A' : '#F5B840', t: `Integração de ${u.name}`, s: ii.st === 'vencido' ? 'vencida' : 'vencendo', go: () => navTo('rh-integracao') }); });
     rhList('rhAusencias').forEach((a) => { if (a.inicio >= h && rhDias(h, a.inicio) <= 30) ag.push({ d: a.inicio, i: (RH_AUS[a.tipo] || RH_AUS.ferias).i, c: (RH_AUS[a.tipo] || RH_AUS.ferias).c, t: `${(RH_AUS[a.tipo] || RH_AUS.ferias).l} de ${rhNome(a.colaboradorId)}`, s: `até ${fmtDate(a.fim || a.inicio)}`, go: () => navTo('rh-ferias') }); });
     ativos.forEach((u) => { if (!u.aniversario) return; const [dd, mm] = u.aniversario.split('/'); let dt = `${h.slice(0, 4)}-${mm}-${dd}`; if (dt < h) dt = `${+h.slice(0, 4) + 1}-${mm}-${dd}`; if (rhDias(h, dt) <= 30) ag.push({ d: dt, i: 'sun2', c: '#F472B6', t: `Aniversário de ${u.name}`, s: u.sector || '', go: () => rhOpenPessoa(u.id) }); });
     rhList('rhVeiculos').forEach((v) => [['licenciamento', 'Licenciamento'], ['seguro', 'Seguro'], ['revisaoData', 'Revisão']].forEach(([k, l]) => { const x = rhVenc(v[k]); if (x && x.d <= 30) ag.push({ d: v[k], i: 'car', c: x.st === 'vencido' ? '#FF7A7A' : '#F5B840', t: `${l} · ${v.placa}`, s: v.modelo || '', go: () => navTo('rh-veiculos') }); }));
@@ -2282,9 +2288,9 @@
     hero.innerHTML = `
       <div class="pc-id"><span class="pc-av">${esc(pvInitials(u.name))}</span>
         <div class="pc-name"><b>${esc(u.name)}</b><span>${esc((c && c.nome) || u.role || 'Sem cargo')}${u.sector ? ' · ' + esc(u.sector) : ''}</span>
-          <div class="pc-chips">${rhSitBadge(u)}<span class="badge neutral plain">${esc(u.contrato || 'CLT')}</span>${u.sexo ? `<span class="badge neutral plain">${u.sexo === 'F' ? 'Feminino' : 'Masculino'}</span>` : ''}${e ? `<span class="badge info plain">Experiência até ${fmtDate(e.vence)}</span>` : ''}${u.gestorId ? `<span class="badge neutral plain">Gestor: ${esc(rhNome(u.gestorId))}</span>` : ''}</div></div></div>
+          <div class="pc-chips">${rhSitBadge(u)}${(() => { const ii = rhIntDe(u.id); return `<span class="badge ${RH_INT_ST[ii.st].cls} plain">Integração ${ii.st === 'pendente' ? 'pendente' : ii.st === 'ok' ? 'em dia' : ii.st === 'vencendo' ? 'vencendo' : 'vencida'}</span>`; })()}<span class="badge neutral plain">${esc(u.contrato || 'CLT')}</span>${u.sexo ? `<span class="badge neutral plain">${u.sexo === 'F' ? 'Feminino' : 'Masculino'}</span>` : ''}${e ? `<span class="badge info plain">Experiência até ${fmtDate(e.vence)}</span>` : ''}${u.gestorId ? `<span class="badge neutral plain">Gestor: ${esc(rhNome(u.gestorId))}</span>` : ''}</div></div></div>
       <div class="pc-info">
-        ${line('mail', u.email, u.email ? 'mailto:' + u.email : '')}${line('phone', u.celular, u.celular ? 'tel:' + pvDig(u.celular) : '')}
+        ${line('file', rhCpf(u.id) ? 'CPF ' + rhCpf(u.id) : '')}${line('mail', u.email, u.email ? 'mailto:' + u.email : '')}${line('phone', u.celular, u.celular ? 'tel:' + pvDig(u.celular) : '')}
         ${line('phone', u.ramal ? 'Ramal ' + u.ramal : '')}${line('calendar', u.admissao ? 'Admissão em ' + fmtDate(u.admissao) : '')}
         ${line('sun2', u.aniversario ? 'Aniversário ' + u.aniversario : '')}${line('x', u.situacao === 'desligado' && u.desligamento ? `Desligado em ${fmtDate(u.desligamento)}${u.motivoDesligamento ? ' · ' + u.motivoDesligamento : ''}` : '')}
         ${line('monitor', u.machineId ? 'Máquina ' + u.machineId : '')}
@@ -2307,6 +2313,11 @@
     const ids = Array.from(new Set(rhExigidos(u).concat(regs.map((r) => r.treinoId))));
     const grid = document.createElement('section'); grid.className = 'rh-pgrid';
     grid.innerHTML = `
+      ${(() => { const ii = rhIntDe(u.id); const S = RH_INT_ST[ii.st]; const hist = rhList('rhIntegracoes').filter((t) => t.tipo === 'colab' && !t.anulado && (t.participantes || []).includes(u.id)).sort((a, b) => String(b.data).localeCompare(String(a.data)));
+        return `<div class="pvp-card ri-pcard" style="--c:${S.c}"><div class="pvp-card-h"><b>Integração</b>${rhIntBadge(ii.st)}</div>
+          <div class="ri-pst"><span class="ri-pring">${ic(ii.st === 'ok' ? 'check' : ii.st === 'pendente' ? 'users' : ii.st === 'vencendo' ? 'clock' : 'alert')}</span>
+            <span><b>${ii.validade ? (ii.st === 'vencido' ? 'Venceu em ' : 'Válida até ') + fmtDate(ii.validade) : 'Ainda não realizada'}</b><small>${ii.data ? 'Realizada em ' + fmtDate(ii.data) + (ii.t && ii.t.instrutor ? ' · ' + esc(ii.t.instrutor) : '') : 'Validade de 12 meses após a realização'}</small></span></div>
+          ${hist.length > 1 ? `<div class="rh-tl">${hist.slice(1, 4).map((t) => `<div class="rh-tr" style="--c:#94A3B8"><i></i><span><b>${fmtDate(t.data)}</b><small>${esc(t.instrutor || '')}</small></span></div>`).join('')}</div>` : ''}</div>`; })()}
       <div class="pvp-card"><div class="pvp-card-h"><b>Treinamentos & competências</b><span>${c ? 'exigidos pelo cargo ' + esc(c.nome) : 'defina o cargo para ver as exigências'}</span></div>
         ${ids.length ? `<div class="rh-tl">${ids.map((t) => { const T = Store.find('rhTreinos', t); if (!T) return ''; const st = rhTreinoSt(u.id, t); const req = rhExigidos(u).includes(t); const S = RH_TST[st.st];
           return `<div class="rh-tr" style="--c:${S.c}"><i></i><span><b>${esc(T.nome)}</b><small>${st.r ? `Realizado em ${fmtDate(st.r.data)}${st.r.validade ? ' · válido até ' + fmtDate(st.r.validade) : ' · sem vencimento'}` : 'Ainda não realizado'}${req ? '' : ' · extra'}</small></span><span class="badge ${S.cls} plain">${S.l}</span></div>`; }).join('')}</div>`
@@ -2575,6 +2586,241 @@
   };
   PAGES['rh-cargos'] = () => { rhView = 'mapa'; go('rh-colab'); };
 
+  /* =========================== INTEGRAÇÃO (colaboradores e terceiros) ===========================
+     Turmas de integração dos colaboradores e integrações individuais de terceiros.
+     Validade anual. CPF fica em "rhDocs" (leitura restrita ao RH no banco). */
+  const RH_INT_MESES = 12;
+  const RH_INT_CONTEUDO = 'Apresentação da empresa, missão e valores; normas internas; segurança do trabalho e uso de EPI; qualidade (IATF 16949 / ISO 9001); rotas de fuga e emergência; política de confidencialidade.';
+  const rhCpfDig = (v) => String(v || '').replace(/\D/g, '').slice(0, 11);
+  const rhMaskCpf = (v) => { const d = rhCpfDig(v); return d.length > 9 ? `${d.slice(0, 3)}.${d.slice(3, 6)}.${d.slice(6, 9)}-${d.slice(9)}` : d.length > 6 ? `${d.slice(0, 3)}.${d.slice(3, 6)}.${d.slice(6)}` : d.length > 3 ? `${d.slice(0, 3)}.${d.slice(3)}` : d; };
+  const rhCpfOk = (v) => {
+    const d = rhCpfDig(v); if (d.length !== 11 || /^(\d)\1+$/.test(d)) return false;
+    const dv = (n) => { let s = 0; for (let i = 0; i < n; i++) s += +d[i] * (n + 1 - i); const r = (s * 10) % 11; return r === 10 ? 0 : r; };
+    return dv(9) === +d[9] && dv(10) === +d[10];
+  };
+  const rhCpf = (id) => { const x = Store.find('rhDocs', 'doc_' + id); return x ? x.cpf || '' : ''; };
+  function rhSetCpf(id, cpf) {
+    const v = rhMaskCpf(cpf); const cur = Store.find('rhDocs', 'doc_' + id);
+    if (cur) { if (cur.cpf !== v) Store.update('rhDocs', cur.id, { cpf: v }); }
+    else if (v) Store.add('rhDocs', { id: 'doc_' + id, colaboradorId: id, cpf: v });
+  }
+  const rhCpfDup = (cpf, exceto) => { const d = rhCpfDig(cpf); return d && rhList('rhDocs').some((x) => x.colaboradorId !== exceto && rhCpfDig(x.cpf) === d); };
+  const RH_INT_ST = { ok: { l: 'Em dia', cls: 'ok', c: '#46D39A' }, vencendo: { l: 'Vencendo', cls: 'warn', c: '#F5B840' }, vencido: { l: 'Vencida', cls: 'danger', c: '#FF7A7A' }, pendente: { l: 'Pendente', cls: 'neutral', c: '#94A3B8' } };
+  const rhIntStOf = (validade) => { const x = rhVenc(validade); return !x ? 'pendente' : x.st === 'vencido' ? 'vencido' : x.st === 'vencendo' ? 'vencendo' : 'ok'; };
+  // última integração da pessoa
+  function rhIntDe(id) {
+    const l = rhList('rhIntegracoes').filter((t) => t.tipo === 'colab' && !t.anulado && (t.participantes || []).includes(id)).sort((a, b) => String(b.data).localeCompare(String(a.data)));
+    const t = l[0]; return t ? { t, data: t.data, validade: t.validade, st: rhIntStOf(t.validade) } : { t: null, st: 'pendente' };
+  }
+  const rhIntBadge = (st) => `<span class="badge ${RH_INT_ST[st].cls} plain">${RH_INT_ST[st].l}</span>`;
+
+  /* ---------- impressão ---------- */
+  function rhPrintDoc(titulo, corpo) {
+    const logo = location.origin + '/assets/logo-icone.png';
+    const html = `<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><title>${esc(titulo)}</title><style>
+      @page { size: A4; margin: 16mm 14mm; }
+      body { font: 11.5px/1.5 Arial, Helvetica, sans-serif; color: #111; margin: 0; }
+      header { display: flex; align-items: center; gap: 14px; border-bottom: 2px solid #0b3d6b; padding-bottom: 10px; margin-bottom: 16px; }
+      header img { width: 34px; height: 34px; } header .t { flex: 1; } header h1 { font-size: 17px; margin: 0; color: #0b3d6b; } header .s { color: #555; font-size: 11px; }
+      header .e { text-align: right; color: #555; font-size: 10.5px; }
+      .info { display: grid; grid-template-columns: repeat(4, 1fr); gap: 0; border: 1px solid #c9d2de; margin-bottom: 14px; }
+      .info div { padding: 6px 9px; border-right: 1px solid #c9d2de; } .info div:last-child { border-right: 0; }
+      .info small { display: block; font-size: 9.5px; text-transform: uppercase; letter-spacing: .05em; color: #667; } .info b { font-size: 12px; }
+      p.decl { text-align: justify; margin: 0 0 14px; font-size: 12px; } .cont { margin: -6px 0 14px; font-size: 11px; color: #333; }
+      table { width: 100%; border-collapse: collapse; } th, td { border: 1px solid #c9d2de; padding: 7px 8px; text-align: left; vertical-align: middle; }
+      th { background: #eef2f7; font-size: 10.5px; text-transform: uppercase; letter-spacing: .04em; color: #334; }
+      td.n { width: 26px; text-align: center; color: #667; } td.cpf { width: 118px; white-space: nowrap; font-variant-numeric: tabular-nums; } td.sig { width: 34%; height: 30px; }
+      tr { page-break-inside: avoid; }
+      .ass { display: flex; gap: 40px; margin-top: 46px; } .ass div { flex: 1; text-align: center; border-top: 1px solid #333; padding-top: 5px; font-size: 11px; }
+      .ass small { display: block; color: #667; font-size: 10px; }
+      .st { font-weight: 700; } .st.ok { color: #127a4b; } .st.vencendo { color: #a26500; } .st.vencido { color: #b42318; } .st.pendente { color: #667; }
+      footer { margin-top: 22px; color: #778; font-size: 9.5px; border-top: 1px solid #d5dbe4; padding-top: 6px; }
+    </style></head><body>
+      <header><img src="${logo}" alt=""><div class="t"><h1>${esc(titulo)}</h1><div class="s">Convergas · Recursos Humanos</div></div><div class="e">Emitido em<br><b>${esc(pvFmtDT(new Date().toISOString()))}</b></div></header>
+      ${corpo}
+      <footer>Convergas · Control Center · RH</footer></body></html>`;
+    const win = window.open('', '_blank');
+    if (!win) { toast('Permita pop-ups para imprimir', 'warn'); return; }
+    win.document.open(); win.document.write(html); win.document.close();
+    setTimeout(() => { try { win.focus(); win.print(); } catch (e) {} }, 400);
+  }
+  function rhIntPessoasDaTurma(t) {
+    return (t.participantes || []).map((id) => { const u = rhPessoa(id) || { id, name: '(removido)' }; const c = rhCargo(u.cargoId); return { u, cpf: rhCpf(id), func: [(c && c.nome) || u.role, u.sector].filter(Boolean).join(' · ') }; })
+      .sort((a, b) => a.u.name.localeCompare(b.u.name));
+  }
+  function rhIntInfo(t) {
+    return `<div class="info"><div><small>Data</small><b>${fmtDate(t.data)}</b></div><div><small>Carga horária</small><b>${esc(t.cargaHoras || '—')} h</b></div><div><small>Responsável</small><b>${esc(t.instrutor || '—')}</b></div><div><small>Válida até</small><b>${fmtDate(t.validade)}</b></div></div>`;
+  }
+  function rhIntPrintLista(t, comprovante) {
+    const ps = rhIntPessoasDaTurma(t);
+    const corpo = rhIntInfo(t) + (comprovante
+      ? `<p class="decl">Declaramos que os colaboradores relacionados abaixo participaram da <b>Integração de colaboradores</b> da Convergas, realizada em <b>${fmtDate(t.data)}</b>${t.local ? `, em ${esc(t.local)}` : ''}, com carga horária de <b>${esc(t.cargaHoras || '—')} hora(s)</b>, conduzida por <b>${esc(t.instrutor || '—')}</b>. A integração tem validade de 12 meses, até <b>${fmtDate(t.validade)}</b>.</p>`
+      : '') + (t.conteudo ? `<div class="cont"><b>Conteúdo:</b> ${esc(t.conteudo)}</div>` : '') +
+      `<table><thead><tr><th>Nº</th><th>Nome</th><th>CPF</th><th>Cargo / setor</th><th>Assinatura</th></tr></thead><tbody>${ps.map((x, i) => `<tr><td class="n">${i + 1}</td><td>${esc(x.u.name)}</td><td class="cpf">${esc(x.cpf || '')}</td><td>${esc(x.func)}</td><td class="sig"></td></tr>`).join('')}</tbody></table>
+      <div class="ass"><div>${esc(t.instrutor || '')}<small>Responsável pela integração</small></div><div>&nbsp;<small>Recursos Humanos</small></div></div>`;
+    rhPrintDoc(comprovante ? 'Comprovante de participação · Integração' : 'Lista de presença · Integração', corpo);
+  }
+  function rhIntPrintGeral() {
+    const l = rhAtivos().map((u) => ({ u, i: rhIntDe(u.id), cpf: rhCpf(u.id) }));
+    const corpo = `<table><thead><tr><th>Nº</th><th>Nome</th><th>CPF</th><th>Setor</th><th>Integração</th><th>Válida até</th><th>Situação</th></tr></thead><tbody>${l.map((x, i) => `<tr><td class="n">${i + 1}</td><td>${esc(x.u.name)}</td><td class="cpf">${esc(x.cpf || '')}</td><td>${esc(x.u.sector || '—')}</td><td>${x.i.data ? fmtDate(x.i.data) : '—'}</td><td>${x.i.validade ? fmtDate(x.i.validade) : '—'}</td><td><span class="st ${x.i.st}">${RH_INT_ST[x.i.st].l}</span></td></tr>`).join('')}</tbody></table>`;
+    rhPrintDoc('Situação da integração · Colaboradores', corpo);
+  }
+  function rhIntPrintTerceiro(t) {
+    const x = t.terceiro || {};
+    const corpo = `<div class="info"><div><small>Data</small><b>${fmtDate(t.data)}</b></div><div><small>Carga horária</small><b>${esc(t.cargaHoras || '—')} h</b></div><div><small>Responsável</small><b>${esc(t.instrutor || '—')}</b></div><div><small>Válida até</small><b>${fmtDate(t.validade)}</b></div></div>
+      <table><tbody><tr><th style="width:28%">Nome</th><td>${esc(x.nome)}</td></tr><tr><th>Documento</th><td>${esc(x.doc || '—')}</td></tr><tr><th>Empresa</th><td>${esc(x.empresa || '—')}</td></tr><tr><th>Função / serviço</th><td>${esc(x.funcao || '—')}</td></tr><tr><th>Local / atividade</th><td>${esc(x.motivo || '—')}</td></tr></tbody></table>
+      <p class="decl" style="margin-top:16px">Declaro que recebi a <b>Integração de terceiros</b> da Convergas em <b>${fmtDate(t.data)}</b>, com orientações sobre segurança do trabalho, uso de EPI, normas internas, rotas de emergência e confidencialidade, e me comprometo a cumpri-las. Validade até <b>${fmtDate(t.validade)}</b>.</p>
+      ${t.conteudo ? `<div class="cont"><b>Conteúdo:</b> ${esc(t.conteudo)}</div>` : ''}
+      <div class="ass"><div>${esc(x.nome)}<small>Terceiro</small></div><div>${esc(t.instrutor || '')}<small>Responsável pela integração</small></div></div>`;
+    rhPrintDoc('Comprovante de integração · Terceiro', corpo);
+  }
+
+  /* ---------- formulários ---------- */
+  function rhFormIntegracao(t) {
+    const editing = !!(t && t.id); t = t || {};
+    const pre = editing ? t.participantes : rhAtivos().filter((u) => rhIntDe(u.id).st !== 'ok').map((u) => u.id);
+    const me = typeof pvMe === 'function' ? pvMe() : '';
+    const card = modal({
+      title: editing ? 'Editar integração' : 'Nova integração', sub: 'Colaboradores', wide: true,
+      body: `<div class="form-grid">
+          ${field('Data', 'data', t.data || todayISO(), 'date')}${field('Carga horária (horas)', 'cargaHoras', t.cargaHoras || '4', 'text')}
+          ${field('Responsável', 'instrutor', t.instrutor || me, 'text', { ph: 'Quem conduziu' })}${field('Local', 'local', t.local || '', 'text', { ph: 'Ex.: Sala de reuniões' })}
+          ${field('Conteúdo', 'conteudo', t.conteudo != null ? t.conteudo : RH_INT_CONTEUDO, 'textarea', { full: true })}
+        </div>
+        <div class="form-sec">${ic('users')}Participantes</div><div id="riPk"></div><p class="sv-note" id="riCpf"></p>`,
+      footer: (editing ? `<button class="btn ghost" id="riAnular" style="margin-right:auto">${ic('x')}Anular</button>` : '') + `<button class="btn ghost" data-close>Cancelar</button><button class="btn primary" id="saveBtn">${ic('check')}${editing ? 'Salvar' : 'Registrar'}</button>`,
+    });
+    rhMaskNum($('[name="cargaHoras"]', card), 40); rhLimDates(card, { data: [rhAnos(-3), rhHoje()] });
+    const pick = rhPickPeople($('#riPk', card), pre);
+    const avisoCpf = () => { const sem = pick().filter((id) => !rhCpf(id)).length; const el = $('#riCpf', card); el.innerHTML = sem ? `${ic('alert')}<span>${sem} participante${sem > 1 ? 's' : ''} sem CPF cadastrado.</span>` : ''; Icons.apply(el); };
+    $('#riPk', card).addEventListener('click', () => setTimeout(avisoCpf, 0)); avisoCpf();
+    const an = $('#riAnular', card);
+    if (an) an.onclick = () => confirmDialog('Anular esta integração? Ela deixa de contar para os participantes.', () => { Store.update('rhIntegracoes', t.id, { anulado: true, anuladoEm: new Date().toISOString() }); toast('Integração anulada', 'info'); go(currentRoute); });
+    $('#saveBtn', card).onclick = () => {
+      const d = readForm(card); const ids = pick();
+      if (!d.data) return toast('Informe a data', 'warn');
+      const de = rhDateErr(d.data, 'Data', rhAnos(-3), rhHoje()); if (de) return toast(de, 'warn');
+      if (!ids.length) return toast('Selecione os participantes', 'warn');
+      if ((d.instrutor || '').length < 3) return toast('Informe o responsável', 'warn');
+      const obj = { tipo: 'colab', data: d.data, validade: rhAddMeses(d.data, RH_INT_MESES), cargaHoras: rhNum(d.cargaHoras) || '', instrutor: d.instrutor, local: d.local, conteudo: d.conteudo, participantes: ids };
+      const salvo = editing ? Store.update('rhIntegracoes', t.id, obj) : Store.add('rhIntegracoes', { ...obj, criadoEm: new Date().toISOString(), criadoPor: me });
+      closeModal(); toast(editing ? 'Integração atualizada' : 'Integração registrada'); rhIntTab = 'turmas'; go('rh-integracao');
+      if (!editing && salvo) setTimeout(() => rhIntTurma(salvo.id), 350);
+    };
+  }
+  function rhFormTerceiro(t) {
+    const editing = !!(t && t.id); t = t || {}; const x = t.terceiro || {};
+    const me = typeof pvMe === 'function' ? pvMe() : '';
+    const card = modal({
+      title: editing ? 'Editar integração de terceiro' : 'Integração de terceiro', sub: 'Externo', wide: true,
+      body: `<div class="form-grid">
+          ${field('Nome completo', 'nome', x.nome, 'text', { full: true })}
+          ${field('CPF ou RG', 'doc', x.doc, 'text')}${field('Empresa', 'empresa', x.empresa, 'text')}
+          ${field('Função / serviço', 'funcao', x.funcao, 'text', { ph: 'Ex.: Eletricista' })}${field('Local / atividade', 'motivo', x.motivo, 'text', { ph: 'Ex.: Manutenção do compressor' })}
+          ${field('Data', 'data', t.data || todayISO(), 'date')}${field('Carga horária (horas)', 'cargaHoras', t.cargaHoras || '1', 'text')}
+          ${field('Responsável', 'instrutor', t.instrutor || me, 'text', { full: true })}
+        </div>`,
+      footer: (editing ? `<button class="btn ghost" id="rtAnular" style="margin-right:auto">${ic('x')}Anular</button>` : '') + `<button class="btn ghost" data-close>Cancelar</button><button class="btn primary" id="saveBtn">${ic('check')}${editing ? 'Salvar' : 'Registrar'}</button>`,
+    });
+    rhMaskNum($('[name="cargaHoras"]', card), 40); rhLimDates(card, { data: [rhAnos(-3), rhHoje()] });
+    const doc = $('[name="doc"]', card); doc.addEventListener('blur', () => { if (/^\d{11}$/.test(doc.value.trim()) && rhCpfOk(doc.value)) doc.value = rhMaskCpf(doc.value); });
+    const an = $('#rtAnular', card);
+    if (an) an.onclick = () => confirmDialog('Anular esta integração?', () => { Store.update('rhIntegracoes', t.id, { anulado: true, anuladoEm: new Date().toISOString() }); toast('Integração anulada', 'info'); go(currentRoute); });
+    $('#saveBtn', card).onclick = () => {
+      const d = readForm(card);
+      if ((d.nome || '').length < 3) return toast('Informe o nome', 'warn');
+      if ((d.doc || '').replace(/\W/g, '').length < 5) return toast('Informe o CPF ou RG', 'warn');
+      if (/^\d{3}\.?\d{3}\.?\d{3}-?\d{2}$/.test(d.doc.trim()) && !rhCpfOk(d.doc)) return toast('CPF inválido', 'warn');
+      if ((d.empresa || '').length < 2) return toast('Informe a empresa', 'warn');
+      const de = rhDateErr(d.data, 'Data', rhAnos(-3), rhHoje()); if (!d.data || de) return toast(de || 'Informe a data', 'warn');
+      if ((d.instrutor || '').length < 3) return toast('Informe o responsável', 'warn');
+      const obj = { tipo: 'terceiro', data: d.data, validade: rhAddMeses(d.data, RH_INT_MESES), cargaHoras: rhNum(d.cargaHoras) || '', instrutor: d.instrutor,
+        terceiro: { nome: d.nome, doc: d.doc, empresa: d.empresa, funcao: d.funcao, motivo: d.motivo }, conteudo: 'Segurança do trabalho e uso de EPI; normas internas; rotas de fuga e emergência; confidencialidade.' };
+      const salvo = editing ? Store.update('rhIntegracoes', t.id, obj) : Store.add('rhIntegracoes', { ...obj, criadoEm: new Date().toISOString(), criadoPor: me });
+      closeModal(); toast(editing ? 'Integração atualizada' : 'Integração registrada'); rhIntTab = 'terceiros'; go('rh-integracao');
+      if (!editing && salvo) setTimeout(() => rhIntPrintTerceiro(salvo), 350);
+    };
+  }
+  function rhIntTurma(id) {
+    const t = Store.find('rhIntegracoes', id); if (!t) return;
+    const ps = rhIntPessoasDaTurma(t); const sem = ps.filter((x) => !x.cpf).length;
+    const card = modal({
+      title: `Integração · ${fmtDate(t.data)}`, sub: `${ps.length} participante${ps.length === 1 ? '' : 's'} · válida até ${fmtDate(t.validade)}`, wide: true,
+      body: `<div class="ri-meta"><span>${ic('users')}<b>${esc(t.instrutor || '—')}</b><small>Responsável</small></span><span>${ic('clock')}<b>${esc(t.cargaHoras || '—')} h</b><small>Carga</small></span><span>${ic('calendar')}<b>${fmtDate(t.validade)}</b><small>Validade</small></span>${t.local ? `<span>${ic('grid')}<b>${esc(t.local)}</b><small>Local</small></span>` : ''}</div>
+        <div class="ri-list">${ps.map((x) => `<div class="ri-p">${rhAvatar(x.u.name)}<span><b>${esc(x.u.name)}</b><small>${esc(x.func || '—')}</small></span><em class="${x.cpf ? '' : 'sem'}">${x.cpf ? esc(x.cpf) : 'sem CPF'}</em></div>`).join('')}</div>
+        ${sem ? `<p class="sv-note">${ic('alert')}<span>${sem} sem CPF cadastrado.</span></p>` : ''}`,
+      footer: `<button class="btn ghost" id="riEd" style="margin-right:auto">${ic('edit')}Editar</button><button class="btn" id="riLista">${ic('file')}Lista de presença</button><button class="btn primary" id="riComp">${ic('award')}Comprovante</button>`,
+    });
+    Icons.apply(card);
+    $('#riLista', card).onclick = () => rhIntPrintLista(t, false);
+    $('#riComp', card).onclick = () => rhIntPrintLista(t, true);
+    $('#riEd', card).onclick = () => { closeModal(); setTimeout(() => rhFormIntegracao(t), 250); };
+  }
+
+  /* ---------- página ---------- */
+  let rhIntTab = 'colab'; let rhIntF = 'todos', rhIntQ = '';
+  PAGES['rh-integracao'] = () => {
+    pageShell('RH', 'Integração', 'Colaboradores e terceiros.',
+      `<button class="btn" id="riTerc">${ic('userPlus')}Terceiro</button><button class="btn primary" id="riNova">${ic('plus')}Nova integração</button>`);
+    $('#riNova').onclick = () => rhFormIntegracao(null);
+    $('#riTerc').onclick = () => rhFormTerceiro(null);
+    const ativos = rhAtivos(); const est = ativos.map((u) => ({ u, i: rhIntDe(u.id) }));
+    const cnt = { ok: 0, vencendo: 0, vencido: 0, pendente: 0 }; est.forEach((x) => cnt[x.i.st]++);
+    const turmas = rhList('rhIntegracoes').filter((t) => t.tipo === 'colab' && !t.anulado).sort((a, b) => String(b.data).localeCompare(String(a.data)));
+    const terc = rhList('rhIntegracoes').filter((t) => t.tipo === 'terceiro' && !t.anulado).sort((a, b) => String(b.data).localeCompare(String(a.data)));
+    const tercOk = terc.filter((t) => rhIntStOf(t.validade) !== 'vencido').length;
+    const tile = (cls, icn, v, l, s) => `<div class="pvd-tile ${cls}"><span class="pvd-ti">${ic(icn)}</span><b>${v}</b><span>${esc(l)}</span><small>${esc(s)}</small></div>`;
+    const top = document.createElement('section'); top.className = 'pc-tiles rh-aus-t ri-tiles';
+    top.innerHTML = tile('t-ok', 'check', cnt.ok, 'Em dia', `de ${ativos.length} colaboradores`) + tile('t-warn', 'clock', cnt.vencendo, 'Vencendo', 'próximos 30 dias') + tile(cnt.vencido ? 't-danger' : '', 'alert', cnt.vencido, 'Vencidas', 'renovar') + tile('', 'users', cnt.pendente, 'Pendentes', 'sem integração') + tile('t-info', 'userPlus', tercOk, 'Terceiros', 'com integração válida');
+    view.appendChild(top); Icons.apply(top);
+    const tabs = [['colab', 'Colaboradores', ativos.length], ['turmas', 'Turmas', turmas.length], ['terceiros', 'Terceiros', terc.length]];
+    const tb = document.createElement('div'); tb.className = 'pvf';
+    tb.innerHTML = `<div class="pvf-tabs" id="riTabs"><span class="pvf-thumb"></span>${tabs.map(([k, l, n]) => `<button data-s="${k}" class="${rhIntTab === k ? 'on' : ''}">${l}<span class="pvf-n">${n}</span></button>`).join('')}</div>`;
+    view.appendChild(tb);
+    const holder = document.createElement('div'); view.appendChild(holder);
+    const render = () => {
+      if (rhIntTab === 'colab') {
+        const FL = [['todos', 'Todos', est.length], ['pendente', 'Pendentes', cnt.pendente], ['vencido', 'Vencidas', cnt.vencido], ['vencendo', 'Vencendo', cnt.vencendo], ['ok', 'Em dia', cnt.ok]];
+        holder.innerHTML = `<div class="rh-mxf ri-bar"><label class="rh-pk-q">${ic('search')}<input id="riQ" placeholder="Buscar" value="${esc(rhIntQ)}" autocomplete="off"></label>
+            <div class="rh-mxf-c">${FL.map(([k, l, n]) => `<button type="button" class="rh-fc${rhIntF === k ? ' on' : ''}" data-f="${k}">${l}<em>${n}</em></button>`).join('')}<button type="button" class="btn sm" id="riPrint">${ic('file')}Imprimir lista</button></div></div><div id="riG"></div>`;
+        const paint = () => {
+          let l = est.filter((x) => rhIntF === 'todos' || x.i.st === rhIntF);
+          if (rhIntQ) { const q = rhIntQ.toLowerCase(); l = l.filter((x) => [x.u.name, x.u.sector].join(' ').toLowerCase().includes(q)); }
+          const ordem = { vencido: 0, pendente: 1, vencendo: 2, ok: 3 }; l.sort((a, b) => ordem[a.i.st] - ordem[b.i.st] || a.u.name.localeCompare(b.u.name));
+          $('#riG', holder).innerHTML = l.length ? `<div class="tbl-wrap"><table class="data"><thead><tr><th>Colaborador</th><th>CPF</th><th>Integração</th><th>Válida até</th><th>Situação</th></tr></thead><tbody>${l.map((x) => { const cpf = rhCpf(x.u.id);
+            return `<tr class="pvx-tr" data-p="${x.u.id}"><td><div class="pvc-who">${rhAvatar(x.u.name)}<div><div class="cell-main">${esc(x.u.name)}</div><div class="cell-sub">${esc(x.u.sector || 'Sem setor')}</div></div></div></td>
+              <td>${cpf ? `<span class="mono">${esc(cpf)}</span>` : '<span class="pvx-muted">—</span>'}</td><td>${x.i.data ? fmtDate(x.i.data) : '<span class="pvx-muted">—</span>'}</td><td>${x.i.validade ? fmtDate(x.i.validade) : '<span class="pvx-muted">—</span>'}</td><td>${rhIntBadge(x.i.st)}</td></tr>`; }).join('')}</tbody></table></div>`
+            : `<div class="tbl-wrap">${emptyState('users', 'Ninguém neste filtro', '')}</div>`;
+          Icons.apply($('#riG', holder));
+          $$('#riG tr[data-p]', holder).forEach((tr) => (tr.onclick = () => rhOpenPessoa(tr.dataset.p)));
+        };
+        $$('[data-f]', holder).forEach((b) => (b.onclick = () => { rhIntF = b.dataset.f; $$('[data-f]', holder).forEach((x) => x.classList.toggle('on', x === b)); paint(); }));
+        $('#riQ', holder).oninput = (e) => { rhIntQ = e.target.value; paint(); };
+        $('#riPrint', holder).onclick = () => rhIntPrintGeral();
+        paint();
+      } else if (rhIntTab === 'turmas') {
+        holder.innerHTML = turmas.length ? `<div class="rh-cards">${turmas.map((t, i) => { const st = rhIntStOf(t.validade); const ps = (t.participantes || []).map((id) => rhPessoa(id)).filter(Boolean);
+          return `<button type="button" class="rh-card ri-card" data-t="${t.id}" style="--d:${i * 40}ms;--c:${RH_INT_ST[st].c}">
+            <span class="rh-card-h"><span class="rh-card-ic">${ic('award')}</span><span><b>${fmtDate(t.data)}</b><small>${esc(t.instrutor || '—')}${t.cargaHoras ? ' · ' + t.cargaHoras + ' h' : ''}</small></span>${rhIntBadge(st)}</span>
+            <span class="rh-card-f"><span class="rh-stack">${ps.slice(0, 7).map((u) => rhAvatar(u.name)).join('')}</span><small>${ps.length} participante${ps.length === 1 ? '' : 's'}</small></span>
+            <span class="ri-val">${ic('calendar')}Válida até ${fmtDate(t.validade)}</span></button>`; }).join('')}</div>`
+          : `<div class="tbl-wrap">${emptyState('award', 'Nenhuma integração registrada', '')}</div>`;
+        $$('[data-t]', holder).forEach((b) => (b.onclick = () => rhIntTurma(b.dataset.t)));
+      } else {
+        holder.innerHTML = terc.length ? `<div class="tbl-wrap"><table class="data"><thead><tr><th>Terceiro</th><th>Empresa</th><th>Documento</th><th>Integração</th><th>Válida até</th><th>Situação</th><th></th></tr></thead><tbody>${terc.map((t) => { const x = t.terceiro || {}; const st = rhIntStOf(t.validade);
+          return `<tr><td><div class="pvc-who">${rhAvatar(x.nome)}<div><div class="cell-main">${esc(x.nome)}</div><div class="cell-sub">${esc(x.funcao || '—')}</div></div></div></td><td>${esc(x.empresa || '—')}</td><td><span class="mono">${esc(x.doc || '—')}</span></td><td>${fmtDate(t.data)}</td><td>${fmtDate(t.validade)}</td><td>${rhIntBadge(st)}</td>
+            <td class="row-actions"><button class="btn sm" data-pr="${t.id}">${ic('file')}Comprovante</button><button class="icon-btn" data-ed="${t.id}" title="Editar">${ic('edit')}</button></td></tr>`; }).join('')}</tbody></table></div>`
+          : `<div class="tbl-wrap">${emptyState('userPlus', 'Nenhum terceiro integrado', '')}</div>`;
+        $$('[data-pr]', holder).forEach((b) => (b.onclick = () => rhIntPrintTerceiro(Store.find('rhIntegracoes', b.dataset.pr))));
+        $$('[data-ed]', holder).forEach((b) => (b.onclick = () => rhFormTerceiro(Store.find('rhIntegracoes', b.dataset.ed))));
+      }
+      Icons.apply(holder);
+    };
+    const tabsEl = $('#riTabs', tb);
+    $$('button', tabsEl).forEach((b) => (b.onclick = () => { rhIntTab = b.dataset.s; $$('button', tabsEl).forEach((x) => x.classList.toggle('on', x === b)); tabsThumb(tabsEl); render(); }));
+    render(); tabsThumbInit(tabsEl, 'rhi');
+  };
+
   /* =========================== TREINAMENTOS & COMPETÊNCIAS =========================== */
   let rhTreinoTab = 'matriz'; const rhMxF = { q: '', f: 'todos' };
   function rhFormTreino(t) {
@@ -2768,7 +3014,7 @@
     if (adm) {
       steps = [{ t: 'Pessoa', s: 'Identificação', h: 'Quem está chegando?', p: '' }, { t: 'Cargo', s: 'Setor e contrato', h: 'Onde a pessoa vai trabalhar', p: '' }, { t: 'Checklist', s: 'Entrada', h: 'Checklist de admissão', p: '' }, { t: 'Revisão', s: 'Confirmar', h: 'Tudo certo?', p: '' }];
       panes = [
-        `<div class="form-grid">${field('Nome completo', 'name', '', 'text', { full: true, ph: 'Nome e sobrenome' })}${field('E-mail corporativo', 'email', '', 'email', { ph: 'nome@convergas.com.br' })}${field('Celular corporativo', 'celular', '', 'tel', { ph: '(00) 00000-0000' })}${field('Ramal', 'ramal', '', 'text', { ph: 'Opcional' })}${field('Aniversário (dia/mês)', 'aniversario', '', 'text', { ph: 'dd/mm' })}<div class="field"><label>Sexo</label><select name="sexo"><option value="">Selecione</option><option value="M" ${'' === 'M' ? 'selected' : ''}>Masculino</option><option value="F" ${'' === 'F' ? 'selected' : ''}>Feminino</option></select></div></div>
+        `<div class="form-grid">${field('Nome completo', 'name', '', 'text', { full: true, ph: 'Nome e sobrenome' })}${field('CPF', 'cpf', '', 'text', { ph: '000.000.000-00' })}${field('E-mail corporativo', 'email', '', 'email', { ph: 'nome@convergas.com.br' })}${field('Celular corporativo', 'celular', '', 'tel', { ph: '(00) 00000-0000' })}${field('Ramal', 'ramal', '', 'text', { ph: 'Opcional' })}${field('Aniversário (dia/mês)', 'aniversario', '', 'text', { ph: 'dd/mm' })}<div class="field"><label>Sexo</label><select name="sexo"><option value="">Selecione</option><option value="M" ${'' === 'M' ? 'selected' : ''}>Masculino</option><option value="F" ${'' === 'F' ? 'selected' : ''}>Feminino</option></select></div></div>
          `,
         `<div class="form-grid"><div class="field"><label>Setor</label><select name="sector"><option value="">Selecione</option>${setores.map((s) => opt(s.nome, s.nome)).join('')}</select></div>
           <div class="field"><label>Cargo</label><select name="cargoId"><option value="">Selecione</option>${cargos.map((c) => opt(c.id, c.nome + (c.setor ? ' · ' + c.setor : ''))).join('')}</select></div>
@@ -2804,6 +3050,7 @@
     if (adm) {
       const cel = $('[name="celular"]', w); cel.addEventListener('input', () => { cel.value = pvMaskFone(cel.value); });
       rhMaskDig($('[name="ramal"]', w), 6);
+      const cpfA = $('[name="cpf"]', w); cpfA.setAttribute('inputmode', 'numeric'); cpfA.addEventListener('input', () => { cpfA.value = rhMaskCpf(cpfA.value); });
       rhLimDates(w, { admissao: [rhAnos(-60), rhAnos(1)], cnhValidade: [rhAnos(-10), rhAnos(15)] });
       const ani = $('[name="aniversario"]', w); ani.addEventListener('input', () => { const d = pvDig(ani.value).slice(0, 4); ani.value = d.length > 2 ? d.slice(0, 2) + '/' + d.slice(2) : d; });
       const cg = $('[name="cargoId"]', w); cg.addEventListener('change', () => { const c = rhCargo(cg.value); const st = $('[name="sector"]', w); if (c && c.setor && !st.value) { st.value = c.setor; st.dispatchEvent(new Event('change')); } });
@@ -2819,6 +3066,7 @@
       check: (i, shake) => {
         if (adm && i === 0 && $('[name="name"]', w).value.trim().length < 3) { shake($('[name="name"]', w)); toast('Informe o nome completo', 'warn'); return false; }
         if (adm && i === 0 && !$('[name="sexo"]', w).value) { toast('Selecione o sexo', 'warn'); return false; }
+        if (adm && i === 0) { const cp = $('[name="cpf"]', w).value; if (!rhCpfOk(cp)) { shake($('[name="cpf"]', w)); toast(cp ? 'CPF inválido' : 'Informe o CPF', 'warn'); return false; } if (rhCpfDup(cp)) { toast('CPF já cadastrado', 'warn'); return false; } }
         if (adm && i === 0 && !rhEmailOk($('[name="email"]', w).value.trim())) { shake($('[name="email"]', w)); toast('E-mail inválido', 'warn'); return false; }
         if (adm && i === 0) { const c = pvDig($('[name="celular"]', w).value); if (c && c.length < 10) { shake($('[name="celular"]', w)); toast('Celular incompleto', 'warn'); return false; } }
         if (adm && i === 0) { const a = $('[name="aniversario"]', w).value; if (a && !/^(0[1-9]|[12]\d|3[01])\/(0[1-9]|1[0-2])$/.test(a)) { shake($('[name="aniversario"]', w)); toast('Aniversário no formato dd/mm', 'warn'); return false; } }
@@ -2858,7 +3106,7 @@
         }
         if (i === 3) {
           const list = ckList;
-          $('#rmRev', w).innerHTML = (adm ? rev([['Nome', d.name], ['Sexo', { M: 'Masculino', F: 'Feminino' }[d.sexo] || ''], ['E-mail', d.email], ['Celular', d.celular], ['Setor', d.sector], ['Cargo', (rhCargo(d.cargoId) || {}).nome], ['Gestor', d.gestorId ? rhNome(d.gestorId) : ''], ['Contrato', d.contrato], ['Admissão', fmtDate(d.admissao)]])
+          $('#rmRev', w).innerHTML = (adm ? rev([['Nome', d.name], ['CPF', d.cpf], ['Sexo', { M: 'Masculino', F: 'Feminino' }[d.sexo] || ''], ['E-mail', d.email], ['Celular', d.celular], ['Setor', d.sector], ['Cargo', (rhCargo(d.cargoId) || {}).nome], ['Gestor', d.gestorId ? rhNome(d.gestorId) : ''], ['Contrato', d.contrato], ['Admissão', fmtDate(d.admissao)]])
             : rev([['Colaborador', rhNome(colab)], ['Último dia', fmtDate(d.data)], ['Motivo', d.motivo], ['Aviso prévio', d.aviso], ['Observações', d.obs]]))
             + `<div class="rh-rev-ck"><b>Checklist</b><span>${ck.size + devOk.size} de ${list.length + devItems.length} itens feitos${devItems.length ? ` · ${devOk.size}/${devItems.length} itens recolhidos` : ''}</span><div class="qband-bar"><i style="--w:${(100 * (ck.size + devOk.size)) / (list.length + devItems.length)}%;--c:#46D39A;width:${(100 * (ck.size + devOk.size)) / (list.length + devItems.length)}%"></i></div></div>`;
         }
@@ -2871,7 +3119,7 @@
         if (adm) {
           const c = rhCargo(d.cargoId);
           const p = Store.add('team', { name: d.name, email: (d.email || '').toLowerCase(), celular: d.celular, ramal: d.ramal, aniversario: d.aniversario, sexo: d.sexo, sector: d.sector || (c && c.setor) || '', cargoId: d.cargoId, role: c ? c.nome : '', gestorId: d.gestorId, contrato: d.contrato || 'CLT', admissao: d.admissao, cnhValidade: d.cnhValidade, situacao: 'ativo', vpn: false, engServer: false, machineId: '' });
-          pid = p.id;
+          pid = p.id; rhSetCpf(pid, d.cpf);
           Store.add('rhMovs', { tipo: 'admissao', colaboradorId: pid, nome: d.name, data: d.admissao, checklist, status, criadoEm: new Date().toISOString() });
         } else {
           Store.add('rhMovs', { tipo: 'desligamento', colaboradorId: pid, nome: rhNome(pid), data: d.data, motivo: d.motivo, aviso: d.aviso, obs: d.obs, checklist, status, criadoEm: new Date().toISOString() });
@@ -7333,7 +7581,7 @@
     ] },
     rh: { label: 'RH', groups: [
       { label: 'Pessoas', items: [ { r: 'rh-painel', t: 'Painel', s: 'Painel', i: 'grid' }, { r: 'rh-colab', t: 'Pessoas & setores', s: 'Pessoas', i: 'users' }, { r: 'rh-movs', t: 'Admissão / Desligamento', s: 'Entradas', i: 'refresh' } ] },
-      { label: 'Desenvolvimento & rotina', items: [ { r: 'rh-treinos', t: 'Treinamentos & competências', s: 'Treinos', i: 'award' }, { r: 'rh-ferias', t: 'Férias & ausências', s: 'Férias', i: 'sun2' }, { r: 'rh-veiculos', t: 'Controle de veículos', s: 'Veículos', i: 'car' } ] },
+      { label: 'Desenvolvimento & rotina', items: [ { r: 'rh-integracao', t: 'Integração', s: 'Integração', i: 'shield' }, { r: 'rh-treinos', t: 'Treinamentos & competências', s: 'Treinos', i: 'award' }, { r: 'rh-ferias', t: 'Férias & ausências', s: 'Férias', i: 'sun2' }, { r: 'rh-veiculos', t: 'Controle de veículos', s: 'Veículos', i: 'car' } ] },
     ] },
     programacao: { label: 'Programação', groups: [
       { label: 'Operação', items: [ { r: 'prog-atividades', t: 'Atividades', s: 'Atividades', i: 'list' }, { r: 'prog-pedidos', t: 'Pedidos', s: 'Pedidos', i: 'file' }, { r: 'prog-rnc', t: 'Não Conformidades', s: 'RNC', i: 'alert' } ] },
