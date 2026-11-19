@@ -863,6 +863,23 @@
           if (blob) { const rec = { blob, meta: { name: wantName, type: blob.type || 'application/pdf', size: blob.size } }; idbPut(id, blob, rec.meta).catch(() => {}); return rec; }
         }
       } catch (e) {}
+      // o nome registrado não existe na nuvem (ex.: nome antigo da pasta local): procura o PDF na pasta do certificado
+      try {
+        if (window.Cloud && window.Cloud.ok && window.Cloud.listFiles) {
+          const nomes = (await window.Cloud.listFiles('certificates', id, 'pdf')).filter((n) => n !== wantName);
+          const nome = nomes.find((n) => /\.pdf$/i.test(n)) || nomes[0];
+          if (nome) {
+            const blob = await window.Cloud.fetchFileBlob('certificates', id, 'pdf', nome);
+            if (blob && blob.size) {
+              const rec = { blob, meta: { name: nome, type: blob.type || 'application/pdf', size: blob.size } };
+              idbPut(id, blob, rec.meta).catch(() => {});
+              // corrige o nome no cadastro (só neste navegador; a nuvem é a fonte dos certificados)
+              if (cert) { cert.fileName = nome; persist(); }
+              return rec;
+            }
+          }
+        }
+      } catch (e) {}
       // fallback: sem nuvem/arquivo novo, devolve o que houver em cache local
       if (local && local.blob) return local;
       return null;

@@ -6784,7 +6784,7 @@
   // (só existe no app do PC; no site ela não é publicada). Devolve null se não houver arquivo.
   async function certBlob(c) {
     if (!c) return null;
-    if (c.fileName) { try { const rec = await Store.files.get(c.id); if (rec && rec.blob && rec.blob.size) return { blob: rec.blob, name: c.fileName }; } catch (e) {} }
+    { try { const rec = await Store.files.get(c.id); if (rec && rec.blob && rec.blob.size) return { blob: rec.blob, name: (rec.meta && rec.meta.name) || c.fileName || 'certificado.pdf' }; } catch (e) {} }
     const vu = certPdfUrl(c);
     if (vu && !/^https?:/i.test(vu)) {
       try { const r = await fetch(vu, { cache: 'no-store' }); const ct = r.headers.get('content-type') || '';

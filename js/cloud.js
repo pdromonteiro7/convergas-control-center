@@ -160,6 +160,12 @@
       if (error) throw error;
       return true;
     },
+    // nomes dos arquivos salvos num campo (ex.: certificates/<id>/pdf/) — para achar o PDF quando o nome registrado não bate
+    async listFiles(entity, id, field) {
+      if (!SB) return [];
+      try { const { data, error } = await SB.storage.from('files').list(`${entity}/${id}/${field}`, { limit: 20, sortBy: { column: 'updated_at', order: 'desc' } });
+        if (error) return []; return (data || []).filter((o) => o && o.name && o.id !== null && !o.name.startsWith('.')).map((o) => o.name); } catch (e) { return []; }
+    },
     async fetchFileBlob(entity, id, field, name) {
       if (!SB || !name) return null;
       try { const { data, error } = await SB.storage.from('files').download(this.filePath(entity, id, field, name)); if (!error && data && data.size) return data; } catch (e) {}
