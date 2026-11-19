@@ -2080,6 +2080,20 @@
   const rhVenc = (iso) => { if (!iso) return null; const d = rhDias(rhHoje(), iso); return { d, st: d < 0 ? 'vencido' : d <= 30 ? 'vencendo' : 'ok' }; };
 
   /* ---------- formulário do colaborador (cadastro rápido / edição) ---------- */
+  // apaga o cadastro e tudo o que é só dele (CPF, treinamentos, ausências, movimentações) e o tira de turmas/integrações
+  function rhExcluirPessoa(u) {
+    confirmDialog(`Excluir o cadastro de ${u.name}?`, () => {
+      ['rhTreinoReg'].forEach((k) => rhList(k).filter((r) => r.colaboradorId === u.id).forEach((r) => Store.remove(k, r.id)));
+      ['rhAusencias', 'rhMovs'].forEach((k) => rhList(k).filter((r) => r.colaboradorId === u.id).forEach((r) => Store.remove(k, r.id)));
+      rhList('rhDocs').filter((r) => r.colaboradorId === u.id).forEach((r) => Store.remove('rhDocs', r.id));
+      rhList('rhTurmas').filter((t) => (t.convocados || []).includes(u.id) || (t.presentes || []).includes(u.id)).forEach((t) => Store.update('rhTurmas', t.id, { convocados: (t.convocados || []).filter((x) => x !== u.id), presentes: (t.presentes || []).filter((x) => x !== u.id) }));
+      rhList('rhIntegracoes').filter((t) => (t.participantes || []).includes(u.id)).forEach((t) => Store.update('rhIntegracoes', t.id, { participantes: t.participantes.filter((x) => x !== u.id) }));
+      rhList('team').filter((p) => p.gestorId === u.id).forEach((p) => Store.update('team', p.id, { gestorId: '' }));
+      rhList('rhVeiculos').filter((v) => v.responsavelId === u.id).forEach((v) => Store.update('rhVeiculos', v.id, { responsavelId: '' }));
+      Store.remove('team', u.id);
+      closeModal(); toast('Cadastro excluído'); go(currentRoute === 'rh-pessoa' ? 'rh-colab' : currentRoute);
+    }, 'danger');
+  }
   function rhFormPessoa(u, onDone) {
     const editing = !!(u && u.id); u = u || {};
     const setores = rhSetores(), cargos = rhList('rhCargos').slice().sort((a, b) => a.nome.localeCompare(b.nome));
@@ -2107,8 +2121,9 @@
           ${field('Validade da CNH', 'cnhValidade', u.cnhValidade, 'date', { hint: '' })}
         </div>
         `,
-      footer: submitFooter(editing),
+      footer: (editing && Perm.podeGravar('team') ? `<button class="btn danger ghost" id="delBtn" style="margin-right:auto">${ic('trash')}Excluir cadastro</button>` : '') + submitFooter(editing),
     });
+    const delP = $('#delBtn', card); if (delP) delP.onclick = () => rhExcluirPessoa(u);
     ['sector', 'cargoId', 'gestorId', 'contrato', 'sexo'].forEach((n) => ccSelect($(`[name="${n}"]`, card), { search: !['contrato', 'sexo'].includes(n), icon: { sector: 'grid', cargoId: 'briefcase', gestorId: 'users', contrato: 'file', sexo: 'users' }[n] }));
     const cel = $('[name="celular"]', card); cel.addEventListener('input', () => { cel.value = pvMaskFone(cel.value); });
     const ani = $('[name="aniversario"]', card); ani.addEventListener('input', () => { const d = pvDig(ani.value).slice(0, 4); ani.value = d.length > 2 ? d.slice(0, 2) + '/' + d.slice(2) : d; });
@@ -7016,6 +7031,7 @@
   function certListPage(type, crumbName, title, sub, emptyMsg) {
     pageShell('Qualidade', title, sub, `${Perm.podeGravar('certificates') ? `<label class="btn" id="impPdf">${ic('upload')}Importar PDFs<input type="file" accept="application/pdf" multiple hidden></label>` : ''}<button class="btn primary" id="addBtn">${ic('plus')}Novo certificado</button>`);
     $('#addBtn').onclick = () => formCert({ type });
+    certAcharPdfs(Store.get('certificates').filter((c) => c.type === type));
     const imp = $('#impPdf input'); if (imp) imp.onchange = () => { const fs = Array.from(imp.files || []); imp.value = ''; if (fs.length) certImportPdfs(fs, type); };
     const F = qaListFilt[type] = qaListFilt[type] || { st: 'todos', q: '' };
     const all = Store.get('certificates').filter((c) => c.type === type);
@@ -7143,6 +7159,18 @@
     };
   }
 
+  // certificados sem nome de arquivo registrado: procura o PDF na pasta do certificado na nuvem
+  // (uma vez por sessão) e registra o nome — assim a lista mostra quem tem PDF de verdade.
+  const certJaProcurado = new Set();
+  async function certAcharPdfs(list) {
+    if (!(window.Cloud && window.Cloud.ok && window.Cloud.listFiles)) return;
+    const alvo = list.filter((c) => !c.fileName && !certJaProcurado.has(c.id)); if (!alvo.length) return;
+    alvo.forEach((c) => certJaProcurado.add(c.id));
+    const achados = (await Promise.all(alvo.map(async (c) => { const ns = await window.Cloud.listFiles('certificates', c.id, 'pdf'); const n = ns.find((x) => /\.pdf$/i.test(x)) || ns[0]; return n ? [c, n] : null; }))).filter(Boolean);
+    if (!achados.length) return;
+    achados.forEach(([c, n]) => { if (Perm.podeGravar('certificates')) Store.update('certificates', c.id, { fileName: n, fileType: 'application/pdf' }); else { const it = Store.find('certificates', c.id); if (it) it.fileName = n; } });
+    if (/^qa-(cata|equipamentos)$/.test(currentRoute) && !$('#modalRoot').classList.contains('open')) refreshPage();
+  }
   // Importa vários PDFs de uma vez: o nome do arquivo precisa conter o número do certificado
   // (ex.: 24031156.pdf ou 01811.26.pdf para o número 01811/26).
   async function certImportPdfs(files, type) {
