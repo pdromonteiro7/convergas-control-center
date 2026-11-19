@@ -764,7 +764,7 @@ tr.tr-click { cursor: pointer; }
 }
 
 /* Linha de certificado clicável + visualizador de PDF inline */
-.modal-card:has(.pdf-view) { max-width: min(980px, 96vw); }
+.modal-card:not(.sheet):has(.pdf-view) { max-width: min(980px, 96vw); }
 .cert-clickable { cursor: pointer; }
 .cell-view { display: inline-grid; place-items: center; vertical-align: middle; margin-left: 6px; opacity: 0; transform: translateX(-2px); transition: opacity .16s var(--ease), transform .16s var(--ease); }
 .cell-view svg { width: 15px; height: 15px; color: var(--accent); }

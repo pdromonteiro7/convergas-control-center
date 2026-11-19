@@ -162,6 +162,7 @@
     },
     async fetchFileBlob(entity, id, field, name) {
       if (!SB || !name) return null;
+      try { const { data, error } = await SB.storage.from('files').download(this.filePath(entity, id, field, name)); if (!error && data && data.size) return data; } catch (e) {}
       try {
         const url = this.filePublicUrl(entity, id, field, name);
         const res = await fetch(url);

@@ -3084,3 +3084,29 @@ body.cc-ro #rpBoneco { display: none !important; }
   .tp-ring .kp-core b { font-size: 1.15rem; } .tp-ring .kp-core span { font-size: .62rem; margin-top: 2px; }
   .tp-chips { min-height: 84px; align-items: flex-start; padding-right: 96px; }
 }
+
+/* =========================== VISUALIZADOR DE PDF / IMPORTAÇÃO =========================== */
+.modal-card.sheet:has(.pdf-view) { max-width: none; }
+.modal-card.sheet:has(.pdf-view) .modal-body, .modal-card.sheet:has(.pdf-view) .modal-foot { max-width: 1100px; }
+.modal-card.sheet:has(.pdf-view) .modal-body { padding-bottom: 20px; }
+.pdf-view { height: calc(100dvh - 230px); min-height: 360px; border-radius: 16px; background: color-mix(in srgb, var(--text) 3%, var(--bg)); }
+.pdf-none { display: flex; flex-direction: column; align-items: center; gap: 8px; padding: 32px; text-align: center; }
+.pdf-none-ic { width: 64px; height: 64px; border-radius: 20px; display: grid; place-items: center; margin-bottom: 8px; color: var(--accent); background: color-mix(in srgb, var(--accent) 12%, transparent); border: 1px solid color-mix(in srgb, var(--accent) 28%, transparent); }
+.pdf-none-ic svg { width: 28px; height: 28px; }
+.pdf-none b { font-size: 1.05rem; color: var(--text); font-weight: 600; }
+.pdf-none small { font-size: .86rem; color: var(--text-3); margin-bottom: 12px; }
+.pdf-none .btn + .btn { margin-top: 0; }
+.pdf-none { flex-wrap: wrap; }
+.imp-l { display: flex; flex-direction: column; gap: 8px; }
+.imp-r { display: grid; grid-template-columns: 34px minmax(0, 1fr); gap: 12px; align-items: center; padding: 10px 12px; border-radius: 13px; border: 1px solid var(--line); transition: border-color .2s, background .2s; }
+.imp-st { width: 34px; height: 34px; border-radius: 10px; display: grid; place-items: center; color: var(--text-3); background: color-mix(in srgb, var(--text) 5%, transparent); }
+.imp-st svg { width: 16px; height: 16px; }
+.imp-r.run .imp-st svg { animation: ringSpin 1s linear infinite; color: var(--accent); }
+.imp-r.ok { border-color: color-mix(in srgb, #46D39A 40%, var(--line)); } .imp-r.ok .imp-st { color: #46D39A; background: color-mix(in srgb, #46D39A 12%, transparent); }
+.imp-r.err { border-color: color-mix(in srgb, #FF7A7A 40%, var(--line)); } .imp-r.err .imp-st { color: #FF7A7A; background: color-mix(in srgb, #FF7A7A 12%, transparent); }
+.imp-t { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.imp-t b { font-size: .88rem; color: var(--text); font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.imp-t small { font-size: .74rem; color: var(--text-3); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.imp-sem { margin-top: 8px; padding: 12px 14px; border-radius: 13px; background: color-mix(in srgb, #F5B840 9%, transparent); display: flex; flex-direction: column; gap: 3px; }
+.imp-sem b { font-size: .84rem; color: var(--text); margin-bottom: 4px; } .imp-sem small { font-size: .76rem; color: var(--text-3); }
+@media (max-width: 760px) { .pdf-view { height: calc(100dvh - 250px); } }

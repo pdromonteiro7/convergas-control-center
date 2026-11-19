@@ -839,13 +839,15 @@
     async put(id, blob, meta) {
       meta = meta || {};
       try { await idbPut(id, blob, meta); } catch (e) {}
+      // devolve true só se o arquivo chegou na nuvem (antes a falha era silenciosa e o PDF ficava só neste navegador)
       try {
         if (window.Cloud && window.Cloud.ok && meta.name) {
-          const file = (blob instanceof File) ? blob : new File([blob], meta.name, { type: meta.type || 'application/pdf' });
+          const file = (blob instanceof File && blob.name === meta.name) ? blob : new File([blob], meta.name, { type: meta.type || 'application/pdf' });
           await window.Cloud.uploadFile('certificates', id, 'pdf', file);
+          return true;
         }
-      } catch (e) {}
-      return true;
+      } catch (e) { return false; }
+      return !(window.Cloud && window.Cloud.ok);
     },
     async get(id) {
       const cert = (data.certificates || []).find((c) => c.id === id);

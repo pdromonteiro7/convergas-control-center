@@ -6743,7 +6743,7 @@
   }
   // linha de certificado (modo lista)
   const certRow = (c) => {
-    const st = certStatus(c.expiryDate); const hasFile = !!(c.fileName || certPdfUrl(c));
+    const st = certStatus(c.expiryDate); const hasFile = !!(c.fileName || (CC_DESKTOP && certPdfUrl(c)));
     return `<tr class="cert-tr s-${st.key} cert-clickable" data-view="${c.id}" title="${hasFile ? 'Clique para visualizar o certificado' : 'Sem PDF anexado'}">
       <td><div class="id-cell"><span class="cert-ico"><span class="ci-bar"></span>${ic(c.type === 'equipamento' ? 'activity' : 'award')}</span>
         <div><div class="cell-main">${esc(c.name)}${hasFile ? ` <span class="cell-view">${ic('eye')}</span>` : ''}</div><div class="cell-sub mono">${esc(c.number || '—')}${c.process ? ' · ' + esc(c.process) : ''}${hasFile ? '' : ' · <span class="no-file">sem PDF</span>'}</div></div></div></td>
@@ -6772,6 +6772,7 @@
   const CERT_PDF_NUMS = new Set(['23101152', '26091902', '24041163', '24041164', '25011480', '25011481', '24111457', '25081675', '25101702', '26011759', '25101701', '24041162', 'P2024-04A', '2208843', '24081371', '24031156', '24081373', '26071866', '24081369', '26031810']);
   // Equipamentos de medição (calibração): PDF estático em assets/certs/{número com "/" -> "."}.pdf
   const EQUIP_PDF_NUMS = new Set(['01811/26', '01814/26', '01815/26', 'CCM62605/26', 'CCM62516/26', 'CCM62604/26', '13242/24', '16242054', 'CCM62603/26', 'CCM59926/25', '01813/26', '01878/26', '01879/26', '01700/26', '01706/26', 'CCM57533/25', '9105/25', '5572/25', 'CCM56911/25', 'CCM55866/25', 'CCM57660/25']);
+  const CC_DESKTOP = location.protocol === 'file:' || !!(window.chrome && window.chrome.webview);
   const certPdfUrl = (c) => {
     if (!c || !c.number) return (c && c.viewUrl) || '';
     if (EQUIP_PDF_NUMS.has(c.number)) return 'assets/certs/' + c.number.replace(/\//g, '.') + '.pdf';
@@ -6779,60 +6780,53 @@
     return c.viewUrl || '';
   };
 
-  async function shareCert(c) {
+  // Obtém o PDF do certificado. Ordem: anexo salvo (nuvem/navegador) → pasta estática assets/certs
+  // (só existe no app do PC; no site ela não é publicada). Devolve null se não houver arquivo.
+  async function certBlob(c) {
+    if (!c) return null;
+    if (c.fileName) { try { const rec = await Store.files.get(c.id); if (rec && rec.blob && rec.blob.size) return { blob: rec.blob, name: c.fileName }; } catch (e) {} }
     const vu = certPdfUrl(c);
-    if (!c.fileName && !vu) return toast('Anexe o PDF (Editar) primeiro', 'warn');
-    // PDF estático do site (assets/certs) — abre direto, sem depender de backend
-    if (vu) { window.open(vu, '_blank', 'noopener'); return toast('Certificado aberto em nova aba', 'info'); }
-    const rec = await Store.files.get(c.id);
-    if (!rec || !rec.blob) return toast('Arquivo não encontrado — reanexe o PDF', 'warn');
-    const file = new File([rec.blob], c.fileName, { type: c.fileType || 'application/pdf' });
-    if (navigator.canShare && navigator.canShare({ files: [file] })) {
-      try { await navigator.share({ files: [file], title: c.name }); } catch (e) {}
-    } else {
-      const url = URL.createObjectURL(rec.blob); window.open(url, '_blank', 'noopener'); setTimeout(() => URL.revokeObjectURL(url), 60000);
-      toast('Certificado aberto — use o navegador para compartilhar', 'info');
+    if (vu && !/^https?:/i.test(vu)) {
+      try { const r = await fetch(vu, { cache: 'no-store' }); const ct = r.headers.get('content-type') || '';
+        if (r.ok && /pdf|octet-stream/i.test(ct)) { const blob = await r.blob(); if (blob.size) return { blob, name: c.fileName || ((c.number || 'certificado').replace(/\//g, '.') + '.pdf') }; } } catch (e) {}
     }
+    return null;
+  }
+  const certSemPdf = () => toast('PDF não encontrado. Anexe pelo Editar.', 'warn');
+  async function shareCert(c) {
+    const f = await certBlob(c); if (!f) return certSemPdf();
+    const file = new File([f.blob], f.name, { type: 'application/pdf' });
+    if (navigator.canShare && navigator.canShare({ files: [file] })) { try { await navigator.share({ files: [file], title: c.name }); } catch (e) {} return; }
+    const url = URL.createObjectURL(f.blob); window.open(url, '_blank', 'noopener'); setTimeout(() => URL.revokeObjectURL(url), 60000);
   }
   async function downloadCert(c) {
-    const vu = certPdfUrl(c);
-    if (!c.fileName && !vu) return toast('Anexe o PDF (Editar) primeiro', 'warn');
-    if (vu) { const a = document.createElement('a'); a.href = vu; a.download = c.fileName || ((c.number || 'certificado') + '.pdf'); a.click(); return; }
-    const rec = await Store.files.get(c.id);
-    if (!rec || !rec.blob) return toast('Arquivo não encontrado — reanexe o PDF', 'warn');
-    const url = URL.createObjectURL(rec.blob); const a = document.createElement('a'); a.href = url; a.download = c.fileName; a.click(); setTimeout(() => URL.revokeObjectURL(url), 60000);
+    const f = await certBlob(c); if (!f) return certSemPdf();
+    const url = URL.createObjectURL(f.blob); const el = document.createElement('a'); el.href = url; el.download = f.name; el.click(); setTimeout(() => URL.revokeObjectURL(url), 60000);
   }
-  // visualização inline do PDF (clique na linha do certificado)
+  // visualização do PDF (clique na linha do certificado)
   async function viewCert(c) {
-    const vu = certPdfUrl(c);
-    if (!c || (!c.fileName && !vu)) return toast('Este certificado ainda não tem PDF anexado — use Editar para anexar.', 'warn');
+    if (!c) return;
     const card = modal({
-      wide: true, title: c.name, sub: `Certificado${c.number ? ' · ' + esc(c.number) : ''}`,
+      wide: true, title: c.name, sub: `Certificado${c.number ? ' · ' + c.number : ''}`,
       body: `<div class="pdf-view" id="pdfView"><div class="pdf-loading">${ic('refresh')}<span>Carregando PDF…</span></div></div>`,
-      footer: `<button class="btn ghost" data-close>Fechar</button><button class="btn" id="pvOpen">${ic('external')}Abrir em nova aba</button><button class="btn primary" id="pvDown">${ic('download')}Baixar</button>`,
+      footer: `<button class="btn ghost" data-close>Fechar</button><button class="btn" id="pvOpen" disabled>${ic('external')}Abrir em nova aba</button><button class="btn primary" id="pvDown" disabled>${ic('download')}Baixar</button>`,
     });
     const host = $('#pdfView', card); Icons.apply(card);
-    // PDF estático do site (assets/certs): abre direto por URL, independente de backend/cache
-    if (vu) {
-      const dlName = c.fileName || ((c.number || 'certificado') + '.pdf');
-      host.innerHTML = `<iframe class="pdf-frame" src="${esc(vu)}" title="${esc(c.name)}"></iframe>`;
-      const openBtn = $('#pvOpen', card); if (openBtn) openBtn.onclick = () => window.open(vu, '_blank', 'noopener');
-      const downBtn = $('#pvDown', card); if (downBtn) downBtn.onclick = () => { const a = document.createElement('a'); a.href = vu; a.download = dlName; a.click(); };
+    const f = await certBlob(c);
+    if (!document.body.contains(host)) return;
+    if (!f) {
+      host.innerHTML = `<div class="pdf-none"><span class="pdf-none-ic">${ic('file')}</span><b>PDF não anexado</b><small>Este certificado ainda não tem o arquivo no sistema.</small>${/^https?:/i.test(c.viewUrl || '') ? `<a class="btn" href="${esc(c.viewUrl)}" target="_blank" rel="noopener">${ic('external')}Abrir link</a>` : ''}${Perm.podeGravar('certificates') ? `<button class="btn primary" id="pvAnexar">${ic('upload')}Anexar PDF</button>` : ''}</div>`;
+      Icons.apply(host); $('#pvOpen', card).remove(); $('#pvDown', card).remove();
+      const an = $('#pvAnexar', host); if (an) an.onclick = () => { closeModal(); setTimeout(() => formCert(Store.find('certificates', c.id)), 200); };
       return;
     }
-    let objUrl = '';
-    try {
-      const rec = await Store.files.get(c.id);
-      if (!rec || !rec.blob) { host.innerHTML = `<div class="pdf-fail">${ic('alert')}<span>Não foi possível carregar o PDF. Tente baixar pelo botão abaixo.</span></div>`; Icons.apply(host); return; }
-      objUrl = URL.createObjectURL(rec.blob);
-      // sem fragmento (#...) — em blob: o Chrome não carrega o visualizador de PDF com fragmento
-      host.innerHTML = `<iframe class="pdf-frame" src="${objUrl}" title="${esc(c.name)}"></iframe>`;
-      const openBtn = $('#pvOpen', card); if (openBtn) openBtn.onclick = () => window.open(objUrl, '_blank', 'noopener');
-      const downBtn = $('#pvDown', card); if (downBtn) downBtn.onclick = () => { const a = document.createElement('a'); a.href = objUrl; a.download = c.fileName; a.click(); };
-    } catch (e) {
-      host.innerHTML = `<div class="pdf-fail">${ic('alert')}<span>Erro ao abrir o PDF.</span></div>`; Icons.apply(host);
-    }
-    if (objUrl) setTimeout(() => { try { URL.revokeObjectURL(objUrl); } catch (e) {} }, 600000);
+    const objUrl = URL.createObjectURL(new Blob([f.blob], { type: 'application/pdf' }));
+    // sem fragmento (#...) — em blob: o Chrome não carrega o visualizador de PDF com fragmento
+    host.innerHTML = `<iframe class="pdf-frame" src="${objUrl}" title="${esc(c.name)}"></iframe>`;
+    const ob = $('#pvOpen', card), db = $('#pvDown', card); ob.disabled = false; db.disabled = false;
+    ob.onclick = () => window.open(objUrl, '_blank', 'noopener');
+    db.onclick = () => { const el = document.createElement('a'); el.href = objUrl; el.download = f.name; el.click(); };
+    setTimeout(() => { try { URL.revokeObjectURL(objUrl); } catch (e) {} }, 600000);
   }
   function renewCert(c) {
     const lab = labOf(c);
@@ -7020,8 +7014,9 @@
   // página de lista de certificados por tipo: faixa de situação + filtros + tabela
   const qaListFilt = {};
   function certListPage(type, crumbName, title, sub, emptyMsg) {
-    pageShell('Qualidade', title, sub, `<button class="btn primary" id="addBtn">${ic('plus')}Novo certificado</button>`);
+    pageShell('Qualidade', title, sub, `${Perm.podeGravar('certificates') ? `<label class="btn" id="impPdf">${ic('upload')}Importar PDFs<input type="file" accept="application/pdf" multiple hidden></label>` : ''}<button class="btn primary" id="addBtn">${ic('plus')}Novo certificado</button>`);
     $('#addBtn').onclick = () => formCert({ type });
+    const imp = $('#impPdf input'); if (imp) imp.onchange = () => { const fs = Array.from(imp.files || []); imp.value = ''; if (fs.length) certImportPdfs(fs, type); };
     const F = qaListFilt[type] = qaListFilt[type] || { st: 'todos', q: '' };
     const all = Store.get('certificates').filter((c) => c.type === type);
     const bk = qaBuckets(all);
@@ -7148,6 +7143,32 @@
     };
   }
 
+  // Importa vários PDFs de uma vez: o nome do arquivo precisa conter o número do certificado
+  // (ex.: 24031156.pdf ou 01811.26.pdf para o número 01811/26).
+  async function certImportPdfs(files, type) {
+    const norm = (s) => String(s || '').toLowerCase().replace(/\.pdf$/i, '').replace(/[^a-z0-9]/g, '');
+    const certs = Store.get('certificates').filter((c) => c.number && (!type || c.type === type));
+    const pares = [], sem = [];
+    files.forEach((f) => { const n = norm(f.name); const c = certs.find((x) => norm(x.number) === n) || certs.find((x) => norm(x.number).length >= 5 && n.includes(norm(x.number))); c ? pares.push([c, f]) : sem.push(f.name); });
+    if (!pares.length) return toast('Nenhum arquivo corresponde ao número de um certificado', 'warn');
+    const card = modal({ title: 'Importar PDFs', sub: `${pares.length} de ${files.length} arquivo${files.length > 1 ? 's' : ''} reconhecido${pares.length > 1 ? 's' : ''}`, wide: true,
+      body: `<div class="imp-l">${pares.map(([c, f], i) => `<div class="imp-r" data-i="${i}"><span class="imp-st">${ic('clock')}</span><span class="imp-t"><b>${esc(c.name)}</b><small>${esc(c.number)} · ${esc(f.name)}${c.fileName ? ' · substitui o atual' : ''}</small></span></div>`).join('')}
+        ${sem.length ? `<div class="imp-sem"><b>Sem certificado correspondente</b>${sem.map((s) => `<small>${esc(s)}</small>`).join('')}</div>` : ''}</div>`,
+      footer: `<button class="btn ghost" data-close>Cancelar</button><button class="btn primary" id="impGo">${ic('upload')}Enviar ${pares.length}</button>` });
+    Icons.apply(card);
+    $('#impGo', card).onclick = async () => {
+      const go2 = $('#impGo', card); go2.disabled = true; let ok = 0, falha = 0;
+      for (let i = 0; i < pares.length; i++) {
+        const [c, f] = pares[i]; const row = $(`.imp-r[data-i="${i}"]`, card); row.classList.add('run');
+        let res = false;
+        if (f.size <= 12 * 1024 * 1024) { try { res = await Store.files.put(c.id, f, { name: f.name, type: 'application/pdf', size: f.size }); } catch (e) { res = false; } }
+        if (res) { Store.update('certificates', c.id, { fileName: f.name, fileType: 'application/pdf', fileSize: f.size }); ok++; } else falha++;
+        row.classList.remove('run'); row.classList.add(res ? 'ok' : 'err'); $('.imp-st', row).innerHTML = ic(res ? 'check' : 'alert'); Icons.apply(row);
+      }
+      toast(falha ? `${ok} enviado${ok === 1 ? '' : 's'} · ${falha} com falha` : `${ok} PDF${ok === 1 ? '' : 's'} anexado${ok === 1 ? '' : 's'}`, falha ? 'warn' : undefined);
+      const cx = $('.modal-foot .btn.ghost', card); if (cx) cx.remove(); go2.outerHTML = `<button class="btn primary" data-close>${ic('check')}Concluir</button>`; $$('[data-close]', card).forEach((b) => (b.onclick = () => { closeModal(); refreshPage(); })); Icons.apply(card);
+    };
+  }
   function formCert(c) {
     const editing = !!(c && c.id); c = c || {};
     let pickedFile = null;
@@ -7189,7 +7210,7 @@
       if (pickedFile) {
         if (pickedFile.size > 12 * 1024 * 1024) { toast('PDF muito grande (máx 12 MB)', 'warn'); }
         else {
-          try { await Store.files.put(saved.id, pickedFile, { name: pickedFile.name, type: pickedFile.type, size: pickedFile.size }); Store.update('certificates', saved.id, { fileName: pickedFile.name, fileType: pickedFile.type || 'application/pdf', fileSize: pickedFile.size }); }
+          try { const nuvem = await Store.files.put(saved.id, pickedFile, { name: pickedFile.name, type: pickedFile.type, size: pickedFile.size }); if (!nuvem) toast('PDF salvo só neste navegador: falha ao enviar para a nuvem', 'warn'); Store.update('certificates', saved.id, { fileName: pickedFile.name, fileType: pickedFile.type || 'application/pdf', fileSize: pickedFile.size }); }
           catch (e) { toast('Falha ao salvar o arquivo', 'warn'); }
         }
       }
