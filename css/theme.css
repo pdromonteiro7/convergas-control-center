@@ -3194,3 +3194,14 @@ body.cc-ro #rpBoneco { display: none !important; }
   .au-rf, .au-add { grid-template-columns: 1fr; }
 }
 @media (max-width: 760px) { .pl-nb { padding: 10px 8px; gap: 3px; } .pl-nb .pl-g { width: 22px; height: 22px; } .pl-nb small { display: none; } .pl-niv { grid-template-columns: repeat(3, minmax(0, 1fr)); } .pl-nb:last-child { grid-column: auto; } }
+/* nível prático (operações) no perfil do treinamento e do colaborador */
+.tp-row.op { grid-template-columns: 38px minmax(0, 1fr) 96px 96px 132px 110px; }
+.tp-nv { display: flex; align-items: center; gap: 8px; min-width: 0; padding: 6px 8px; margin: -6px -8px; border-radius: 10px; transition: background .2s; }
+.tp-nv:hover { background: color-mix(in srgb, var(--accent) 10%, transparent); }
+.tp-nv small { font-size: .74rem; color: var(--text-2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.rh-trn { display: inline-flex; align-items: center; gap: 6px; margin-right: 8px; flex: none; }
+.rh-trn small { font-size: .72rem; color: var(--text-3); white-space: nowrap; }
+#opBox[hidden] { display: none; }
+@media (max-width: 760px) { .tp-row.op { grid-template-columns: 36px minmax(0, 1fr) auto auto; } .tp-nv small, .rh-trn small { display: none; } }
+.rh-tr:has(.rh-trn) { grid-template-columns: 8px minmax(0, 1fr) auto auto; }
+.rh-tr > span.rh-trn { flex-direction: row; align-items: center; gap: 6px; margin: 0; }

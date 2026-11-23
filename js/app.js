@@ -2336,7 +2336,7 @@
           ${hist.length > 1 ? `<div class="rh-tl">${hist.slice(1, 4).map((t) => `<div class="rh-tr" style="--c:#94A3B8"><i></i><span><b>${fmtDate(t.data)}</b><small>${esc(t.instrutor || '')}</small></span></div>`).join('')}</div>` : ''}</div>`; })()}
       <div class="pvp-card"><div class="pvp-card-h"><b>Treinamentos & competências</b><span>${c ? 'exigidos pelo cargo ' + esc(c.nome) : 'defina o cargo para ver as exigências'}</span></div>
         ${ids.length ? `<div class="rh-tl">${ids.map((t) => { const T = Store.find('rhTreinos', t); if (!T) return ''; const st = rhTreinoSt(u.id, t); const req = rhExigidos(u).includes(t); const S = RH_TST[st.st];
-          return `<div class="rh-tr" style="--c:${S.c}"><i></i><span><b>${esc(T.nome)}</b><small>${st.r ? `Realizado em ${fmtDate(st.r.data)}${st.r.validade ? ' · válido até ' + fmtDate(st.r.validade) : ' · sem vencimento'}` : 'Ainda não realizado'}${req ? '' : ' · extra'}</small></span><span class="badge ${S.cls} plain">${S.l}</span></div>`; }).join('')}</div>`
+          return `<div class="rh-tr" style="--c:${S.c}"><i></i><span><b>${esc(T.nome)}</b><small>${st.r ? `Realizado em ${fmtDate(st.r.data)}${st.r.validade ? ' · válido até ' + fmtDate(st.r.validade) : ' · sem vencimento'}` : 'Ainda não realizado'}${req ? '' : ' · extra'}</small></span>${rhIsOp(T) ? `<span class="rh-trn" title="Nível prático">${rhNivGlyph(rhNivel(t, u.id), 18)}<small>${esc(RH_NIV[rhNivel(t, u.id)].l)}</small></span>` : ''}<span class="badge ${S.cls} plain">${S.l}</span></div>`; }).join('')}</div>`
           : `<div class="qf-empty">${ic('award')}<span>Nenhum treinamento exigido ou registrado.</span></div>`}
       </div>
       <div class="pvp-card"><div class="pvp-card-h"><b>Férias & ausências</b><button type="button" class="btn sm" id="rpAus">${ic('plus')}Registrar</button></div>
@@ -2855,14 +2855,29 @@
     else if (n > 0) { const ang = (n / 4) * 2 * Math.PI; const x = c + r * Math.sin(ang), y = c - r * Math.cos(ang); fill = `<path d="M${c} ${c} L${c} ${c - r} A${r} ${r} 0 ${n > 2 ? 1 : 0} 1 ${x.toFixed(2)} ${y.toFixed(2)} Z" fill="${N.c}"/>`; }
     return `<svg class="pl-g" viewBox="0 0 ${size} ${size}" width="${size}" height="${size}" aria-label="Nível ${n}">${fill}<circle cx="${c}" cy="${c}" r="${r}" fill="none" stroke="${n ? N.c : 'currentColor'}" stroke-width="1.6" ${n ? '' : 'opacity=".45"'}/></svg>`;
   }
-  const rhPostos = () => rhList('rhPostos').slice().sort((a, b) => (a.setor || '').localeCompare(b.setor || '') || a.nome.localeCompare(b.nome));
+  // Operação (coluna da matriz) = treinamento do tipo "Técnico / operação". Um cadastro só, em Treinamentos.
+  const RH_OP = 'Técnico / operação';
+  const rhIsOp = (t) => !!t && t.tipo === RH_OP;
+  const rhPostos = () => rhList('rhTreinos').filter(rhIsOp).map((t) => ({ id: t.id, nome: t.nome, setor: t.setor || '', minimo: Number(t.minimo) || 2, critico: !!t.critico, treinos: [t.id] }))
+    .sort((a, b) => (a.setor || '').localeCompare(b.setor || '') || a.nome.localeCompare(b.nome));
+  // postos cadastrados na 1ª versão viram treinamentos de operação (uma vez)
+  function rhMigrarPostos() {
+    const ps = rhList('rhPostos'); if (!ps.length || !Perm.podeGravar('rhTreinos')) return;
+    ps.forEach((p) => {
+      let t = rhList('rhTreinos').find((x) => x.nome.trim().toLowerCase() === p.nome.trim().toLowerCase());
+      const extra = { tipo: RH_OP, critico: !!p.critico, minimo: Number(p.minimo) || 2, setor: p.setor || '' };
+      if (t) Store.update('rhTreinos', t.id, extra); else t = Store.add('rhTreinos', { nome: p.nome, cargaHoras: 1, validadeMeses: 0, ...extra });
+      rhList('rhHabil').filter((h) => h.postoId === p.id).forEach((h) => { const nid = rhHabId(t.id, h.colaboradorId); if (!Store.find('rhHabil', nid)) Store.add('rhHabil', { ...h, id: nid, postoId: t.id }); Store.remove('rhHabil', h.id); });
+      Store.remove('rhPostos', p.id);
+    });
+  }
   const rhHabId = (pid, cid) => `hb_${pid}_${cid}`;
   const rhHab = (pid, cid) => Store.find('rhHabil', rhHabId(pid, cid));
-  const rhNivel = (pid, cid) => { const h = rhHab(pid, cid); return h ? Number(h.nivel) || 0 : 0; };
+  const rhTemReg = (tid, cid) => rhList('rhTreinoReg').some((r) => r.treinoId === tid && r.colaboradorId === cid && !r.anulado);
+  const rhNivel = (pid, cid) => { const h = rhHab(pid, cid); if (h) return Number(h.nivel) || 0; return rhTemReg(pid, cid) ? 1 : 0; };
   function rhPostoCob(p) {
-    const ativos = new Set(rhAtivos().map((u) => u.id));
-    const hs = rhList('rhHabil').filter((h) => h.postoId === p.id && ativos.has(h.colaboradorId));
-    const hab = hs.filter((h) => Number(h.nivel) >= 3).length, trein = hs.filter((h) => [1, 2].includes(Number(h.nivel))).length;
+    const nv = rhAtivos().map((u) => rhNivel(p.id, u.id));
+    const hab = nv.filter((n) => n >= 3).length, trein = nv.filter((n) => n === 1 || n === 2).length;
     const min = Number(p.minimo) || 2;
     const st = hab === 0 ? 'sem' : hab < min ? 'risco' : 'ok';
     return { hab, trein, min, st };
@@ -2871,32 +2886,6 @@
   // treinamentos exigidos pelo posto que a pessoa não tem válidos
   const rhPostoPend = (p, cid) => (p.treinos || []).filter((tid) => Store.find('rhTreinos', tid) && !['ok', 'vencendo'].includes(rhTreinoSt(cid, tid).st));
 
-  function rhFormPosto(p, done) {
-    const editing = !!(p && p.id); p = p || {};
-    const tr = rhTreinos(); const sel = new Set(p.treinos || []);
-    const card = modal({
-      title: editing ? 'Editar posto' : 'Novo posto', sub: 'Posto de trabalho / operação',
-      body: `<div class="form-grid">${field('Nome do posto', 'nome', p.nome, 'text', { full: true, ph: 'Ex.: Montagem do kit GNV · bancada 2' })}
-        ${field('Setor', 'setor', p.setor || '', 'select', { options: [{ v: '', t: 'Sem setor' }].concat(rhSetores().map((s) => ({ v: s.nome, t: s.nome }))) })}
-        ${field('Mínimo de habilitados', 'minimo', p.minimo || 2, 'text', { hint: 'Abaixo disso o posto fica em risco' })}
-        <div class="field full">${sw('Posto crítico (afeta qualidade, segurança ou entrega)', 'critico', p.critico)}</div>
-        ${field('Descrição / instrução de trabalho', 'descricao', p.descricao, 'textarea', { full: true, ph: 'Ex.: IT-PRD-012 rev. 3' })}</div>
-        ${tr.length ? `<div class="form-sec">${ic('award')}Treinamentos exigidos para habilitar</div><div class="pl-chips">${tr.map((t) => `<button type="button" class="pl-chip${sel.has(t.id) ? ' on' : ''}" data-t="${t.id}">${ic('check')}${esc(t.nome)}</button>`).join('')}</div>` : ''}`,
-      footer: (editing ? `<button class="btn danger ghost" id="delBtn" style="margin-right:auto">${ic('trash')}Excluir</button>` : '') + submitFooter(editing),
-    });
-    ccSelect($('[name="setor"]', card), { icon: 'grid' }); rhMaskNum($('[name="minimo"]', card), 20);
-    $$('.pl-chip', card).forEach((b) => (b.onclick = () => { const id = b.dataset.t; sel.has(id) ? sel.delete(id) : sel.add(id); b.classList.toggle('on', sel.has(id)); }));
-    const del = $('#delBtn', card);
-    if (del) del.onclick = () => confirmDialog(`Excluir o posto "${p.nome}" e as habilitações dele?`, () => { rhList('rhHabil').filter((h) => h.postoId === p.id).forEach((h) => Store.remove('rhHabil', h.id)); Store.remove('rhPostos', p.id); closeModal(); toast('Posto excluído'); if (done) done(); else go(currentRoute); }, 'danger');
-    $('#saveBtn', card).onclick = () => {
-      const d = readForm(card); if ((d.nome || '').trim().length < 3) return toast('Informe o nome do posto', 'warn');
-      if (rhList('rhPostos').some((x) => x.id !== p.id && x.nome.trim().toLowerCase() === d.nome.trim().toLowerCase())) return toast('Já existe um posto com esse nome', 'warn');
-      const obj = { nome: d.nome.trim(), setor: d.setor, minimo: Math.max(1, rhNum(d.minimo) || 2), critico: !!d.critico, descricao: d.descricao, treinos: Array.from(sel) };
-      if (editing) Store.update('rhPostos', p.id, obj); else Store.add('rhPostos', obj);
-      closeModal(); toast(editing ? 'Posto atualizado' : 'Posto cadastrado'); if (done) done(); else go(currentRoute);
-    };
-  }
-
   function rhFormHabil(p, u) {
     const h = rhHab(p.id, u.id) || {}; let niv = Number(h.nivel) || 0;
     const pend = rhPostoPend(p, u.id);
@@ -2904,7 +2893,7 @@
     const card = modal({
       title: u.name, sub: p.nome,
       body: `<div class="pl-niv">${RH_NIV.map((N) => `<button type="button" class="pl-nb${N.n === niv ? ' on' : ''}" data-n="${N.n}" style="--c:${N.c}">${rhNivGlyph(N.n, 30)}<b>${N.n} · ${esc(N.l)}</b><small>${esc(N.s)}</small></button>`).join('')}</div>
-        ${pend.length ? `<div class="tu-alerta">${ic('alert')}<span>Treinamento pendente para este posto: ${pend.map((t) => esc((Store.find('rhTreinos', t) || {}).nome)).join(', ')}.</span></div>` : ''}
+        ${pend.length ? `<div class="tu-alerta">${ic('alert')}<span>Treinamento ainda não registrado. Registre antes de habilitar.</span></div>` : ''}
         <div class="form-grid">${field('Data da avaliação', 'data', h.data && niv ? h.data : rhHoje(), 'date')}
           <div class="field"><label>Liberado por (líder)</label><select name="liberadoPor"><option value="">—</option>${lideres.map((x) => `<option value="${x.id}" ${h.liberadoPor === x.id ? 'selected' : ''}>${esc(x.name)}</option>`).join('')}</select></div>
           ${field('Observação', 'obs', '', 'textarea', { full: true, ph: 'Ex.: acompanhou 3 lotes, sem desvios' })}</div>
@@ -2921,28 +2910,15 @@
       const hist = (h.hist || []).concat([{ nivel: niv, data: d.data, por: d.liberadoPor, obs: d.obs, em: new Date().toISOString(), reg: (typeof pvMe === 'function' && pvMe()) || '' }]);
       const obj = { postoId: p.id, colaboradorId: u.id, nivel: niv, data: d.data, liberadoPor: d.liberadoPor, hist };
       if (h.id) Store.update('rhHabil', h.id, obj); else Store.add('rhHabil', { id: rhHabId(p.id, u.id), ...obj });
-      closeModal(); toast(niv >= 3 ? `${u.name.split(' ')[0]} habilitado no posto` : 'Nível atualizado'); go(currentRoute);
+      closeModal(); toast(niv >= 3 ? `${u.name.split(' ')[0]} habilitado na operação` : 'Nível atualizado'); go(currentRoute);
     };
-  }
-
-  function rhPostosGerenciar() {
-    const l = rhPostos();
-    const card = modal({
-      title: 'Postos de trabalho', sub: `${l.length} posto${l.length === 1 ? '' : 's'}`, wide: true,
-      body: l.length ? `<div class="pl-pl">${l.map((p) => { const cb = rhPostoCob(p); return `<button type="button" class="pl-pr" data-p="${p.id}"><span class="pl-pri">${ic(p.critico ? 'alert' : 'grid')}</span><span class="tu-t"><b>${esc(p.nome)}</b><small>${esc(p.setor || 'Sem setor')} · mínimo ${cb.min} · ${(p.treinos || []).length} treinamento${(p.treinos || []).length === 1 ? '' : 's'}</small></span>${p.critico ? '<span class="badge warn plain">Crítico</span>' : ''}</button>`; }).join('')}</div>` : emptyState('grid', 'Nenhum posto', ''),
-      footer: `<button class="btn ghost" data-close>Fechar</button><button class="btn primary" id="plNovo">${ic('plus')}Novo posto</button>`,
-    });
-    Icons.apply(card);
-    const again = () => { go(currentRoute); setTimeout(rhPostosGerenciar, 250); };
-    $('#plNovo', card).onclick = () => { closeModal(); setTimeout(() => rhFormPosto(null, again), 200); };
-    $$('[data-p]', card).forEach((b) => (b.onclick = () => { closeModal(); setTimeout(() => rhFormPosto(Store.find('rhPostos', b.dataset.p), again), 200); }));
   }
 
   function rhPoliPrint(postos, pessoas) {
     const sym = [0, 1, 2, 3, 4].map((n) => rhNivGlyph(n, 16));
     const corpo = `<style>@page { size: A4 landscape; margin: 12mm; } th.v { writing-mode: vertical-rl; transform: rotate(180deg); white-space: nowrap; height: 130px; text-align: left; padding: 6px 4px; } td.c { text-align: center; width: 34px; } td.c svg, .cont svg { vertical-align: middle; } .cont svg { margin: 0 2px 0 6px; } .crit { color: #b42318; }</style>
-      <div class="info"><div><small>Postos</small><b>${postos.length}</b></div><div><small>Críticos</small><b>${postos.filter((p) => p.critico).length}</b></div><div><small>Colaboradores</small><b>${pessoas.length}</b></div><div><small>Em risco</small><b>${postos.filter((p) => rhPostoCob(p).st !== 'ok').length}</b></div></div>
-      <p class="cont">Legenda: ${RH_NIV.map((N) => `${sym[N.n]} ${N.n} ${N.l}`).join(' · ')} · <span class="crit">*</span> posto crítico. Habilitado = nível 3 ou 4.</p>
+      <div class="info"><div><small>Operações</small><b>${postos.length}</b></div><div><small>Críticas</small><b>${postos.filter((p) => p.critico).length}</b></div><div><small>Colaboradores</small><b>${pessoas.length}</b></div><div><small>Em risco</small><b>${postos.filter((p) => rhPostoCob(p).st !== 'ok').length}</b></div></div>
+      <p class="cont">Legenda: ${RH_NIV.map((N) => `${sym[N.n]} ${N.n} ${N.l}`).join(' · ')} · <span class="crit">*</span> operação crítica. Habilitado = nível 3 ou 4.</p>
       <table><thead><tr><th>Colaborador</th>${postos.map((p) => `<th class="v">${p.critico ? '<span class="crit">*</span> ' : ''}${esc(p.nome)}</th>`).join('')}</tr></thead><tbody>
       ${pessoas.map((u) => `<tr><td>${esc(u.name)}<br><small style="color:#667">${esc(u.sector || '')}</small></td>${postos.map((p) => `<td class="c">${sym[rhNivel(p.id, u.id)]}</td>`).join('')}</tr>`).join('')}
       <tr><td><b>Habilitados / mínimo</b></td>${postos.map((p) => { const cb = rhPostoCob(p); return `<td class="c" style="font-size:11px"><b class="st ${cb.st === 'ok' ? 'ok' : 'vencido'}">${cb.hab}/${cb.min}</b></td>`; }).join('')}</tr></tbody></table>
@@ -2952,32 +2928,33 @@
 
   let rhPlF = { setor: 'todos', q: '' };
   PAGES['rh-polivalencia'] = () => {
-    const podeEd = Perm.podeGravar('rhHabil');
-    pageShell('RH', 'Polivalência', 'Quem está habilitado em cada posto.',
-      `<button class="btn" id="plPrint">${ic('file')}Imprimir</button>${podeEd ? `<button class="btn" id="plPostos">${ic('grid')}Postos</button><button class="btn primary" id="plNovo">${ic('plus')}Novo posto</button>` : ''}`);
-    if (podeEd) { $('#plPostos').onclick = rhPostosGerenciar; $('#plNovo').onclick = () => rhFormPosto(null); }
+    rhMigrarPostos();
+    const podeEd = Perm.podeGravar('rhHabil'); const podeTr = Perm.podeGravar('rhTreinos');
+    pageShell('RH', 'Polivalência', 'Quem sabe fazer cada operação.',
+      `<button class="btn" id="plPrint">${ic('file')}Imprimir</button>${podeTr ? `<button class="btn primary" id="plNovo">${ic('plus')}Nova operação</button>` : ''}`);
+    if (podeTr) $('#plNovo').onclick = () => rhFormTreino({ tipo: RH_OP });
     const todos = rhPostos(); const ativos = rhAtivos().slice().sort((a, b) => a.name.localeCompare(b.name));
-    $('#plPrint').onclick = () => (todos.length ? rhPoliPrint(todos, ativos) : toast('Cadastre os postos primeiro', 'warn'));
+    $('#plPrint').onclick = () => (todos.length ? rhPoliPrint(todos, ativos) : toast('Cadastre as operações primeiro', 'warn'));
     if (!todos.length) {
-      const e = document.createElement('div'); e.className = 'tbl-wrap'; e.innerHTML = `${emptyState('grid', 'Nenhum posto cadastrado', 'Cadastre os postos de trabalho e marque os críticos.')}${podeEd ? `<div class="rh-sug"><button type="button" class="btn primary" id="plNovo2">${ic('plus')}Cadastrar posto</button></div>` : ''}`;
-      view.appendChild(e); Icons.apply(e); const b = $('#plNovo2', e); if (b) b.onclick = () => rhFormPosto(null); return;
+      const e = document.createElement('div'); e.className = 'tbl-wrap'; e.innerHTML = `${emptyState('grid', 'Nenhuma operação', 'Operações são treinamentos do tipo Técnico / operação.')}${podeTr ? `<div class="rh-sug"><button type="button" class="btn primary" id="plNovo2">${ic('plus')}Cadastrar operação</button></div>` : ''}`;
+      view.appendChild(e); Icons.apply(e); const b = $('#plNovo2', e); if (b) b.onclick = () => rhFormTreino({ tipo: RH_OP }); return;
     }
     const cobs = todos.map((p) => ({ p, cb: rhPostoCob(p) }));
     const crit = cobs.filter((x) => x.p.critico); const critRisco = crit.filter((x) => x.cb.st !== 'ok');
-    const habPessoas = new Set(rhList('rhHabil').filter((h) => Number(h.nivel) >= 3).map((h) => h.colaboradorId)); const ativosIds = new Set(ativos.map((u) => u.id));
-    const emTrein = rhList('rhHabil').filter((h) => [1, 2].includes(Number(h.nivel)) && ativosIds.has(h.colaboradorId)).length;
+    const habPessoas = new Set(ativos.filter((u) => todos.some((p) => rhNivel(p.id, u.id) >= 3)).map((u) => u.id)); const ativosIds = new Set(ativos.map((u) => u.id));
+    let emTrein = 0; todos.forEach((p) => { emTrein += rhPostoCob(p).trein; });
     const polis = ativos.filter((u) => todos.filter((p) => rhNivel(p.id, u.id) >= 3).length >= 2).length;
     const tile = (cls, icn, v, l, s) => `<div class="pvd-tile ${cls}"><span class="pvd-ti">${ic(icn)}</span><b>${v}</b><span>${esc(l)}</span><small>${esc(s)}</small></div>`;
     const tiles = document.createElement('section'); tiles.className = 'pc-tiles tp-tiles';
-    tiles.innerHTML = tile('t-info', 'grid', todos.length, 'Postos', `${crit.length} crítico${crit.length === 1 ? '' : 's'}`)
-      + tile(critRisco.length ? 't-danger' : 't-ok', 'alert', critRisco.length, 'Críticos em risco', critRisco.length ? 'abaixo do mínimo' : 'todos cobertos')
+    tiles.innerHTML = tile('t-info', 'grid', todos.length, 'Operações', `${crit.length} crítica${crit.length === 1 ? '' : 's'}`)
+      + tile(critRisco.length ? 't-danger' : 't-ok', 'alert', critRisco.length, 'Críticas em risco', critRisco.length ? 'abaixo do mínimo' : 'todas cobertas')
       + tile('t-ok', 'check', [...habPessoas].filter((x) => ativosIds.has(x)).length, 'Pessoas habilitadas', 'nível 3 ou 4')
       + tile('t-warn', 'clock', emTrein, 'Em treinamento', 'níveis 1 e 2')
-      + tile('', 'users', polis, 'Polivalentes', 'habilitados em 2+ postos');
+      + tile('', 'users', polis, 'Polivalentes', 'habilitados em 2+ operações');
     view.appendChild(tiles); Icons.apply(tiles);
     if (critRisco.length) {
       const al = document.createElement('div'); al.className = 'tu-alerta pl-al';
-      al.innerHTML = `${ic('alert')}<span><b>Postos críticos sem cobertura mínima:</b> ${critRisco.map((x) => `${esc(x.p.nome)} (${x.cb.hab}/${x.cb.min})`).join(', ')}</span>`;
+      al.innerHTML = `${ic('alert')}<span><b>Operações críticas sem cobertura mínima:</b> ${critRisco.map((x) => `${esc(x.p.nome)} (${x.cb.hab}/${x.cb.min})`).join(', ')}</span>`;
       view.appendChild(al); Icons.apply(al);
     }
     const setores = Array.from(new Set(todos.map((p) => p.setor || 'Sem setor')));
@@ -2986,7 +2963,7 @@
     bar.innerHTML = `<label class="rh-pk-q">${ic('search')}<input id="plQ" placeholder="Buscar colaborador…" value="${esc(rhPlF.q)}" autocomplete="off"></label>
       <div class="rh-mxf-c">${[['todos', 'Todos os setores', todos.length]].concat(setores.map((s) => [s, s, todos.filter((p) => (p.setor || 'Sem setor') === s).length])).map(([k, l, n]) => `<button type="button" class="rh-fc${rhPlF.setor === k ? ' on' : ''}" data-s="${esc(k)}">${esc(l)}<em>${n}</em></button>`).join('')}</div>`;
     view.appendChild(bar); Icons.apply(bar);
-    const leg = document.createElement('div'); leg.className = 'pl-leg'; leg.innerHTML = RH_NIV.map((N) => `<span>${rhNivGlyph(N.n, 18)}<b>${N.n}</b>${esc(N.l)}</span>`).join('') + `<span class="pl-legc">${ic('alert')}Posto crítico</span>`;
+    const leg = document.createElement('div'); leg.className = 'pl-leg'; leg.innerHTML = RH_NIV.map((N) => `<span>${rhNivGlyph(N.n, 18)}<b>${N.n}</b>${esc(N.l)}</span>`).join('') + `<span class="pl-legc">${ic('alert')}Operação crítica</span>`;
     view.appendChild(leg); Icons.apply(leg);
     const box = document.createElement('div'); view.appendChild(box);
     const paint = () => {
@@ -2994,11 +2971,11 @@
       let us = ativos; if (rhPlF.setor !== 'todos') us = us.filter((u) => (u.sector || 'Sem setor') === rhPlF.setor || ps.some((p) => rhNivel(p.id, u.id) > 0));
       if (rhPlF.q) { const q = rhPlF.q.toLowerCase(); us = us.filter((u) => [u.name, u.sector].join(' ').toLowerCase().includes(q)); }
       box.innerHTML = !us.length ? `<div class="tbl-wrap">${emptyState('users', 'Ninguém neste filtro', '')}</div>` : `<div class="pl-wrap"><table class="pl-mx"><thead><tr><th class="pl-hp">Colaborador</th>${ps.map((p) => { const cb = rhPostoCob(p); return `<th class="pl-hc${p.critico ? ' crit' : ''}" data-ph="${p.id}" title="${esc(p.nome)}"><span class="pl-hn">${p.critico ? ic('alert') : ''}${esc(p.nome)}</span><span class="pl-hb s-${cb.st}">${cb.hab}/${cb.min}</span></th>`; }).join('')}</tr></thead>
-        <tbody>${us.map((u) => `<tr><th class="pl-hp"><button type="button" class="pl-pn" data-u="${u.id}">${rhAvatar(u.name)}<span><b>${esc(u.name)}</b><small>${esc(u.sector || '—')}</small></span></button></th>${ps.map((p) => { const n = rhNivel(p.id, u.id); const pend = n >= 3 && rhPostoPend(p, u.id).length; return `<td><button type="button" class="pl-c n${n}${pend ? ' pend' : ''}" data-p="${p.id}" data-u="${u.id}" title="${esc(p.nome)} · ${esc(RH_NIV[n].l)}${pend ? ' · treinamento pendente' : ''}" ${podeEd ? '' : 'disabled'}>${rhNivGlyph(n, 24)}${pend ? '<i></i>' : ''}</button></td>`; }).join('')}</tr>`).join('')}</tbody></table></div>`;
+        <tbody>${us.map((u) => `<tr><th class="pl-hp"><button type="button" class="pl-pn" data-u="${u.id}">${rhAvatar(u.name)}<span><b>${esc(u.name)}</b><small>${esc(u.sector || '—')}</small></span></button></th>${ps.map((p) => { const n = rhNivel(p.id, u.id); const pend = n >= 3 && rhPostoPend(p, u.id).length; return `<td><button type="button" class="pl-c n${n}${pend ? ' pend' : ''}" data-p="${p.id}" data-u="${u.id}" title="${esc(p.nome)} · ${esc(RH_NIV[n].l)}${pend ? ' · treinamento não registrado' : ''}" ${podeEd ? '' : 'disabled'}>${rhNivGlyph(n, 24)}${pend ? '<i></i>' : ''}</button></td>`; }).join('')}</tr>`).join('')}</tbody></table></div>`;
       Icons.apply(box);
-      $$('.pl-c', box).forEach((b) => (b.onclick = () => rhFormHabil(Store.find('rhPostos', b.dataset.p), rhPessoa(b.dataset.u))));
+      $$('.pl-c', box).forEach((b) => (b.onclick = () => rhFormHabil(rhPostos().find((x) => x.id === b.dataset.p), rhPessoa(b.dataset.u))));
       $$('.pl-pn', box).forEach((b) => (b.onclick = () => rhOpenPessoa(b.dataset.u)));
-      if (podeEd) $$('[data-ph]', box).forEach((b) => (b.onclick = () => rhFormPosto(Store.find('rhPostos', b.dataset.ph))));
+      $$('[data-ph]', box).forEach((b) => (b.onclick = () => rhOpenTreino(b.dataset.ph)));
     };
     $$('[data-s]', bar).forEach((b) => (b.onclick = () => { rhPlF.setor = b.dataset.s; $$('[data-s]', bar).forEach((x) => x.classList.toggle('on', x === b)); paint(); }));
     $('#plQ', bar).oninput = (e) => { rhPlF.q = e.target.value; paint(); };
@@ -3133,6 +3110,7 @@
     const regs = rhList('rhTreinoReg').filter((r) => r.treinoId === t.id && !r.anulado);
     const ids = new Set(regs.map((r) => r.colaboradorId));
     rhAtivos().forEach((u) => { if (rhExigidos(u).includes(t.id)) ids.add(u.id); });
+    if (rhIsOp(t)) rhList('rhHabil').filter((h) => h.postoId === t.id && Number(h.nivel) > 0).forEach((h) => ids.add(h.colaboradorId));
     return Array.from(ids).map((id) => rhPessoa(id)).filter((u) => u && u.situacao !== 'desligado').map((u) => {
       const s = rhTreinoSt(u.id, t.id); const req = rhExigidos(u).includes(t.id);
       return { u, req, st: s.st, r: s.r, validade: s.r ? s.r.validade : '', data: s.r ? s.r.data : '' };
@@ -3274,7 +3252,7 @@
   PAGES['rh-treino'] = () => {
     const t = rhTreinoId && Store.find('rhTreinos', rhTreinoId);
     if (!t) { go('rh-treinos'); return; }
-    const nr = rhIsNR(t);
+    const nr = rhIsNR(t); const op = rhIsOp(t); const opCob = op ? rhPostoCob(rhPostos().find((x) => x.id === t.id)) : null;
     pageShell('RH', t.nome, `${t.tipo || 'Treinamento'}`,
       `<button class="btn" id="tpEd">${ic('edit')}Editar</button><button class="btn primary" id="tpTurma">${ic('calendar')}Programar turma</button>`);
     $('#tpEd').onclick = () => rhFormTreino(t);
@@ -3290,7 +3268,7 @@
     const hero = document.createElement('section'); hero.className = 'tp-hero'; hero.style.setProperty('--c', cor);
     hero.innerHTML = `
       <div class="tp-id"><span class="tp-ic">${ic(nr ? 'shield' : 'award')}</span><div><div class="tp-chips">${nr ? `<span class="tp-nr">${esc((t.nome.match(/NR[\s-]?\d+/i) || ['NR'])[0].toUpperCase().replace(/\s/, '-'))}</span>` : ''}</div>
-        <div class="tp-facts"><span>${ic('refresh')}<b>${esc(rhValTx(t.validadeMeses))}</b><small>periodicidade</small></span><span>${ic('clock')}<b>${t.cargaHoras || 0} h</b><small>carga horária</small></span><span>${ic('briefcase')}<b>${cargos.length}</b><small>${cargos.length === 1 ? 'cargo exige' : 'cargos exigem'}</small></span></div>
+        <div class="tp-facts"><span>${ic('refresh')}<b>${esc(rhValTx(t.validadeMeses))}</b><small>periodicidade</small></span><span>${ic('clock')}<b>${t.cargaHoras || 0} h</b><small>carga horária</small></span><span>${ic('briefcase')}<b>${cargos.length}</b><small>${cargos.length === 1 ? 'cargo exige' : 'cargos exigem'}</small></span>${op ? `<span>${ic('grid')}<b>${opCob.hab}/${opCob.min}</b><small>habilitados na prática${t.critico ? ' · crítica' : ''}</small></span>` : ''}</div>
         ${cargos.length ? `<div class="tp-cargos">${cargos.map((c) => `<em>${esc(c.nome)}</em>`).join('')}</div>` : ''}</div></div>
       <div class="tp-ring"><svg viewBox="0 0 110 110"><circle r="${R}" cx="55" cy="55" class="kp-trk" fill="none" stroke-width="10"/><circle r="${R}" cx="55" cy="55" fill="none" stroke="${cobertura == null ? '#94A3B8' : cobertura >= 95 ? '#46D39A' : cobertura >= 80 ? '#F5B840' : '#FF7A7A'}" stroke-width="10" stroke-linecap="round" stroke-dasharray="${(f * C).toFixed(1)} ${C.toFixed(1)}" transform="rotate(-90 55 55)" class="kp-arc"/></svg>
         <div class="kp-core"><b>${cobertura == null ? '—' : cobertura + '%'}</b><span>cobertura</span></div></div>`;
@@ -3307,9 +3285,10 @@
       grid.innerHTML = `<section class="pvp-card tp-pessoas"><div class="pvp-card-h"><b>Colaboradores</b><span>${ps.length}</span></div>
           <div class="rh-mxf-c tp-f">${FL.map(([k, lb, n]) => `<button type="button" class="rh-fc${rhTrF === k ? ' on' : ''}" data-f="${k}">${lb}<em>${n}</em></button>`).join('')}</div>
           ${l.length ? `<div class="tp-list">${l.map((p) => { const S = RH_TST[p.st]; const dias = p.validade ? rhDias(rhHoje(), p.validade) : null;
-            return `<button type="button" class="tp-row" data-p="${p.u.id}" style="--c:${S.c}">${rhAvatar(p.u.name)}<span class="tp-rt"><b>${esc(p.u.name)}</b><small>${esc([(rhCargo(p.u.cargoId) || {}).nome, p.u.sector].filter(Boolean).join(' · ') || '—')}${p.req ? '' : ' · extra'}</small></span>
+            const nv = op ? rhNivel(t.id, p.u.id) : 0;
+            return `<button type="button" class="tp-row${op ? ' op' : ''}" data-p="${p.u.id}" style="--c:${S.c}">${rhAvatar(p.u.name)}<span class="tp-rt"><b>${esc(p.u.name)}</b><small>${esc([(rhCargo(p.u.cargoId) || {}).nome, p.u.sector].filter(Boolean).join(' · ') || '—')}${p.req ? '' : ' · extra'}</small></span>
               <span class="tp-rd"><small>Realizado</small><b>${p.data ? fmtDate(p.data) : '—'}</b></span><span class="tp-rd"><small>Validade</small><b>${p.validade ? fmtDate(p.validade) : p.r ? 'não vence' : '—'}</b></span>
-              <span class="tp-rs"><span class="badge ${S.cls} plain">${S.l}</span>${dias != null && dias >= 0 && p.st !== 'ok' ? `<small>${dias} dia${dias === 1 ? '' : 's'}</small>` : dias != null && dias < 0 ? `<small>há ${-dias} dias</small>` : ''}</span></button>`; }).join('')}</div>`
+              ${op ? `<span class="tp-nv" data-nv="${p.u.id}" title="Nível prático · clique para alterar">${rhNivGlyph(nv, 22)}<small>${esc(RH_NIV[nv].l)}</small></span>` : ''}<span class="tp-rs"><span class="badge ${S.cls} plain">${S.l}</span>${dias != null && dias >= 0 && p.st !== 'ok' ? `<small>${dias} dia${dias === 1 ? '' : 's'}</small>` : dias != null && dias < 0 ? `<small>há ${-dias} dias</small>` : ''}</span></button>`; }).join('')}</div>`
             : `<div class="qf-empty">${ic('users')}<span>${ps.length ? 'Ninguém neste filtro' : 'Nenhum cargo exige este treinamento'}</span></div>`}
         </section>
         <section class="pvp-card tp-turmas"><div class="pvp-card-h"><b>Turmas</b><span>${turmas.length}</span></div>
@@ -3321,7 +3300,7 @@
         </section>`;
       Icons.apply(grid);
       $$('[data-f]', grid).forEach((b) => (b.onclick = () => { rhTrF = b.dataset.f; paint(); }));
-      $$('.tp-row', grid).forEach((b) => (b.onclick = () => rhOpenPessoa(b.dataset.p)));
+      $$('.tp-row', grid).forEach((b) => (b.onclick = (e) => { const nv = e.target.closest('[data-nv]'); if (nv && op) { if (Perm.podeGravar('rhHabil')) rhFormHabil(rhPostos().find((x) => x.id === t.id), rhPessoa(nv.dataset.nv)); return; } rhOpenPessoa(b.dataset.p); }));
       $$('[data-tu]', grid).forEach((b) => (b.onclick = () => rhVerTurma(b.dataset.tu)));
       $('#tpTurma2', grid).onclick = () => rhFormTurma(t, null);
     };
@@ -3338,18 +3317,24 @@
       body: `<div class="form-grid">${field('Nome', 'nome', t.nome, 'text', { full: true, ph: 'Ex.: NR-35 · Trabalho em altura' })}
         <div class="field"><label>Tipo</label><select name="tipo">${RH_TIPOS_TREINO.map((x) => `<option ${t.tipo === x ? 'selected' : ''}>${esc(x)}</option>`).join('')}</select></div>
         ${field('Carga horária (horas)', 'cargaHoras', t.cargaHoras || '', 'text', { ph: 'Ex.: 8' })}
-        <div class="field full"><label>Reciclagem</label><select name="validadeMeses">${[['0', 'Não vence'], ['6', 'A cada 6 meses'], ['12', 'A cada 12 meses'], ['24', 'A cada 24 meses'], ['36', 'A cada 36 meses']].map(([v, l]) => `<option value="${v}" ${String(t.validadeMeses || 0) === v ? 'selected' : ''}>${l}</option>`).join('')}</select></div></div>`,
+        <div class="field full"><label>Reciclagem</label><select name="validadeMeses">${[['0', 'Não vence'], ['6', 'A cada 6 meses'], ['12', 'A cada 12 meses'], ['24', 'A cada 24 meses'], ['36', 'A cada 36 meses']].map(([v, l]) => `<option value="${v}" ${String(t.validadeMeses || 0) === v ? 'selected' : ''}>${l}</option>`).join('')}</select></div></div>
+        <div id="opBox" ${t.tipo === RH_OP ? '' : 'hidden'}><div class="form-sec">${ic('grid')}Operação (polivalência)</div><div class="form-grid">
+          ${field('Setor', 'setor', t.setor || '', 'select', { options: [{ v: '', t: 'Sem setor' }].concat(rhSetores().map((s) => ({ v: s.nome, t: s.nome }))) })}
+          ${field('Mínimo de habilitados', 'minimo', t.minimo || 2, 'text', { hint: 'Abaixo disso a operação fica em risco' })}
+          <div class="field full">${sw('Operação crítica (qualidade, segurança ou entrega)', 'critico', t.critico)}</div></div></div>`,
       footer: (editing ? `<button class="btn danger ghost" id="delBtn" style="margin-right:auto">${ic('trash')}Excluir</button>` : '') + submitFooter(editing),
     });
-    ccSelect($('[name="tipo"]', card), { icon: 'award' }); ccSelect($('[name="validadeMeses"]', card), { icon: 'refresh' });
-    rhMaskNum($('[name="cargaHoras"]', card), 400);
+    ccSelect($('[name="tipo"]', card), { icon: 'award' }); ccSelect($('[name="validadeMeses"]', card), { icon: 'refresh' }); ccSelect($('[name="setor"]', card), { icon: 'grid' });
+    rhMaskNum($('[name="cargaHoras"]', card), 400); rhMaskNum($('[name="minimo"]', card), 20);
+    $('[name="tipo"]', card).addEventListener('change', (e) => { $('#opBox', card).hidden = e.target.value !== RH_OP; });
     const del = $('#delBtn', card);
-    if (del) del.onclick = () => rhList('rhTreinoReg').some((r) => r.treinoId === t.id) || rhList('rhTurmas').some((x) => x.treinoId === t.id) ? toast('Treinamento com registros não pode ser excluído', 'warn') : confirmDialog(`Excluir "${t.nome}" do catálogo?`, () => { Store.remove('rhTreinos', t.id); rhList('rhCargos').filter((c) => (c.treinos || []).includes(t.id)).forEach((c) => Store.update('rhCargos', c.id, { treinos: c.treinos.filter((x) => x !== t.id) })); toast('Treinamento excluído', 'info'); go(currentRoute); });
+    if (del) del.onclick = () => rhList('rhTreinoReg').some((r) => r.treinoId === t.id) || rhList('rhTurmas').some((x) => x.treinoId === t.id) ? toast('Treinamento com registros não pode ser excluído', 'warn') : confirmDialog(`Excluir "${t.nome}" do catálogo?`, () => { rhList('rhHabil').filter((h) => h.postoId === t.id).forEach((h) => Store.remove('rhHabil', h.id)); Store.remove('rhTreinos', t.id); rhList('rhCargos').filter((c) => (c.treinos || []).includes(t.id)).forEach((c) => Store.update('rhCargos', c.id, { treinos: c.treinos.filter((x) => x !== t.id) })); toast('Treinamento excluído', 'info'); go(currentRoute); });
     $('#saveBtn', card).onclick = () => {
       const d = readForm(card); if (d.nome.length < 3) return toast('Informe o nome do treinamento', 'warn');
       const ch = rhNum(d.cargaHoras); if (!ch) return toast('Informe a carga horária', 'warn');
       if (rhList('rhTreinos').some((x) => x.id !== t.id && x.nome.trim().toLowerCase() === d.nome.trim().toLowerCase())) return toast('Já existe um treinamento com esse nome', 'warn');
       const obj = { nome: d.nome, tipo: d.tipo, cargaHoras: ch, validadeMeses: Number(d.validadeMeses) || 0 };
+      if (d.tipo === RH_OP) Object.assign(obj, { setor: d.setor || '', minimo: Math.max(1, rhNum(d.minimo) || 2), critico: !!d.critico });
       if (editing) Store.update('rhTreinos', t.id, obj); else Store.add('rhTreinos', obj);
       toast(editing ? 'Treinamento atualizado' : 'Treinamento criado'); closeModal(); go(currentRoute);
     };
@@ -4303,7 +4288,7 @@
         v: () => { const l = rhAtivos(); return { v: pctOf(l.filter((u) => ['ok', 'vencendo'].includes(rhIntDe(u.id).st)).length, l.length), n: l.length }; } },
       { k: 'rh_treino', a: 'rh', t: 'Treinamentos exigidos em dia', c: '7.2.1 · 7.2.2', u: '%', melhor: 'maior', meta: 95, atual: true, como: 'Treinamentos válidos ÷ exigidos pelos cargos.',
         v: () => { let ok = 0, tot = 0; rhAtivos().forEach((u) => { const r = rhTreinoResumo(u); ok += r.ok + r.vencendo; tot += r.total; }); return { v: pctOf(ok, tot), n: tot }; } },
-      { k: 'rh_poli', a: 'rh', t: 'Postos críticos cobertos', c: '7.2.2 · 6.1.2.3', u: '%', melhor: 'maior', meta: 100, atual: true, como: 'Postos críticos com habilitados (nível 3+) no mínimo definido ÷ postos críticos.',
+      { k: 'rh_poli', a: 'rh', t: 'Operações críticas cobertas', c: '7.2.2 · 6.1.2.3', u: '%', melhor: 'maior', meta: 100, atual: true, como: 'Operações críticas com habilitados (nível 3+) no mínimo definido ÷ operações críticas.',
         v: () => { const l = rhPostos().filter((p) => p.critico); return { v: pctOf(l.filter((p) => rhPostoCob(p).st === 'ok').length, l.length), n: l.length }; } },
       { k: 'rh_aud', a: 'rh', t: 'Auditores internos qualificados', c: '7.2.3', u: '%', melhor: 'maior', meta: 100, atual: true, como: 'Auditores com requisitos e auditorias do ano em dia ÷ auditores ativos.',
         v: () => { const l = rhAudList().map(rhAudSt).filter((s) => s.st !== 'inativo'); return { v: pctOf(l.filter((s) => s.st === 'ok').length, l.length), n: l.length }; } },
