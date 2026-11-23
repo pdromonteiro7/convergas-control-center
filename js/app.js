@@ -6404,13 +6404,10 @@
   const prioBadge = (p) => `<span class="badge ${(PRIO[p] || {}).cls || 'plain'}">${esc((PRIO[p] || {}).label || p || '—')}</span>`;
   const eqBadge = (s) => `<span class="badge ${(EQ_STATUS[s] || {}).cls || 'plain'}">${esc((EQ_STATUS[s] || {}).label || s || '—')}</span>`;
   const qbtnM = (icon, title, sub, route, action) => `<button class="qa" data-qa="${action || ''}" data-route-go="${route}"><span class="qa-ico">${ic(icon)}</span><span class="qa-tx"><b>${title}</b><span>${sub}</span></span></button>`;
-  const mstat = (icon, val, label, tone, frac) => {
+  const mstat = (icon, val, label, tone, fr) => {
     const s = String(val), isNum = /^\d+$/.test(s);
-    const f = isNum ? Math.max(0, Math.min(1, frac == null ? 0 : frac)) : 0;
-    const ring = isNum
-      ? `<div class="mstat-ring"><svg class="mstat-svg" viewBox="0 0 44 44" aria-hidden="true"><circle class="mr-track" cx="22" cy="22" r="19"/><circle class="mr-arc" cx="22" cy="22" r="19" data-p="${f}"/></svg><span class="mstat-v" data-count="${esc(s)}">0</span></div>`
-      : `<div class="mstat-ring plain"><span class="mstat-v">${esc(s)}</span></div>`;
-    return `<div class="mstat${tone ? ' t-' + tone : ''}">${ring}<span class="mstat-k">${ic(icon)}${esc(label)}</span></div>`;
+    const pct = isNum && fr != null && fr < 1 && Number(s) > 0 ? `${Math.round(fr * 100)}% do total` : '';
+    return `<div class="pvd-tile mst${tone ? ' t-' + tone : ''}"><span class="pvd-ti">${ic(icon)}</span><b class="mstat-v">${esc(s)}</b><span>${esc(label)}</span><small>${esc(pct)}</small></div>`;
   };
   const frac = (n, d) => (d > 0 ? n / d : 0);
   function animateStats(container) {
@@ -6473,74 +6470,77 @@
   function bindIvCards(container) {
     $$('.iv-card', container).forEach((c) => (c.onclick = () => openRecord(Store.find('serviceOrders', c.dataset.open))));
   }
+  const MNT_PRIO_ORD = { urgente: 0, alta: 1, media: 2, baixa: 3 };
+  const mntAberta = (o) => !['finalizada', 'concluida', 'cancelada'].includes(o.status);
   PAGES['manutencao-home'] = () => {
     const all = Store.get('serviceOrders'), eq = Store.get('equipments'), t = todayISO();
     const oss = all.filter((o) => o.kind === 'os'), prevs = all.filter((o) => o.kind === 'preventiva');
     const done = oss.filter((o) => o.status === 'finalizada');
-    const backlog = oss.filter((o) => o.status !== 'finalizada').length;
-    const atrasadas = prevs.filter(isOverdue).length;
+    const abertas = oss.filter(mntAberta);
+    const atrasadas = prevs.filter(isOverdue);
     const durs = done.map(hoursOf).filter((n) => !isNaN(n));
-    const mttr = durs.length ? durs.reduce((a, b) => a + b, 0) / durs.length : null;
+    const mttr = durs.length ? durs.reduce((x, y) => x + y, 0) / durs.length : null;
     const win = 90, machines = Math.max(1, eq.length);
     const failWin = done.filter((o) => o.openDate && daysBetween(o.openDate, t) <= win).length;
     const mtbf = failWin ? (win * machines) / failWin : null;
-    const downWin = done.filter((o) => o.closeDate && daysBetween(o.closeDate, t) <= win).map(hoursOf).filter((n) => !isNaN(n)).reduce((a, b) => a + b, 0);
-    const disp = Math.max(0, Math.min(100, 100 * (1 - (downWin / (machines * win * 24)))));
+    const downWin = done.filter((o) => o.closeDate && daysBetween(o.closeDate, t) <= win).map(hoursOf).filter((n) => !isNaN(n)).reduce((x, y) => x + y, 0);
+    const disp = eq.length ? Math.max(0, Math.min(100, 100 * (1 - (downWin / (machines * win * 24))))) : null;
     const donePrev = prevs.filter((o) => o.status === 'concluida');
     const pctPrev = donePrev.length ? Math.round(100 * donePrev.filter((o) => o.dueDate && o.closeDate && o.closeDate <= o.dueDate).length / donePrev.length) : null;
-    let custo = 0; done.forEach((o) => (o.usedParts || []).forEach((u) => { const p = Store.find('parts', u.partId); if (p) custo += (Number(u.qty) || 0) * parseBRL(p.cost); }));
     const T = Store.get('settings').mntTargets || { disp: 95, mttr: 4, prev: 90 };
-    const kpi = (icon, val, label, meta, tone) => `<div class="ind-card${tone ? ' t-' + tone : ''}"><div class="ind-head"><span class="ind-ico">${ic(icon)}</span><span class="ind-label">${esc(label)}</span></div><div class="ind-val">${esc(val)}</div><div class="ind-foot">${meta ? `<span class="ind-pill">${esc(meta)}</span>` : ''}</div></div>`;
-    view.innerHTML = `
-      <div class="page-head"><div class="page-title"><span class="eyebrow">Manutenção</span><h1>Indicadores</h1><p>Gestão da manutenção dos ativos.</p></div>
-        <div class="page-actions"><button class="btn" id="mMetas">${ic('settings')}Metas</button><button class="btn primary" id="newOc">${ic('plus')}Nova Ordem de Serviço</button></div></div>
-      <div class="section-head"><h2><span class="sh-ico">${ic('activity')}</span>Desempenho da manutenção</h2><span class="badge plain">Últimos 90 dias</span></div>
-      <div class="ind-grid">
-        ${kpi('activity', disp.toFixed(1) + '%', 'Disponibilidade', 'Meta ' + T.disp + '%', disp >= T.disp ? 'ok' : (disp >= T.disp - 5 ? 'warn' : 'danger'))}
-        ${kpi('clock', mttr == null ? '—' : mttr.toFixed(1) + 'h', 'MTTR · tempo de reparo', 'Meta ≤ ' + T.mttr + 'h', mttr == null ? '' : (mttr <= T.mttr ? 'ok' : 'warn'))}
-        ${kpi('refresh', mtbf == null ? '—' : Math.round(mtbf) + 'd', 'MTBF · entre falhas', 'Estimado', '')}
-        ${kpi('check', pctPrev == null ? '—' : pctPrev + '%', 'Preventivas no prazo', 'Meta ' + T.prev + '%', pctPrev == null ? '' : (pctPrev >= T.prev ? 'ok' : 'warn'))}
-      </div>
-      <div class="section-head"><h2><span class="sh-ico">${ic('clipboard')}</span>Operação</h2></div>
-      <div class="ind-grid">
-        ${kpi('clipboard', backlog, 'Ordens em aberto', backlog ? 'Requer ação' : 'Tudo em dia', backlog ? 'warn' : 'ok')}
-        ${kpi('alert', atrasadas, 'Preventivas atrasadas', atrasadas ? 'Reprogramar' : 'Nenhuma', atrasadas ? 'danger' : 'ok')}
-      </div>
-      <div class="section-head"><h2><span class="sh-ico">${ic('activity')}</span>Manutenções por mês</h2></div>
-      <div id="mntChart"></div>
-      <div class="section-head"><h2><span class="sh-ico">${ic('clipboard')}</span>Atividade recente</h2></div>
-      <div id="recentIv"></div>`;
-    Icons.apply(view);
-    const recent = all.filter((o) => o.kind === 'os' || o.kind === 'preventiva').sort((a, b) => (b.openDate || b.dueDate || '').localeCompare(a.openDate || a.dueDate || '')).slice(0, 6);
-    $('#recentIv').innerHTML = recent.length ? `<div class="iv-grid">${recent.map(anyCard).join('')}</div>` : emptyState('clipboard', 'Nada por aqui', 'Abra a primeira ordem de serviço.');
-    Icons.apply($('#recentIv')); bindIvCards($('#recentIv'));
-    $('#newOc').onclick = () => formOS();
-    $('#mMetas').onclick = () => formMetas();
-    const chartState = { year: parseInt(todayISO().slice(0, 4), 10) };
-    function renderChart() {
-      const host = $('#mntChart'); if (!host) return;
-      const Y = chartState.year;
-      const months = Array.from({ length: 12 }, (_, m) => {
-        const key = Y + '-' + String(m + 1).padStart(2, '0');
-        const list = Store.get('serviceOrders').filter((o) => o.kind === 'os' && (o.openDate || '').startsWith(key));
-        return { m, total: list.length, done: list.filter((o) => o.status === 'finalizada').length };
-      });
-      const max = Math.max(1, ...months.map((x) => x.total)), totalYear = months.reduce((s, x) => s + x.total, 0);
-      host.innerHTML = `<div class="chart-card">
-        <div class="chart-head"><div class="chart-tt">${ic('file')}<b>Ordens de Serviço</b><span class="chart-sub">${totalYear} no ano</span></div>
-          <div class="chart-nav"><button class="icon-btn cn-btn" id="cyPrev">${ic('chevron')}</button><b class="cy-label">${Y}</b><button class="icon-btn cn-btn" id="cyNext">${ic('chevron')}</button></div></div>
-        <div class="chart-bars">${months.map((x) => {
-          const h = x.total ? Math.max(6, Math.round((x.total / max) * 100)) : 0, dh = x.total ? Math.round((x.done / x.total) * 100) : 0;
-          return `<button class="cbar${x.total ? '' : ' empty'}" data-m="${x.m}" title="${MES_PT[x.m]} ${Y} · ${x.total} OS${x.total ? ` (${x.done} realizadas)` : ''}"><span class="cbar-val">${x.total || ''}</span><span class="cbar-track"><span class="cbar-fill" style="height:${h}%;animation-delay:${x.m * 35}ms"><span class="cbar-done" style="height:${dh}%"></span></span></span><span class="cbar-lbl">${MES_PT[x.m].slice(0, 3)}</span></button>`;
-        }).join('')}</div>
-        <div class="chart-legend"><span class="cl-item"><span class="cl-dot done"></span>Realizadas</span><span class="cl-item"><span class="cl-dot open"></span>Em aberto</span><span class="chart-hint">Clique em um mês para ver as ordens</span></div>
-      </div>`;
-      Icons.apply(host);
-      $('#cyPrev').onclick = () => { chartState.year--; renderChart(); };
-      $('#cyNext').onclick = () => { chartState.year++; renderChart(); };
-      $$('.cbar', host).forEach((b) => (b.onclick = () => monthDetail(chartState.year, +b.dataset.m)));
-    }
-    renderChart();
+    pageShell('Manutenção', 'Painel', 'Máquinas, ordens de serviço e preventivas.',
+      `<button class="btn" id="mMetas">${ic('settings')}Metas</button><button class="btn primary" id="newOc">${ic('plus')}Nova OS</button>`);
+    $('#newOc').onclick = () => formOS(); $('#mMetas').onclick = () => formMetas();
+    const tile = (cls, icn, v, l, s) => `<div class="pvd-tile ${cls}"><span class="pvd-ti">${ic(icn)}</span><b>${v}</b><span>${esc(l)}</span><small>${esc(s)}</small></div>`;
+    const tone = (ok, warn) => (ok ? 't-ok' : warn ? 't-warn' : 't-danger');
+    const tiles = document.createElement('section'); tiles.className = 'pc-tiles tp-tiles';
+    tiles.innerHTML = tile(disp == null ? '' : tone(disp >= T.disp, disp >= T.disp - 5), 'activity', disp == null ? '—' : disp.toFixed(1).replace('.', ',') + '%', 'Disponibilidade', `meta ${T.disp}% · 90 dias`)
+      + tile(mttr == null ? '' : tone(mttr <= T.mttr, mttr <= T.mttr * 1.5), 'clock', mttr == null ? '—' : mttr.toFixed(1).replace('.', ',') + ' h', 'MTTR', `tempo de reparo · meta ≤ ${T.mttr} h`)
+      + tile('t-info', 'refresh', mtbf == null ? '—' : Math.round(mtbf) + ' d', 'MTBF', 'tempo entre falhas')
+      + tile(pctPrev == null ? '' : tone(pctPrev >= T.prev, pctPrev >= T.prev - 10), 'check', pctPrev == null ? '—' : pctPrev + '%', 'Preventivas no prazo', `meta ${T.prev}%`)
+      + tile(abertas.length ? 't-warn' : 't-ok', 'wrench', abertas.length, 'OS em aberto', atrasadas.length ? `${atrasadas.length} preventiva${atrasadas.length > 1 ? 's' : ''} atrasada${atrasadas.length > 1 ? 's' : ''}` : 'preventivas em dia');
+    view.appendChild(tiles); Icons.apply(tiles);
+    const grid = document.createElement('div'); grid.className = 'mp-grid'; view.appendChild(grid);
+    // máquinas por situação
+    const est = ['operante', 'manutencao', 'parado', 'desativado'].map((k) => ({ k, n: eq.filter((e) => (e.status || 'operante') === k).length }));
+    const ST_C = { operante: '#46D39A', manutencao: '#F5B840', parado: '#FF7A7A', desativado: '#94A3B8' };
+    const fora = eq.filter((e) => ['parado', 'manutencao'].includes(e.status));
+    // atenção: OS abertas (por prioridade) + preventivas atrasadas ou vencendo em 7 dias
+    const lim = addDays(t, 7);
+    const aten = abertas.slice().sort((x, y) => (MNT_PRIO_ORD[x.priority] ?? 9) - (MNT_PRIO_ORD[y.priority] ?? 9) || String(x.openDate).localeCompare(String(y.openDate)))
+      .map((o) => ({ o, c: (PRIO[o.priority] || {}).cls === 'danger' ? '#FF7A7A' : '#F5B840', t: osTitleOf(o), s: `${o.number || 'OS'} · aberta em ${fmtDate(o.openDate) || '—'}`, e: (PRIO[o.priority] || {}).label || '' }))
+      .concat(prevs.filter((o) => mntAberta(o) && o.dueDate && o.dueDate <= lim).sort((x, y) => String(x.dueDate).localeCompare(String(y.dueDate)))
+        .map((o) => ({ o, c: o.dueDate < t ? '#FF7A7A' : '#3FA9F5', t: o.title || 'Preventiva', s: `${equipDisplay(o)} · ${fmtDate(o.dueDate)}`, e: o.dueDate < t ? 'Atrasada' : 'Esta semana' })));
+    const recentes = all.filter((o) => o.kind === 'os' || o.kind === 'preventiva').sort((x, y) => (y.closeDate || y.openDate || y.dueDate || '').localeCompare(x.closeDate || x.openDate || x.dueDate || '')).slice(0, 6);
+    const st = { year: parseInt(t.slice(0, 4), 10) };
+    const chart = () => {
+      const Y = st.year;
+      const ms = Array.from({ length: 12 }, (_, m) => { const k = Y + '-' + String(m + 1).padStart(2, '0'); const l = oss.filter((o) => (o.openDate || '').startsWith(k)); return { m, total: l.length, done: l.filter((o) => o.status === 'finalizada').length }; });
+      const mx = Math.max(1, ...ms.map((x) => x.total)); const tot = ms.reduce((s, x) => s + x.total, 0);
+      return `<div class="pvp-card-h"><b>Ordens de serviço por mês</b><span class="mp-yr"><button class="icon-btn" id="cyPrev" aria-label="Ano anterior">${ic('chevron')}</button><b>${Y}</b><button class="icon-btn" id="cyNext" aria-label="Próximo ano">${ic('chevron')}</button></span></div>
+        <div class="eng-bars mp-bars">${ms.map((x) => `<button type="button" class="eng-bc mp-bc" data-m="${x.m}" title="${MES_PT[x.m]}: ${x.total} OS · ${x.done} realizadas"><span class="eng-bv">${x.total || ''}</span><div class="eng-b"><i style="height:${(100 * (x.total - x.done)) / mx}%;--c:#3FA9F5"></i><i style="height:${(100 * x.done) / mx}%;--c:#46D39A"></i></div><small>${MES_C[x.m]}</small></button>`).join('')}</div>
+        <div class="mp-leg"><span><i style="--c:#46D39A"></i>Realizadas</span><span><i style="--c:#3FA9F5"></i>Em aberto</span><em>${tot} no ano</em></div>`;
+    };
+    grid.innerHTML = `<section class="pvp-card eng-card mp-chart" id="mpChart">${chart()}</section>
+      <section class="pvp-card eng-card"><div class="pvp-card-h"><b>Máquinas</b><span>${eq.length} cadastrada${eq.length === 1 ? '' : 's'}</span></div>
+        ${eq.length ? `<div class="mp-stbar">${est.filter((x) => x.n).map((x) => `<i style="flex:${x.n};--c:${ST_C[x.k]}" title="${EQ_STATUS[x.k].label}: ${x.n}"></i>`).join('')}</div>
+        <div class="mp-stl">${est.map((x) => `<span style="--c:${ST_C[x.k]}"><i></i>${EQ_STATUS[x.k].label}<b>${x.n}</b></span>`).join('')}</div>
+        ${fora.length ? `<div class="eng-at mp-fora">${fora.map((e) => `<button type="button" class="eng-ai" data-eq="${e.id}" style="--c:${ST_C[e.status]}"><i></i><span><b>${esc(e.name)}</b><small>${esc([e.tag, e.sector].filter(Boolean).join(' · ') || '—')}</small></span><em>${EQ_STATUS[e.status].label}</em></button>`).join('')}</div>` : `<div class="qf-empty mp-ok">${ic('check')}<span>Todas as máquinas operando</span></div>`}`
+        : `<div class="qf-empty">${ic('cpu')}<span>Nenhuma máquina cadastrada</span></div>`}</section>
+      <section class="pvp-card eng-card"><div class="pvp-card-h"><b>Atenção</b><span>OS abertas e preventivas da semana</span></div>
+        ${aten.length ? `<div class="eng-at">${aten.slice(0, 8).map((x) => `<button type="button" class="eng-ai" data-o="${x.o.id}" style="--c:${x.c}"><i></i><span><b>${esc(x.t)}</b><small>${esc(x.s)}</small></span><em>${esc(x.e)}</em></button>`).join('')}</div>` : `<div class="qf-empty">${ic('check')}<span>Nada pendente</span></div>`}</section>
+      <section class="pvp-card eng-card"><div class="pvp-card-h"><b>Atividade recente</b><span>últimos registros</span></div>
+        ${recentes.length ? `<div class="mp-rl">${recentes.map((o) => `<button type="button" class="mp-ri" data-o="${o.id}"><span class="mp-rk ${o.kind}">${ic(o.kind === 'preventiva' ? 'refresh' : 'wrench')}</span><span><b>${esc(o.kind === 'preventiva' ? (o.title || 'Preventiva') : osTitleOf(o))}</b><small>${esc([o.number, o.kind === 'preventiva' ? equipDisplay(o) : '', fmtDate(o.closeDate || o.openDate || o.dueDate)].filter(Boolean).join(' · '))}</small></span>${stBadge(o)}</button>`).join('')}</div>` : `<div class="qf-empty">${ic('clipboard')}<span>Nenhuma ordem de serviço ainda</span></div>`}</section>`;
+    Icons.apply(grid);
+    const bindChart = () => {
+      const c = $('#mpChart', grid); Icons.apply(c);
+      $('#cyPrev', c).onclick = () => { st.year--; c.innerHTML = chart(); bindChart(); };
+      $('#cyNext', c).onclick = () => { st.year++; c.innerHTML = chart(); bindChart(); };
+      $$('.mp-bc', c).forEach((b) => (b.onclick = () => monthDetail(st.year, +b.dataset.m)));
+    };
+    bindChart();
+    $$('[data-o]', grid).forEach((b) => (b.onclick = () => openRecord(Store.find('serviceOrders', b.dataset.o))));
+    $$('[data-eq]', grid).forEach((b) => (b.onclick = () => { navTo('mnt-equip'); setTimeout(() => openMachine(b.dataset.eq), 450); }));
   };
   function monthDetail(year, m) {
     const key = year + '-' + String(m + 1).padStart(2, '0');
@@ -7094,16 +7094,17 @@
   async function removeEquipFileOne(id, field, name) { try { if (window.Cloud && window.Cloud.ok) await window.Cloud.removeFile('equipments', id, field, name); } catch (e) {} }
   const removeAllEquipFiles = (e) => ['photo', 'manual', 'diagram'].forEach((f) => removeEquipField(e.id, f));
 
-  const machineCard = (e) => {
-    const open = osOpenFor(e.id), photo = equipFileUrl(e.id, 'photo', e.photoName);
-    return `<div class="mc-card" data-open="${e.id}" title="Abrir ${esc(e.name)}">
-      <div class="mc-photo">${photo ? `<img src="${esc(photo)}" alt="" loading="lazy">` : `<span class="mc-ph">${ic('cpu')}</span>`}${critBadge(e.criticality)}</div>
-      <div class="mc-body">
-        <div class="mc-top"><h3>${esc(e.name)}</h3><button class="mc-stbtn" data-status="${e.id}" title="Alterar status">${eqBadge(e.status)}${ic('chevron')}</button></div>
-        <div class="mc-sub mono">${e.tag ? esc(e.tag) : (e.serial ? esc(e.serial) : '—')}</div>
-        <div class="mc-meta">${[e.brand, e.sector].filter(Boolean).map(esc).join(' · ') || '—'}</div>
-        <div class="mc-foot"><span class="mc-os">${ic('wrench')}${open} OS aberta${open === 1 ? '' : 's'}</span><span class="mc-open">Abrir ${ic('arrowUpRight')}</span></div>
-      </div>
+  const EQ_COR = { operante: '#46D39A', manutencao: '#F5B840', parado: '#FF7A7A', desativado: '#94A3B8' };
+  const eqProxPrev = (id) => Store.get('serviceOrders').filter((o) => o.kind === 'preventiva' && o.equipmentId === id && mntAberta(o) && o.dueDate).sort((x, y) => String(x.dueDate).localeCompare(String(y.dueDate)))[0];
+  const eqUltMnt = (id) => Store.get('serviceOrders').filter((o) => o.equipmentId === id && (o.status === 'finalizada' || o.status === 'concluida') && o.closeDate).sort((x, y) => String(y.closeDate).localeCompare(String(x.closeDate)))[0];
+  const machineCard = (e, i) => {
+    const open = osOpenFor(e.id), photo = equipFileUrl(e.id, 'photo', e.photoName), pv = eqProxPrev(e.id);
+    return `<div class="mq-card" data-open="${e.id}" title="Abrir ${esc(e.name)}" style="--c:${EQ_COR[e.status] || EQ_COR.operante};--d:${(i || 0) * 35}ms">
+      <div class="mq-top"><span class="mq-ph">${photo ? `<img src="${esc(photo)}" alt="" loading="lazy">` : ic('cpu')}</span>
+        <div class="mq-id"><b>${esc(e.name)}</b><small>${esc(e.tag || e.serial || '—')}</small></div></div>
+      <div class="mq-meta"><span>${ic('pin')}${esc(e.sector || 'Sem local')}</span>${e.brand || e.model ? `<span>${ic('settings')}${esc([e.brand, e.model].filter(Boolean).join(' '))}</span>` : ''}</div>
+      <div class="mq-k"><span><b>${open}</b><small>OS aberta${open === 1 ? '' : 's'}</small></span><span><b class="${pv && pv.dueDate < todayISO() ? 'late' : ''}">${pv ? fmtDate(pv.dueDate).slice(0, 5) : '—'}</b><small>próx. preventiva</small></span><span>${critBadge(e.criticality)}<small>criticidade</small></span></div>
+      <div class="mq-foot"><button class="mq-st" data-status="${e.id}" title="Alterar situação"><i></i>${esc((EQ_STATUS[e.status] || EQ_STATUS.operante).label)}${ic('chevron')}</button><span class="mq-open">Abrir${ic('chevron')}</span></div>
     </div>`;
   };
 
@@ -7124,10 +7125,10 @@
       list = list.slice().sort((a, b) => (a.name || '').localeCompare(b.name || ''));
       holder.innerHTML = '';
       if (!list.length) { holder.innerHTML = emptyState('cpu', 'Nenhuma máquina', ''); Icons.apply(holder); return; }
-      const grid = document.createElement('div'); grid.className = 'mc-grid';
+      const grid = document.createElement('div'); grid.className = 'mq-grid';
       grid.innerHTML = list.map(machineCard).join('');
       holder.appendChild(grid); Icons.apply(grid);
-      $$('.mc-card', grid).forEach((c) => (c.onclick = (ev) => { if (ev.target.closest('[data-status]')) return; openMachine(c.dataset.open); }));
+      $$('.mq-card', grid).forEach((c) => (c.onclick = (ev) => { if (ev.target.closest('[data-status]')) return; openMachine(c.dataset.open); }));
       $$('[data-status]', grid).forEach((b) => (b.onclick = (ev) => { ev.stopPropagation(); statusPicker(Store.find('equipments', b.dataset.status), render); }));
     }
     $('#flt', tb).oninput = (e) => { state.q = e.target.value; render(); };
@@ -7139,11 +7140,9 @@
   /* ---- tela da máquina (abas internas) ---- */
   function machineDados(e) {
     const row = (k, v) => v ? `<dt>${esc(k)}</dt><dd>${esc(v)}</dd>` : '';
-    const kv = `<dl class="kv mach-kv">
-      ${row('Código / Patrimônio', e.tag)}${row('Fabricante', e.brand)}${row('Modelo', e.model)}${row('Nº de série', e.serial)}
-      ${row('Localização', e.sector)}${e.acquired ? `<dt>Data de instalação</dt><dd>${fmtDate(e.acquired)}</dd>` : ''}
-      <dt>Criticidade</dt><dd>${critBadge(e.criticality)}</dd><dt>Status</dt><dd>${eqBadge(e.status)}</dd>
-    </dl>`;
+    const f = (icn, k, v) => `<div class="mq-f"><span>${ic(icn)}</span><div><small>${esc(k)}</small><b>${v || '—'}</b></div></div>`;
+    const kv = `<div class="mq-facts">${f('grid', 'Código / patrimônio', esc(e.tag))}${f('settings', 'Fabricante', esc(e.brand))}${f('list', 'Modelo', esc(e.model))}${f('key', 'Nº de série', esc(e.serial))}
+      ${f('pin', 'Localização', esc(e.sector))}${f('calendar', 'Instalação', e.acquired ? fmtDate(e.acquired) : '')}${f('alert', 'Criticidade', critBadge(e.criticality))}${f('activity', 'Situação', eqBadge(e.status))}</div>`;
     const parts = (e.parts && e.parts.length) ? `<div class="mach-block"><div class="mb-head">${ic('box')}<b>Lista de peças</b><span class="badge plain">${e.parts.length}</span></div>
       <div class="tbl-wrap"><table class="data"><thead><tr><th>Peça</th><th>Código</th><th>Qtd</th></tr></thead><tbody>${e.parts.map((p) => `<tr><td>${esc(p.name || '')}</td><td class="mono cell-sub">${esc(p.code || '—')}</td><td>${esc(String(p.qty || '—'))}</td></tr>`).join('')}</tbody></table></div></div>` : '';
     const notes = e.notes ? `<div class="mach-block"><div class="mb-head">${ic('file')}<b>Observações</b></div><p class="mach-notes">${esc(e.notes)}</p></div>` : '';
@@ -7194,17 +7193,27 @@
     const e = Store.find('equipments', id); if (!e) return go('mnt-equip');
     const cc = $('#crumbCur'); if (cc) cc.textContent = e.name;
     const photo = equipFileUrl(e.id, 'photo', e.photoName);
+    const open = osOpenFor(e.id), pv = eqProxPrev(e.id), ult = eqUltMnt(e.id);
+    const nOs = Store.get('serviceOrders').filter((o) => o.equipmentId === e.id && o.kind === 'os').length;
     view.innerHTML = `<div class="mdetail">
       <button type="button" class="pg-back" id="mBack">${ic('chevron')}<span>Máquinas</span></button>
-      <div class="mdetail-head">
-        <div class="mdh-photo">${photo ? `<img src="${esc(photo)}" alt="">` : `<span class="mc-ph">${ic('cpu')}</span>`}</div>
-        <div class="mdh-info"><div class="mdh-badges">${eqBadge(e.status)}${critBadge(e.criticality)}</div><h1>${esc(e.name)}</h1><div class="mdh-sub mono">${e.tag ? esc(e.tag) : ''}${e.tag && e.serial ? ' · ' : ''}${e.serial ? 'S/N ' + esc(e.serial) : ''}</div></div>
-        <div class="mdh-actions"><button class="btn sm" id="mOs">${ic('plus')}Nova O.S.</button><button class="btn sm" id="mEdit">${ic('edit')}Editar</button><button class="btn sm danger" id="mDel">${ic('trash')}</button></div>
-      </div>
+      <section class="mq-hero" style="--c:${EQ_COR[e.status] || EQ_COR.operante}">
+        <div class="mq-hph">${photo ? `<img src="${esc(photo)}" alt="">` : ic('cpu')}</div>
+        <div class="mq-hi"><div class="mq-hb"><button class="mq-st" id="mSt"><i></i>${esc((EQ_STATUS[e.status] || EQ_STATUS.operante).label)}${ic('chevron')}</button>${critBadge(e.criticality)}</div>
+          <h1>${esc(e.name)}</h1><div class="mq-hs">${esc([e.tag, e.serial ? 'S/N ' + e.serial : '', [e.brand, e.model].filter(Boolean).join(' ')].filter(Boolean).join(' · ') || '—')}</div></div>
+        <div class="mq-ha"><button class="btn primary" id="mOs">${ic('plus')}Nova OS</button><button class="btn" id="mEdit">${ic('edit')}Editar</button><button class="btn ghost danger" id="mDel" title="Excluir">${ic('trash')}</button></div>
+      </section>
+      <section class="pc-tiles tp-tiles mq-tiles">
+        <div class="pvd-tile ${open ? 't-warn' : 't-ok'}"><span class="pvd-ti">${ic('wrench')}</span><b>${open}</b><span>OS em aberto</span><small>${nOs} no total</small></div>
+        <div class="pvd-tile ${pv && pv.dueDate < todayISO() ? 't-danger' : 't-info'}"><span class="pvd-ti">${ic('refresh')}</span><b>${pv ? fmtDate(pv.dueDate).slice(0, 5) : '—'}</b><span>Próxima preventiva</span><small>${pv ? esc(pv.title || '') : 'nenhuma programada'}</small></div>
+        <div class="pvd-tile"><span class="pvd-ti">${ic('check')}</span><b>${ult ? fmtDate(ult.closeDate).slice(0, 5) : '—'}</b><span>Última manutenção</span><small>${ult ? esc(ult.number || ult.title || '') : 'sem registro'}</small></div>
+        <div class="pvd-tile"><span class="pvd-ti">${ic('pin')}</span><b class="mq-tl">${esc(e.sector || '—')}</b><span>Localização</span><small>${e.acquired ? 'instalada em ' + fmtDate(e.acquired) : ''}</small></div>
+      </section>
       <div class="mtabs" id="mtabs"><button class="mtab on" data-t="dados">${ic('grid')}<span>Dados Gerais</span></button><button class="mtab" data-t="hist">${ic('list')}<span>Histórico</span></button><button class="mtab" data-t="arq">${ic('file')}<span>Arquivos</span></button><button class="mtab" data-t="custos">${ic('box')}<span>Custos</span></button></div>
       <div class="mtab-body" id="mtabBody"></div></div>`;
     Icons.apply(view);
     $('#mBack').onclick = () => go('mnt-equip');
+    $('#mSt').onclick = () => statusPicker(Store.find('equipments', e.id), () => openMachine(id));
     $('#mOs').onclick = () => formOS({ equipmentId: e.id }, () => openMachine(id));
     $('#mEdit').onclick = () => formEquipment(e, () => openMachine(id));
     $('#mDel').onclick = () => { const n = osOpenFor(e.id); confirmDialog(`Excluir a máquina "${esc(e.name)}"?${n ? ` Há ${n} OS aberta(s) vinculada(s).` : ''}`, () => { Store.remove('equipments', e.id); logHistory('equipments', e.id, 'Exclusão', `Máquina "${e.name}" excluída`, ''); removeAllEquipFiles(e); go('mnt-equip'); toast('Máquina excluída', 'info'); }); };
@@ -8773,7 +8782,7 @@
       { label: 'Cadastros & normas', items: [ { r: 'pv-clientes', t: 'Clientes', s: 'Clientes', i: 'users' }, { r: 'pv-guia', t: 'Fluxo & Normas', s: 'Normas', i: 'book' } ] },
     ] },
     manutencao: { label: 'Manutenção', groups: [
-      { label: 'Manutenção', items: [ { r: 'manutencao-home', t: 'Indicadores', s: 'Painel', i: 'grid' }, { r: 'mnt-equip', t: 'Máquinas', s: 'Máquinas', i: 'cpu' }, { r: 'mnt-os', t: 'Ordens de Serviço', s: 'OS', i: 'file' }, { r: 'mnt-prev', t: 'Preventivas', s: 'Prevent.', i: 'refresh' }, { r: 'mnt-cal', t: 'Calendário', s: 'Agenda', i: 'calendar' }, { r: 'mnt-pecas', t: 'Peças', s: 'Peças', i: 'box' } ] },
+      { label: 'Manutenção', items: [ { r: 'manutencao-home', t: 'Painel', s: 'Painel', i: 'grid' }, { r: 'mnt-equip', t: 'Máquinas', s: 'Máquinas', i: 'cpu' }, { r: 'mnt-os', t: 'Ordens de Serviço', s: 'OS', i: 'file' }, { r: 'mnt-prev', t: 'Preventivas', s: 'Prevent.', i: 'refresh' }, { r: 'mnt-cal', t: 'Calendário', s: 'Agenda', i: 'calendar' }, { r: 'mnt-pecas', t: 'Peças', s: 'Peças', i: 'box' } ] },
     ] },
     rh: { label: 'RH', groups: [
       { label: 'Pessoas', items: [ { r: 'rh-painel', t: 'Painel', s: 'Painel', i: 'grid' }, { r: 'rh-colab', t: 'Pessoas & setores', s: 'Pessoas', i: 'users' }, { r: 'rh-movs', t: 'Admissão / Desligamento', s: 'Entradas', i: 'refresh' } ] },
