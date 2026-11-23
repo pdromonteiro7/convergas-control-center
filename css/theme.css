@@ -3468,3 +3468,50 @@ button.eng-fc:hover { border-color: color-mix(in srgb, var(--accent) 45%, var(--
   .eng-act > span { grid-row: auto; width: 40px; height: 40px; } .eng-act small { display: none; } .eng-act b { font-size: .9rem; }
   .eng-dfh small { flex-basis: 100%; margin: 0; }
 }
+
+/* =========================== PAINEL POR SETOR =========================== */
+.sx-top { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin-bottom: 16px; }
+.sx-top .pvf-tabs { margin: 0; }
+.sx-ano { margin: 0; } .sx-ano #sxPrev svg { transform: rotate(180deg); }
+.sx-per { display: flex; align-items: center; gap: 10px; margin-bottom: 14px; font-size: .84rem; color: var(--text-3); }
+.sx-per > span { display: inline-flex; align-items: center; gap: 6px; } .sx-per > span svg { width: 15px; height: 15px; color: var(--accent); }
+.sx-per .ccs { min-width: 220px; }
+.sx-tiles { grid-template-columns: repeat(5, minmax(0, 1fr)); }
+.sx-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
+.sx-card { opacity: 1; transform: none; animation: riseIn .55s var(--ease) both; animation-delay: var(--d); border-top: 3px solid var(--c); }
+.sx-h { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
+.sx-hi { width: 34px; height: 34px; border-radius: 11px; display: grid; place-items: center; color: var(--c); background: color-mix(in srgb, var(--c) 14%, transparent); } .sx-hi svg { width: 16px; height: 16px; }
+.sx-h b { font-size: 1rem; font-weight: 600; color: var(--text); }
+.sx-lk { margin-left: auto; display: inline-flex; align-items: center; gap: 6px; height: 30px; padding: 0 11px; border-radius: 9px; border: 1px solid var(--line); background: none; font: inherit; font-size: .78rem; color: var(--text-2); cursor: pointer; }
+.sx-lk:hover { border-color: color-mix(in srgb, var(--c) 50%, var(--line)); color: var(--text); } .sx-lk svg { width: 13px; height: 13px; }
+.sx-leg { display: flex; flex-wrap: wrap; gap: 6px 14px; margin-bottom: 8px; font-size: .74rem; color: var(--text-2); }
+.sx-leg span { display: inline-flex; align-items: center; gap: 6px; }
+.sx-leg i { display: inline-block; background: var(--c); } .sx-leg i.bar { width: 9px; height: 9px; border-radius: 3px; } .sx-leg i.line { width: 14px; height: 3px; border-radius: 3px; }
+.sx-leg i.line.dash { background: repeating-linear-gradient(90deg, var(--c) 0 4px, transparent 4px 7px); }
+.sx-leg em { font-style: normal; font-size: .62rem; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; color: var(--accent); padding: 1px 5px; border-radius: 5px; background: color-mix(in srgb, var(--accent) 12%, transparent); cursor: help; }
+.sx-ch { position: relative; }
+.sx-svg { width: 100%; height: 230px; display: block; }
+.sx-svg .sx-gl { stroke: color-mix(in srgb, var(--text) 8%, transparent); stroke-width: 1; }
+.sx-svg .sx-ax { fill: var(--text-3); font-size: 10px; font-family: inherit; }
+.sx-svg .sx-pt { stroke: var(--card); stroke-width: 1.5; }
+.sx-svg .sx-hit { cursor: crosshair; } .sx-svg .sx-hit:hover { fill: color-mix(in srgb, var(--text) 5%, transparent); }
+.sx-tip { position: absolute; top: 6px; width: 190px; padding: 10px 12px; border-radius: 12px; background: var(--card); border: 1px solid var(--line); box-shadow: 0 14px 30px -12px rgba(0, 0, 0, .5); pointer-events: none; z-index: 3; display: flex; flex-direction: column; gap: 4px; font-size: .74rem; }
+.sx-tip b { font-size: .8rem; color: var(--text); margin-bottom: 2px; } .sx-tip span { display: flex; align-items: center; gap: 6px; color: var(--text-2); } .sx-tip i { width: 8px; height: 8px; border-radius: 50%; background: var(--c); flex: none; } .sx-tip em { font-style: normal; margin-left: auto; font-weight: 600; color: var(--text); }
+.sx-vazio { height: 230px; display: grid; place-content: center; justify-items: center; gap: 8px; color: var(--text-3); font-size: .84rem; } .sx-vazio svg { width: 22px; height: 22px; opacity: .6; }
+.sx-nota { display: flex; gap: 8px; align-items: center; margin: 0 0 14px; font-size: .84rem; color: var(--text-3); } .sx-nota svg { width: 15px; height: 15px; color: var(--accent); } .sx-nota em { font-style: normal; font-weight: 700; font-size: .7rem; color: var(--accent); }
+.sx-lc { opacity: 1; transform: none; margin-bottom: 14px; border-top: 3px solid var(--c); transition: box-shadow .4s; }
+.sx-lc.flash { box-shadow: 0 0 0 2px var(--c); }
+.sx-tw { overflow-x: auto; }
+.sx-tb { width: 100%; border-collapse: separate; border-spacing: 0; min-width: 860px; }
+.sx-tb th { font-size: .68rem; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; color: var(--text-3); padding: 8px 4px; text-align: center; border-bottom: 1px solid var(--line); }
+.sx-tb th:first-child { text-align: left; }
+.sx-tb td { padding: 6px 4px; border-bottom: 1px solid var(--line); text-align: center; font-size: .84rem; color: var(--text-2); font-variant-numeric: tabular-nums; }
+.sx-tb td:first-child { text-align: left; min-width: 190px; } .sx-tb td:first-child b { display: block; font-size: .86rem; color: var(--text); font-weight: 600; } .sx-tb td:first-child small { font-size: .7rem; color: var(--text-3); } .sx-tb td:first-child em { font-style: normal; color: var(--accent); font-weight: 600; cursor: help; }
+.sx-tb tr.auto td.ro, .sx-tb tr.retrato td.ro { color: var(--text); }
+.sx-tb tr:not(.manual) td { background: color-mix(in srgb, var(--accent) 3%, transparent); }
+.sx-tb input { width: 62px; height: 34px; padding: 0 6px; border-radius: 9px; border: 1px solid var(--line); background: var(--bg-2, transparent); color: var(--text); font: inherit; font-size: .84rem; text-align: center; transition: border-color .2s, box-shadow .2s, background .3s; }
+.sx-tb input:focus { outline: none; border-color: var(--c); box-shadow: 0 0 0 3px color-mix(in srgb, var(--c) 20%, transparent); }
+.sx-tb input.ok { background: color-mix(in srgb, #46D39A 22%, transparent); border-color: #46D39A; }
+@media (max-width: 1100px) { .sx-grid { grid-template-columns: 1fr; } .sx-tiles { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+@media (max-width: 760px) { .sx-tiles { grid-template-columns: 1fr 1fr !important; } .sx-tiles .pvd-tile:last-child { grid-column: 1 / -1; } .sx-svg { height: 200px; } .sx-per .ccs { min-width: 0; flex: 1; } }
+.sx-tip[hidden] { display: none; }

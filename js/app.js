@@ -2839,6 +2839,200 @@
     render(); tabsThumbInit(tabsEl, 'rhi');
   };
 
+  /* =========================== PAINEL POR SETOR (indicadores mensais) ===========================
+     Baseado no painel de KPIs da Engenharia/Qualidade: 6 setores, gráfico combinado por setor e
+     lançamento mensal. O que o sistema já coleta é calculado sozinho (somente leitura);
+     o que vem de outros sistemas é lançado à mão e fica salvo na nuvem (qaKpi · "lanc-<ano>").
+     Indicadores "retrato" (situação atual) guardam o valor do mês corrente ao abrir o painel. */
+  const SX_MES = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];
+  const sxAvg = (l) => (l.length ? l.reduce((x, y) => x + y, 0) / l.length : null);
+  const sxPv = () => (Store.get('pvChamados') || []).filter((c) => c.status !== 'cancelado');
+  const sxOs = () => Store.get('serviceOrders') || [];
+  const sxKpi = (key) => { const d = kpiDefsAll().find((x) => x.k === key); return (k) => { const r = d ? d.v(k) : null; return r && r.v != null && !isNaN(r.v) ? r.v : null; }; };
+  // fonte: 'auto' (histórico calculado), 'retrato' (só o mês atual; meses passados vêm do que foi guardado), 'manual'
+  const SX = [
+    { id: 'eng', n: 'Engenharia', i: 'settings', c: '#A3E635', series: [
+      { k: 'prazo_est', t: 'Prazo previsto', u: 'd', tipo: 'line', eixo: 0, cor: '#94A3B8', dash: true, fonte: 'auto', como: 'Média de dias (início → prazo previsto) dos projetos concluídos no mês',
+        f: (k) => sxAvg(engList().filter((p) => p.status === 'concluido' && mKey(p.conclusao) === k && p.inicio && engPrazoOrig(p)).map((p) => daysBetween(p.inicio, engPrazoOrig(p)))) },
+      { k: 'prazo_real', t: 'Prazo real', u: 'd', tipo: 'line', eixo: 0, cor: '#FF7A7A', fonte: 'auto', como: 'Média de dias (início → conclusão) dos projetos concluídos no mês',
+        f: (k) => sxAvg(engList().filter((p) => p.status === 'concluido' && mKey(p.conclusao) === k && p.inicio).map((p) => daysBetween(p.inicio, p.conclusao))) },
+      { k: 'custo_est', t: 'Custo estimado', u: 'mil', tipo: 'bar', eixo: 0, cor: '#64748B', fonte: 'manual' },
+      { k: 'custo_real', t: 'Custo real', u: 'mil', tipo: 'bar', eixo: 0, cor: '#3FA9F5', fonte: 'manual' },
+      { k: 'rnc', t: 'RNC', u: 'n', tipo: 'bar', eixo: 1, cor: '#F5B840', fonte: 'auto', conta: true, rnc: true, como: 'RNCs registradas nos projetos no mês', f: (k) => engList().reduce((s, p) => s + (p.docs || []).filter((d) => d.tipo === 'rnc' && mKey(d.data) === k).length, 0) },
+    ] },
+    { id: 'prod', n: 'Produção', i: 'box', c: '#A78BFA', series: [
+      { k: 'prazo_est', t: 'Prazo previsto', u: 'd', tipo: 'line', eixo: 0, cor: '#94A3B8', dash: true, fonte: 'manual' },
+      { k: 'prazo_real', t: 'Prazo real', u: 'd', tipo: 'line', eixo: 0, cor: '#46D39A', fonte: 'manual' },
+      { k: 'rnc', t: 'RNC', u: 'n', tipo: 'bar', eixo: 1, cor: '#F5B840', fonte: 'manual', rnc: true },
+    ] },
+    { id: 'log', n: 'Logística', i: 'car', c: '#3FA9F5', series: [
+      { k: 'entregas', t: 'Entregas no prazo', u: '%', tipo: 'line', eixo: 0, cor: '#3FA9F5', fonte: 'manual' },
+      { k: 'estoque', t: 'Acuracidade de estoque', u: '%', tipo: 'line', eixo: 0, cor: '#A78BFA', fonte: 'manual' },
+      { k: 'rnc', t: 'RNC', u: 'n', tipo: 'bar', eixo: 1, cor: '#FF7A7A', fonte: 'manual', rnc: true },
+    ] },
+    { id: 'rh', n: 'Recursos Humanos', i: 'users', c: '#FB923C', series: [
+      { k: 'trein_plan', t: 'Treinamentos planejados', u: 'n', tipo: 'bar', eixo: 0, cor: '#64748B', fonte: 'auto', conta: true, como: 'Itens do plano de treinamento previstos para o mês',
+        f: (k) => rhList('rhPlano').filter((it) => !it.cancelado && String(it.ano) === k.slice(0, 4) && Number(it.mes) === Number(k.slice(5, 7))).length },
+      { k: 'trein_real', t: 'Treinamentos realizados', u: 'n', tipo: 'bar', eixo: 0, cor: '#3FA9F5', fonte: 'auto', conta: true, como: 'Itens do plano realizados no mês (turmas e registros)',
+        f: (k) => rhList('rhPlano').filter((it) => { const s = rhPlanoSt(it); return ['ok', 'atraso'].includes(s.st) && mKey(s.data) === k; }).length },
+      { k: 'nc_comp', t: 'Pendências de competência', u: 'n', tipo: 'line', eixo: 0, cor: '#FF7A7A', fonte: 'retrato', como: 'Treinamentos exigidos pelos cargos vencidos ou não feitos (retrato do mês)',
+        f: () => rhAtivos().reduce((s, u) => { const r = rhTreinoResumo(u); return s + r.vencido + r.faltando; }, 0) },
+      { k: 'pct_comp', t: 'Competentes', u: '%', tipo: 'line', eixo: 1, cor: '#46D39A', fonte: 'retrato', como: 'Treinamentos exigidos em dia ÷ exigidos (retrato do mês)', f: sxKpi('rh_treino') },
+    ] },
+    { id: 'man', n: 'Manutenção', i: 'wrench', c: '#F5B840', series: [
+      { k: 'disp', t: 'Disponibilidade', u: '%', tipo: 'line', eixo: 0, cor: '#46D39A', fonte: 'auto', como: '1 − horas paradas ÷ horas disponíveis no mês', f: sxKpi('mn_disp') },
+      { k: 'prev', t: 'Preventivas no prazo', u: '%', tipo: 'line', eixo: 0, cor: '#F5B840', fonte: 'auto', como: 'Preventivas concluídas até a data prevista ÷ concluídas no mês', f: sxKpi('mn_prev') },
+      { k: 'falhas', t: 'Falhas recorrentes', u: 'n', tipo: 'bar', eixo: 1, cor: '#FF7A7A', fonte: 'auto', conta: true, como: 'OS corretivas no mês em máquinas que já tiveram OS nos 90 dias anteriores',
+        f: (k) => { const l = sxOs().filter((o) => o.kind === 'os' && o.equipmentId && mKey(o.openDate) === k); return l.filter((o) => sxOs().some((x) => x.id !== o.id && x.kind === 'os' && x.equipmentId === o.equipmentId && x.openDate && x.openDate < o.openDate && daysBetween(x.openDate, o.openDate) <= 90)).length; } },
+      { k: 'custo', t: 'Custo', u: 'mil', tipo: 'bar', eixo: 1, cor: '#A78BFA', fonte: 'manual' },
+    ] },
+    { id: 'qual', n: 'Qualidade', i: 'award', c: '#46D39A', empilha: true, series: [
+      { k: 'rnc_int', t: 'RNC interna', u: 'n', tipo: 'bar', eixo: 0, cor: '#FB923C', fonte: 'auto', conta: true, rnc: true, como: 'Chamados do Pós-Vendas que abriram RNC interna no mês',
+        f: (k) => sxPv().filter((c) => (c.triagem || {}).rnc === 'interna' && mKey(c.criadoEm) === k).length },
+      { k: 'rnc_ext', t: 'RNC do cliente', u: 'n', tipo: 'bar', eixo: 0, cor: '#FF7A7A', fonte: 'auto', conta: true, rnc: true, como: 'Chamados com RNC emitida pelo cliente no mês',
+        f: (k) => sxPv().filter((c) => ((c.triagem || {}).rnc === 'cliente' || (c.rncCliente || {}).tem) && mKey(c.criadoEm) === k).length },
+      { k: 'acoes', t: 'Ações corretivas', u: 'n', tipo: 'line', eixo: 0, cor: '#3FA9F5', fonte: 'auto', conta: true, como: 'RNCs com ação corretiva respondida no mês',
+        f: (k) => sxPv().filter((c) => c.rnc && c.rnc.acao && mKey(c.rnc.respostaEm) === k).length },
+      { k: 'auditorias', t: 'Auditorias internas', u: 'n', tipo: 'line', eixo: 0, cor: '#94A3B8', dash: true, fonte: 'auto', conta: true, como: 'Auditorias registradas pelos auditores internos no mês',
+        f: (k) => rhAudList().reduce((s, a) => s + (a.auditorias || []).filter((x) => mKey(x.data) === k).length, 0) },
+    ] },
+  ];
+  const sxDocId = (ano) => `lanc-${ano}`;
+  const sxDoc = (ano) => Store.find('qaKpi', sxDocId(ano)) || { valores: {} };
+  // valores do ano: { 'eng.custo_est': [12] }
+  function sxValores(ano) {
+    const doc = sxDoc(ano); const hoje = todayISO(); const out = {};
+    SX.forEach((S) => S.series.forEach((s) => {
+      const key = `${S.id}.${s.k}`; const salvo = (doc.valores || {})[key] || [];
+      out[key] = SX_MES.map((_, i) => {
+        const k = `${ano}-${String(i + 1).padStart(2, '0')}`;
+        if (k > mKey(hoje)) return null;
+        if (s.fonte === 'manual') { const v = salvo[i]; return v === '' || v == null ? null : Number(v); }
+        if (s.fonte === 'retrato') { if (k === mKey(hoje)) { try { return s.f(k); } catch (e) { return null; } } const v = salvo[i]; return v == null ? null : Number(v); }
+        try { const v = s.f(k); return v == null && s.conta ? 0 : v; } catch (e) { return null; }
+      });
+    }));
+    return out;
+  }
+  // guarda o valor do mês atual dos indicadores "retrato" (vira histórico com o tempo)
+  function sxGuardarRetrato(ano, vals) {
+    if (String(ano) !== todayISO().slice(0, 4) || !Perm.podeGravar('qaKpi')) return;
+    const i = Number(todayISO().slice(5, 7)) - 1; const doc = Store.find('qaKpi', sxDocId(ano)); const valores = { ...((doc && doc.valores) || {}) }; let mudou = false;
+    SX.forEach((S) => S.series.filter((s) => s.fonte === 'retrato').forEach((s) => { const key = `${S.id}.${s.k}`; const v = vals[key][i]; const arr = (valores[key] || Array(12).fill(null)).slice(); if (v != null && arr[i] !== v) { arr[i] = v; valores[key] = arr; mudou = true; } }));
+    if (!mudou) return;
+    if (doc) Store.update('qaKpi', doc.id, { valores }); else Store.add('qaKpi', { id: sxDocId(ano), valores });
+  }
+  function sxFmt(v, u) {
+    if (v == null || isNaN(v)) return '—';
+    const n = (x, d) => Number(x).toLocaleString('pt-BR', { maximumFractionDigits: d });
+    return u === '%' ? n(v, 1) + '%' : u === 'd' ? n(v, 1) + ' d' : u === 'mil' ? 'R$ ' + n(v, 1) + ' mil' : n(v, 1);
+  }
+  // gráfico combinado (barras + linhas, dois eixos) em SVG
+  function sxChart(S, vals) {
+    const W = 560, H = 230, L = 38, R = 38, T = 14, B = 26, iw = W - L - R, ih = H - T - B, cw = iw / 12;
+    const ser = S.series.map((s) => ({ s, v: vals[`${S.id}.${s.k}`] }));
+    const temR = ser.some((x) => x.s.eixo === 1 && x.v.some((y) => y != null));
+    const maxEixo = (e) => { let m = 0; if (S.empilha && e === 0) { for (let i = 0; i < 12; i++) m = Math.max(m, ser.filter((x) => x.s.eixo === 0 && x.s.tipo === 'bar').reduce((a, x) => a + (x.v[i] || 0), 0)); } ser.filter((x) => x.s.eixo === e).forEach((x) => x.v.forEach((y) => { if (y != null) m = Math.max(m, y); })); return m ? m * 1.15 : 1; };
+    const mx = [maxEixo(0), maxEixo(1)];
+    const y = (v, e) => T + ih - (Math.max(0, v) / mx[e]) * ih;
+    if (!ser.some((x) => x.v.some((v) => v != null && v !== 0))) return `<div class="sx-vazio">${ic('activity')}<span>Sem dados neste ano</span></div>`;
+    let g = '';
+    for (let j = 0; j <= 4; j++) { const yy = T + (ih * j) / 4; g += `<line x1="${L}" x2="${W - R}" y1="${yy}" y2="${yy}" class="sx-gl"/>`; g += `<text x="${L - 6}" y="${yy + 3}" class="sx-ax" text-anchor="end">${sxFmtCurto(mx[0] * (1 - j / 4))}</text>`; if (temR) g += `<text x="${W - R + 6}" y="${yy + 3}" class="sx-ax">${sxFmtCurto(mx[1] * (1 - j / 4))}</text>`; }
+    const bars = ser.filter((x) => x.s.tipo === 'bar'); const bw = Math.min(14, (cw * 0.7) / Math.max(1, S.empilha ? 1 : bars.length));
+    for (let i = 0; i < 12; i++) {
+      const cx = L + cw * i + cw / 2; let acc = 0;
+      bars.forEach((x, bi) => { const v = x.v[i]; if (v == null || v === 0) return;
+        if (S.empilha && x.s.eixo === 0) { const y0 = y(acc, 0), y1 = y(acc + v, 0); g += `<rect x="${cx - bw / 2}" y="${y1}" width="${bw}" height="${Math.max(1, y0 - y1)}" rx="2" fill="${x.s.cor}"/>`; acc += v; }
+        else { const x0 = cx - (bars.length * bw) / 2 + bi * bw; const yy = y(v, x.s.eixo); g += `<rect x="${x0 + 1}" y="${yy}" width="${bw - 2}" height="${Math.max(1, T + ih - yy)}" rx="2" fill="${x.s.cor}"/>`; } });
+      g += `<text x="${cx}" y="${H - 8}" class="sx-ax" text-anchor="middle">${SX_MES[i]}</text>`;
+    }
+    ser.filter((x) => x.s.tipo === 'line').forEach((x) => {
+      let d = ''; let pen = false;
+      x.v.forEach((v, i) => { if (v == null) { pen = false; return; } const px = L + cw * i + cw / 2, py = y(v, x.s.eixo); d += `${pen ? 'L' : 'M'}${px.toFixed(1)} ${py.toFixed(1)} `; pen = true; });
+      g += `<path d="${d}" fill="none" stroke="${x.s.cor}" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"${x.s.dash ? ' stroke-dasharray="5 5"' : ''}/>`;
+      x.v.forEach((v, i) => { if (v != null) g += `<circle cx="${L + cw * i + cw / 2}" cy="${y(v, x.s.eixo)}" r="3.2" fill="${x.s.cor}" class="sx-pt"/>`; });
+    });
+    for (let i = 0; i < 12; i++) g += `<rect x="${L + cw * i}" y="${T}" width="${cw}" height="${ih}" fill="transparent" class="sx-hit" data-i="${i}"/>`;
+    return `<svg viewBox="0 0 ${W} ${H}" class="sx-svg" preserveAspectRatio="none">${g}</svg>`;
+  }
+  const sxFmtCurto = (v) => (v >= 1000 ? (v / 1000).toLocaleString('pt-BR', { maximumFractionDigits: 1 }) + 'k' : v >= 10 ? Math.round(v) : v.toLocaleString('pt-BR', { maximumFractionDigits: 1 }));
+
+  let sxAno = null, sxTab = 'painel', sxPer = 12;
+  PAGES['qa-setores'] = () => {
+    if (sxAno == null) sxAno = Number(todayISO().slice(0, 4));
+    const ano = sxAno; const vals = sxValores(ano); sxGuardarRetrato(ano, vals);
+    pageShell('Qualidade', 'Painel por setor', 'Indicadores mensais de cada setor.', `<button class="btn" id="sxPrint">${ic('file')}Imprimir</button>`);
+    const tb = document.createElement('div'); tb.className = 'sx-top';
+    tb.innerHTML = `<div class="pvf-tabs" id="sxTabs"><span class="pvf-thumb"></span>${[['painel', 'Painel'], ['lanc', 'Lançamentos']].map(([k, l]) => `<button data-s="${k}" class="${sxTab === k ? 'on' : ''}">${l}</button>`).join('')}</div>
+      <div class="kp-mes sx-ano"><button class="icon-btn" id="sxPrev" aria-label="Ano anterior">${ic('chevron')}</button><b>${ano}</b><button class="icon-btn" id="sxNext" aria-label="Próximo ano">${ic('chevron')}</button></div>`;
+    view.appendChild(tb); Icons.apply(tb);
+    $$('#sxTabs button', tb).forEach((b) => (b.onclick = () => { sxTab = b.dataset.s; go('qa-setores'); }));
+    $('#sxPrev', tb).onclick = () => { sxAno--; go('qa-setores'); }; $('#sxNext', tb).onclick = () => { sxAno++; go('qa-setores'); };
+    $('#sxPrint').onclick = () => sxImprimir(ano, vals);
+    const box = document.createElement('div'); view.appendChild(box);
+    if (sxTab === 'lanc') return sxLancamentos(box, ano, vals);
+    // resumo do período
+    const mesAtual = String(ano) === todayISO().slice(0, 4) ? Number(todayISO().slice(5, 7)) : 12;
+    const pick = (arr, conta) => { if (sxPer === 12) { const l = arr.filter((v) => v != null); return conta ? l.reduce((a, b) => a + b, 0) : sxAvg(l); } return arr[sxPer]; };
+    const rncTot = SX.reduce((s, S) => s + S.series.filter((x) => x.rnc).reduce((a, x) => a + (pick(vals[`${S.id}.${x.k}`], true) || 0), 0), 0);
+    const ent = pick(vals['log.entregas']); const disp = pick(vals['man.disp']); const comp = pick(vals['rh.pct_comp']);
+    const engPz = (() => { const r = vals['eng.prazo_real'], e = vals['eng.prazo_est']; const a = pick(r), b = pick(e); return a != null && b != null ? a - b : null; })();
+    const tile = (cls, icn, v, l, s) => `<div class="pvd-tile ${cls}"><span class="pvd-ti">${ic(icn)}</span><b>${v}</b><span>${esc(l)}</span><small>${esc(s)}</small></div>`;
+    box.innerHTML = `<div class="sx-per"><span>${ic('calendar')}Resumo de</span><select id="sxPer"><option value="12">${ano} (ano todo)</option>${SX_MES.map((m, i) => `<option value="${i}" ${i >= mesAtual ? 'disabled' : ''}>${MES_L[i]}</option>`).join('')}</select></div>
+      <section class="pc-tiles tp-tiles sx-tiles">${tile(rncTot ? 't-warn' : 't-ok', 'alert', rncTot, 'RNCs no período', 'todos os setores')}
+        ${tile(ent == null ? '' : ent >= 95 ? 't-ok' : ent >= 85 ? 't-warn' : 't-danger', 'car', sxFmt(ent, '%'), 'Entregas no prazo', 'Logística')}
+        ${tile(disp == null ? '' : disp >= 95 ? 't-ok' : 't-warn', 'wrench', sxFmt(disp, '%'), 'Disponibilidade', 'Manutenção')}
+        ${tile(comp == null ? '' : comp >= 95 ? 't-ok' : comp >= 80 ? 't-warn' : 't-danger', 'users', sxFmt(comp, '%'), 'Equipe competente', 'RH')}
+        ${tile(engPz == null ? '' : engPz <= 0 ? 't-ok' : 't-warn', 'settings', engPz == null ? '—' : (engPz > 0 ? '+' : '') + sxFmt(engPz, 'd'), 'Desvio de prazo', 'Engenharia · real − previsto')}</section>
+      <div class="sx-grid">${SX.map((S, si) => `<section class="pvp-card sx-card" style="--c:${S.c};--d:${si * 50}ms" data-s="${S.id}">
+        <div class="sx-h"><span class="sx-hi">${ic(S.i)}</span><b>${esc(S.n)}</b>${S.series.some((s) => s.fonte === 'manual') ? `<button type="button" class="sx-lk" data-lanc="${S.id}">${ic('edit')}Lançar</button>` : ''}</div>
+        <div class="sx-leg">${S.series.map((s) => `<span><i class="${s.tipo}${s.dash ? ' dash' : ''}" style="--c:${s.cor}"></i>${esc(s.t)}${s.fonte === 'manual' ? '' : `<em title="${esc(s.como || '')}">auto</em>`}</span>`).join('')}</div>
+        <div class="sx-ch">${sxChart(S, vals)}<div class="sx-tip" hidden></div></div></section>`).join('')}</div>`;
+    Icons.apply(box);
+    const per = $('#sxPer', box); per.value = String(sxPer); ccSelect(per, { icon: 'calendar' }); per.addEventListener('change', () => { sxPer = Number(per.value); go('qa-setores'); });
+    $$('[data-lanc]', box).forEach((b) => (b.onclick = () => { sxTab = 'lanc'; sessionStorage.setItem('sx_foco', b.dataset.lanc); go('qa-setores'); }));
+    // dica ao passar o mouse
+    $$('.sx-card', box).forEach((card) => {
+      const S = SX.find((x) => x.id === card.dataset.s); const tip = $('.sx-tip', card); const ch = $('.sx-ch', card);
+      $$('.sx-hit', card).forEach((h) => { h.onmouseenter = () => { const i = +h.dataset.i;
+        tip.innerHTML = `<b>${MES_L[i]} ${ano}</b>${S.series.map((s) => `<span><i style="--c:${s.cor}"></i>${esc(s.t)}<em>${sxFmt(vals[`${S.id}.${s.k}`][i], s.u)}</em></span>`).join('')}`;
+        tip.hidden = false; const r = h.getBoundingClientRect(), rc = ch.getBoundingClientRect(); const x = r.left - rc.left + r.width / 2; tip.style.left = Math.min(Math.max(8, x - 95), rc.width - 198) + 'px'; };
+        h.onmouseleave = () => { tip.hidden = true; }; });
+    });
+  };
+  function sxLancamentos(box, ano, vals) {
+    const pode = Perm.podeGravar('qaKpi'); const doc = sxDoc(ano);
+    const mesAtual = String(ano) === todayISO().slice(0, 4) ? Number(todayISO().slice(5, 7)) : (ano > Number(todayISO().slice(0, 4)) ? 0 : 12);
+    box.innerHTML = `<p class="sx-nota">${ic('activity')}<span>Linhas <em>auto</em> são calculadas pelo sistema. Digite só as linhas em branco, de outros sistemas.${pode ? '' : ' Você tem acesso só para visualizar.'}</span></p>
+      ${SX.map((S) => `<section class="pvp-card sx-lc" id="sxl-${S.id}" style="--c:${S.c}"><div class="sx-h"><span class="sx-hi">${ic(S.i)}</span><b>${esc(S.n)}</b></div>
+        <div class="sx-tw"><table class="sx-tb"><thead><tr><th>Indicador</th>${SX_MES.map((m) => `<th>${m}</th>`).join('')}</tr></thead><tbody>
+        ${S.series.map((s) => { const key = `${S.id}.${s.k}`; const salvo = ((doc.valores || {})[key]) || [];
+          return `<tr class="${s.fonte}"><td><b>${esc(s.t)}</b><small>${s.u === '%' ? '%' : s.u === 'd' ? 'dias' : s.u === 'mil' ? 'R$ mil' : 'quantidade'}${s.fonte === 'manual' ? '' : ` · <em title="${esc(s.como || '')}">${s.fonte === 'retrato' ? 'auto (retrato do mês)' : 'auto'}</em>`}</small></td>
+            ${SX_MES.map((_, i) => s.fonte === 'manual' && pode && i < mesAtual ? `<td><input data-k="${key}" data-i="${i}" inputmode="decimal" value="${salvo[i] == null || salvo[i] === '' ? '' : String(salvo[i]).replace('.', ',')}" placeholder="—"></td>` : `<td class="ro">${s.fonte === 'manual' ? (salvo[i] == null || salvo[i] === '' ? '—' : esc(String(salvo[i]).replace('.', ','))) : sxFmt(vals[key][i], s.u).replace(/ (d|mil)$/, '').replace('R$ ', '')}</td>`).join('')}</tr>`; }).join('')}
+        </tbody></table></div></section>`).join('')}`;
+    Icons.apply(box);
+    const foco = sessionStorage.getItem('sx_foco'); if (foco) { sessionStorage.removeItem('sx_foco'); setTimeout(() => { const el = $(`#sxl-${foco}`); if (el) { el.scrollIntoView({ behavior: 'smooth', block: 'start' }); el.classList.add('flash'); } }, 300); }
+    $$('input[data-k]', box).forEach((inp) => {
+      inp.oninput = () => { let v = inp.value.replace('.', ',').replace(/[^\d,]/g, ''); const p = v.indexOf(','); if (p >= 0) v = v.slice(0, p + 1) + v.slice(p + 1).replace(/,/g, '').slice(0, 2); inp.value = v.slice(0, 10); };
+      inp.onkeydown = (e) => { if (e.key === 'Enter') { e.preventDefault(); const all = $$('input[data-k]', box); const n = all[all.indexOf(inp) + 1]; if (n) n.focus(); else inp.blur(); } };
+      inp.onchange = () => {
+        const cur = Store.find('qaKpi', sxDocId(ano)); const valores = { ...((cur && cur.valores) || {}) }; const arr = (valores[inp.dataset.k] || Array(12).fill(null)).slice();
+        arr[+inp.dataset.i] = inp.value === '' ? null : Number(inp.value.replace(',', '.')); valores[inp.dataset.k] = arr;
+        if (cur) Store.update('qaKpi', cur.id, { valores, porUlt: (typeof pvMe === 'function' && pvMe()) || '', emUlt: new Date().toISOString() }); else Store.add('qaKpi', { id: sxDocId(ano), valores });
+        inp.classList.add('ok'); setTimeout(() => inp.classList.remove('ok'), 900);
+      };
+    });
+  }
+  function sxImprimir(ano, vals) {
+    const corpo = `<style>@page { size: A4 landscape; margin: 10mm; } .sxp { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; } .sxp section { border: 1px solid #c9d2de; border-radius: 6px; padding: 8px 10px; page-break-inside: avoid; }
+      .sxp h3 { margin: 0 0 4px; font-size: 13px; color: #0b3d6b; } .sxp svg { width: 100%; height: 150px; } .sxp .sx-gl { stroke: #e3e8ef; } .sxp .sx-ax { fill: #778; font-size: 9px; }
+      .sxp .lg { display: flex; flex-wrap: wrap; gap: 4px 12px; font-size: 9.5px; color: #333; margin-bottom: 2px; } .sxp .lg i { display: inline-block; width: 9px; height: 9px; border-radius: 2px; margin-right: 4px; vertical-align: -1px; }
+      table.v { margin-top: 6px; font-size: 9px; } table.v th, table.v td { padding: 2px 3px; text-align: center; } table.v td:first-child { text-align: left; }</style>
+      <div class="sxp">${SX.map((S) => `<section><h3>${esc(S.n)}</h3><div class="lg">${S.series.map((s) => `<span><i style="background:${s.cor}"></i>${esc(s.t)}</span>`).join('')}</div>${sxChart(S, vals)}
+        <table class="v"><thead><tr><th></th>${SX_MES.map((m) => `<th>${m}</th>`).join('')}</tr></thead><tbody>${S.series.map((s) => `<tr><td>${esc(s.t)}</td>${vals[`${S.id}.${s.k}`].map((v) => `<td>${v == null ? '' : sxFmt(v, s.u).replace(/ (d|mil)$/, '').replace('R$ ', '')}</td>`).join('')}</tr>`).join('')}</tbody></table></section>`).join('')}</div>`;
+    rhPrintDoc(`Painel por setor · ${ano}`, corpo, 'Qualidade');
+  }
+
   /* =========================== ENGENHARIA · projetos e indicadores ===========================
      Cadastro enxuto de projetos (só o que alimenta os números) + painel de indicadores.
      "No prazo" compara a conclusão com o PRAZO ORIGINAL; mudanças de prazo ficam registradas. */
@@ -8856,7 +9050,7 @@
       { label: 'Sistema', items: [ { r: 'usuarios', t: 'Usuários & permissões', s: 'Usuários', i: 'key' }, { r: 'settings', t: 'Settings', s: 'Config', i: 'settings' } ] },
     ] },
     qualidade: { label: 'Qualidade', groups: [
-      { label: 'Visão geral', items: [ { r: 'qa-dashboard', t: 'Painel', s: 'Painel', i: 'grid' }, { r: 'qa-indicadores', t: 'Indicadores IATF', s: 'Indicadores', i: 'activity' }, { r: 'pv-qualidade', t: 'Fila de RNC', s: 'RNC', i: 'upload' } ] },
+      { label: 'Visão geral', items: [ { r: 'qa-dashboard', t: 'Painel', s: 'Painel', i: 'grid' }, { r: 'qa-indicadores', t: 'Indicadores IATF', s: 'Indicadores', i: 'activity' }, { r: 'qa-setores', t: 'Painel por setor', s: 'Setores', i: 'grid' }, { r: 'pv-qualidade', t: 'Fila de RNC', s: 'RNC', i: 'upload' } ] },
       { label: 'Certificados', items: [ { r: 'qa-cata', t: 'Certificados InMetro', s: 'Certif.', i: 'award' }, { r: 'qa-equipamentos', t: 'Calibração de Equipamentos', s: 'Calibr.', i: 'activity' }, { r: 'qa-manutencao', t: 'Manutenção Certificados', s: 'Renov.', i: 'refresh' } ] },
       { label: 'Segurança & parceiros', items: [ { r: 'epi', t: 'Controle de EPI', s: 'EPI', i: 'shield' }, { r: 'qa-labs', t: 'Laboratórios parceiros', s: 'Labs', i: 'flask' } ] },
     ] },
