@@ -2866,18 +2866,19 @@
       body: `<div class="form-grid">${field('Nome do projeto', 'nome', p.nome, 'text', { full: true, ph: 'Ex.: Kit dual-fuel Scania R450' })}
         ${field('Cliente', 'cliente', p.cliente, 'text', { ph: 'Opcional' })}
         <div class="field"><label>Tipo</label><select name="tipo">${ENG_TIPOS.map((t) => `<option ${p.tipo === t ? 'selected' : ''}>${t}</option>`).join('')}</select></div>
-        <div class="field"><label>Responsável</label><select name="responsavelId"><option value="">—</option>${pessoas.map((u) => `<option value="${u.id}" ${p.responsavelId === u.id ? 'selected' : ''}>${esc(u.name)}</option>`).join('')}</select></div>
+        <div class="field"><label>Responsável pelo projeto</label><select name="gestorId"><option value="">—</option>${pessoas.map((u) => `<option value="${u.id}" ${p.gestorId === u.id ? 'selected' : ''}>${esc(u.name)}</option>`).join('')}</select></div>
+        <div class="field"><label>Projetista</label><select name="responsavelId"><option value="">—</option>${pessoas.map((u) => `<option value="${u.id}" ${p.responsavelId === u.id ? 'selected' : ''}>${esc(u.name)}</option>`).join('')}</select></div>
         <div class="field"><label>Situação</label><select name="status">${Object.entries(ENG_ST).map(([k, v]) => `<option value="${k}" ${p.status === k ? 'selected' : ''}>${v.l}</option>`).join('')}</select></div>
-        ${field('Início', 'inicio', p.inicio, 'date')}
-        ${field('Prazo', 'prazo', p.prazo, 'date', editing && p.prazoOriginal && p.prazoOriginal !== p.prazo ? { hint: `Prazo original: ${fmtDate(p.prazoOriginal)}` } : {})}
+        ${field('Data de início', 'inicio', p.inicio, 'date')}
+        ${field('Prazo previsto', 'prazo', p.prazo, 'date', editing && p.prazoOriginal && p.prazoOriginal !== p.prazo ? { hint: `Prazo original: ${fmtDate(p.prazoOriginal)}` } : {})}
         <div class="field full" id="engMot" hidden><label>Motivo da mudança de prazo</label><input name="motivo" placeholder="Ex.: aguardando amostra do cliente"></div>
         <div class="field"><label>Andamento</label><div class="eng-pr" style="--v:${Number(p.progresso) || 0}%"><div class="eng-rg"><input type="range" name="progresso" min="0" max="100" step="1" value="${Number(p.progresso) || 0}" aria-label="Andamento"><span class="eng-tk"><i></i><i></i><i></i></span></div><label class="eng-pin"><input id="engPn" inputmode="numeric" maxlength="3" value="${Number(p.progresso) || 0}" aria-label="Andamento em %"><span>%</span></label></div></div>
-        <div id="engConc" class="field" ${p.status === 'concluido' ? '' : 'hidden'}>${field('Concluído em', 'conclusao', p.conclusao || todayISO(), 'date').replace(/^<div class="field">|<\/div>$/g, '')}</div>
+        <div id="engConc" class="field" ${p.status === 'concluido' ? '' : 'hidden'}>${field('Prazo real (concluído em)', 'conclusao', p.conclusao || todayISO(), 'date').replace(/^<div class="field">|<\/div>$/g, '')}</div>
         ${field('Observação', 'obs', p.obs, 'textarea', { full: true })}</div>
         ${(p.replan || []).length ? `<div class="tu-emis"><span class="sv-msg-h">Mudanças de prazo</span>${p.replan.slice().reverse().map((r) => `<div>${ic('calendar')}<b>${fmtDate(r.de)} → ${fmtDate(r.para)}</b><span>${esc(r.motivo || '')}${r.por ? ' · ' + esc(r.por) : ''}</span></div>`).join('')}</div>` : ''}`,
       footer: (editing ? `<button class="btn danger ghost" id="delBtn" style="margin-right:auto">${ic('trash')}Excluir</button>` : '') + submitFooter(editing),
     });
-    ['tipo', 'responsavelId', 'status'].forEach((n) => ccSelect($(`[name="${n}"]`, card), { search: n === 'responsavelId', icon: { tipo: 'list', responsavelId: 'users', status: 'check' }[n] }));
+    ['tipo', 'gestorId', 'responsavelId', 'status'].forEach((n) => ccSelect($(`[name="${n}"]`, card), { search: /Id$/.test(n), icon: { tipo: 'list', gestorId: 'users', responsavelId: 'edit', status: 'check' }[n] }));
     const rg = $('[name="progresso"]', card), pn = $('#engPn', card), pr = $('.eng-pr', card);
     const setPr = (v, deTexto) => { v = Math.max(0, Math.min(100, Math.round(Number(v) || 0))); rg.value = v; pr.style.setProperty('--v', v + '%'); if (!deTexto) pn.value = v; };
     rg.oninput = () => setPr(rg.value);
@@ -2890,25 +2891,102 @@
     $('#saveBtn', card).onclick = () => {
       const d = readForm(card);
       if ((d.nome || '').length < 3) return toast('Informe o nome do projeto', 'warn');
-      if (!d.inicio || !d.prazo) return toast('Informe início e prazo', 'warn');
-      if (d.prazo < d.inicio) return toast('O prazo é anterior ao início', 'warn');
-      if (d.status === 'concluido' && (!d.conclusao || d.conclusao > todayISO())) return toast('Informe a data de conclusão', 'warn');
+      if (!d.inicio || !d.prazo) return toast('Informe a data de início e o prazo previsto', 'warn');
+      if (d.prazo < d.inicio) return toast('O prazo previsto é anterior ao início', 'warn');
+      if (d.status === 'concluido' && (!d.conclusao || d.conclusao > todayISO())) return toast('Informe o prazo real (data de conclusão)', 'warn');
+      if (d.status === 'concluido' && d.conclusao < d.inicio) return toast('A conclusão é anterior ao início', 'warn');
       const mudouPrazo = editing && p.prazo && d.prazo !== p.prazo;
       if (mudouPrazo && (d.motivo || '').trim().length < 3) return toast('Informe o motivo da mudança de prazo', 'warn');
-      const obj = { nome: d.nome, cliente: d.cliente, tipo: d.tipo, responsavelId: d.responsavelId, status: d.status, inicio: d.inicio, prazo: d.prazo, progresso: d.status === 'concluido' ? 100 : Number(d.progresso) || 0, conclusao: d.status === 'concluido' ? d.conclusao : '', obs: d.obs };
+      const obj = { nome: d.nome, cliente: d.cliente, tipo: d.tipo, gestorId: d.gestorId, responsavelId: d.responsavelId, status: d.status, inicio: d.inicio, prazo: d.prazo, progresso: d.status === 'concluido' ? 100 : Number(d.progresso) || 0, conclusao: d.status === 'concluido' ? d.conclusao : '', obs: d.obs };
       if (mudouPrazo) obj.replan = (p.replan || []).concat([{ de: p.prazo, para: d.prazo, motivo: d.motivo.trim(), em: new Date().toISOString(), por: (typeof pvMe === 'function' && pvMe()) || '' }]);
       if (editing) Store.update('engProjetos', p.id, obj); else Store.add('engProjetos', { ...obj, codigo: engCodigo(), prazoOriginal: d.prazo, criadoEm: new Date().toISOString() });
-      closeModal(); toast(editing ? 'Projeto atualizado' : 'Projeto cadastrado'); go(currentRoute);
+      closeModal(); toast(editing ? 'Projeto atualizado' : 'Projeto cadastrado'); if (editing) engAberto = p.id; go(currentRoute);
     };
   }
-  const engRow = (p, i) => { const S = ENG_ST[p.status] || ENG_ST.andamento; const P = engPrazoSt(p); const u = rhPessoa(p.responsavelId);
-    return `<button type="button" class="eng-row" data-p="${p.id}" style="--d:${(i || 0) * 30}ms;--c:${P.c}">
+  const ENG_DOC = { rnc: { l: 'RNC', t: 'Relatório de não conformidade', c: '#FF7A7A', i: 'alert' }, eco: { l: 'ECO', t: 'Ordem de alteração de engenharia', c: '#3FA9F5', i: 'refresh' } };
+  let engAberto = null; // projeto com o cartão expandido
+  const engDocs = (p) => (p.docs || []).slice().sort((x, y) => String(y.data).localeCompare(String(x.data)));
+  const engRow = (p, i) => { const S = ENG_ST[p.status] || ENG_ST.andamento; const P = engPrazoSt(p); const u = rhPessoa(p.responsavelId); const g = rhPessoa(p.gestorId);
+    const nR = (p.docs || []).filter((d) => d.tipo === 'rnc').length, nE = (p.docs || []).filter((d) => d.tipo === 'eco').length;
+    return `<div class="eng-it${engAberto === p.id ? ' open' : ''}" data-it="${p.id}" style="--d:${(i || 0) * 30}ms;--c:${P.c}">
+      <button type="button" class="eng-row" data-p="${p.id}" aria-expanded="${engAberto === p.id}">
       <span class="eng-cd">${esc(p.codigo || '')}</span>
-      <span class="eng-nm"><b>${esc(p.nome)}</b><small>${esc([p.tipo, p.cliente].filter(Boolean).join(' · '))}</small></span>
-      <span class="eng-rs">${u ? rhAvatar(u.name) + `<small>${esc(u.name.split(' ')[0])}</small>` : '<small>—</small>'}</span>
+      <span class="eng-nm"><b>${esc(p.nome)}</b><small>${esc([p.tipo, p.cliente, g ? 'resp. ' + g.name.split(' ')[0] : ''].filter(Boolean).join(' · '))}</small></span>
+      <span class="eng-rs" title="Projetista">${u ? rhAvatar(u.name) + `<small>${esc(u.name.split(' ')[0])}</small>` : '<small>—</small>'}</span>
       <span class="eng-pg"><i><em style="width:${Number(p.progresso) || 0}%"></em></i><small>${Number(p.progresso) || 0}%</small></span>
-      <span class="eng-pz"><b>${esc(P.l)}</b>${(p.replan || []).length ? `<small>${p.replan.length} replanejamento${p.replan.length > 1 ? 's' : ''}</small>` : ''}</span>
-      <span class="badge ${S.cls} plain">${S.l}</span></button>`; };
+      <span class="eng-pz"><b>${esc(P.l)}</b><small>${[nR ? `${nR} RNC` : '', nE ? `${nE} ECO` : '', (p.replan || []).length ? `${p.replan.length} replanej.` : ''].filter(Boolean).join(' · ')}</small></span>
+      <span class="badge ${S.cls} plain">${S.l}</span></button>
+      <div class="eng-exp"><div class="eng-exp-in" data-exp="${p.id}"></div></div></div>`; };
+
+  // conteúdo do cartão expandido: ações (RNC, ECO, editar), formulário e lista de documentos
+  function engExpand(host, p, modo) {
+    const pode = Perm.podeGravar('engProjetos'); const docs = engDocs(p);
+    const u = rhPessoa(p.responsavelId), g = rhPessoa(p.gestorId);
+    const info = `<div class="eng-inf"><span>${ic('users')}<small>Responsável</small><b>${esc(g ? g.name : '—')}</b></span><span>${ic('edit')}<small>Projetista</small><b>${esc(u ? u.name : '—')}</b></span>
+      <span>${ic('calendar')}<small>Início</small><b>${p.inicio ? fmtDate(p.inicio) : '—'}</b></span><span>${ic('clock')}<small>Prazo previsto</small><b>${p.prazo ? fmtDate(p.prazo) : '—'}</b></span>
+      <span>${ic('check')}<small>Prazo real</small><b>${p.status === 'concluido' && p.conclusao ? fmtDate(p.conclusao) : '—'}</b></span></div>`;
+    const acoes = pode ? `<div class="eng-acts">${['rnc', 'eco'].map((k) => `<button type="button" class="eng-act${modo === k ? ' on' : ''}" data-act="${k}" style="--c:${ENG_DOC[k].c}"><span>${ic(ENG_DOC[k].i)}</span><b>${ENG_DOC[k].l}</b><small>${ENG_DOC[k].t}</small></button>`).join('')}
+      <button type="button" class="eng-act" data-act="edit" style="--c:#A3E635"><span>${ic('edit')}</span><b>Editar</b><small>Dados, prazos e andamento</small></button></div>` : '';
+    const form = modo && ENG_DOC[modo] ? `<div class="eng-df" style="--c:${ENG_DOC[modo].c}"><div class="eng-dfh">${ic(ENG_DOC[modo].i)}<b>Nova ${ENG_DOC[modo].l}</b><small>${esc(p.codigo)} · ${esc(p.nome)}</small></div>
+      <div class="eng-dfg"><label><span>Número da ${ENG_DOC[modo].l}</span><input data-f="numero" placeholder="Ex.: ${modo === 'rnc' ? 'RNC-2026-014' : 'ECO-031'}" autocomplete="off"></label>
+        <label><span>Data</span><input type="date" data-f="data" value="${todayISO()}" max="${todayISO()}"></label>
+        <label class="full"><span>Descrição</span><input data-f="descricao" placeholder="${modo === 'rnc' ? 'O que estava não conforme' : 'O que muda e por quê'}" autocomplete="off"></label></div>
+      <label class="eng-drop">${ic('upload')}<span><b>Anexar arquivos</b><small>PDF, imagem, DWG… até ${PV_MAX_MB} MB cada</small></span><input type="file" multiple hidden></label>
+      <div class="eng-fl" data-fl></div>
+      <div class="eng-dfa"><button type="button" class="btn ghost" data-cancel>Cancelar</button><button type="button" class="btn primary" data-save>${ic('check')}Salvar ${ENG_DOC[modo].l}</button></div></div>` : '';
+    const lista = docs.length ? `<div class="eng-dl"><span class="sv-msg-h">RNC e ECO do projeto</span>${docs.map((d) => { const D = ENG_DOC[d.tipo] || ENG_DOC.rnc;
+        return `<div class="eng-d" style="--c:${D.c}"><span class="eng-dt">${D.l}</span><span class="eng-dn"><b>${esc(d.numero)}</b><small>${fmtDate(d.data)}${d.descricao ? ' · ' + esc(d.descricao) : ''}${d.por ? ' · ' + esc(d.por) : ''}</small></span>
+          <span class="eng-dfs">${(d.arquivos || []).map((f) => `<button type="button" class="eng-fc" data-open="${d.id}|${f.id}" title="Abrir ${esc(f.name)}">${ic('file')}<span>${esc(f.name)}</span></button>`).join('')}</span>
+          ${pode ? `<button type="button" class="mini-btn danger" data-rm="${d.id}" title="Excluir">${ic('trash')}</button>` : ''}</div>`; }).join('')}</div>` : (!form ? `<p class="eng-vz">Nenhuma RNC ou ECO neste projeto.</p>` : '');
+    host.innerHTML = `<div class="eng-pad">${info + acoes + form + lista}</div>`;
+    Icons.apply(host);
+    $$('[data-act]', host).forEach((b) => (b.onclick = (e) => { e.stopPropagation(); const k = b.dataset.act; if (k === 'edit') return engForm(Store.find('engProjetos', p.id)); engExpand(host, Store.find('engProjetos', p.id), modo === k ? null : k); if (modo !== k) setTimeout(() => { const n = $('[data-f="numero"]', host); if (n) n.focus(); }, 280); }));
+    const arqs = [];
+    const fl = $('[data-fl]', host);
+    const paintFl = () => { if (!fl) return; fl.innerHTML = arqs.map((f, i) => `<span class="eng-fc">${ic('file')}<span>${esc(f.name)}</span><small>${pvKb(f.size)}</small><button type="button" data-x="${i}" title="Remover">${ic('x')}</button></span>`).join(''); Icons.apply(fl); $$('[data-x]', fl).forEach((b) => (b.onclick = () => { arqs.splice(+b.dataset.x, 1); paintFl(); })); };
+    const inp = $('.eng-drop input', host);
+    if (inp) {
+      inp.onchange = () => { Array.from(inp.files || []).forEach((f) => { if (f.size > PV_MAX_MB * 1048576) toast(`"${f.name}" passa de ${PV_MAX_MB} MB`, 'warn'); else arqs.push(f); }); inp.value = ''; paintFl(); };
+      const drop = $('.eng-drop', host);
+      drop.addEventListener('dragover', (e) => { e.preventDefault(); drop.classList.add('over'); }); drop.addEventListener('dragleave', () => drop.classList.remove('over'));
+      drop.addEventListener('drop', (e) => { e.preventDefault(); drop.classList.remove('over'); Array.from(e.dataTransfer.files || []).forEach((f) => { if (f.size <= PV_MAX_MB * 1048576) arqs.push(f); }); paintFl(); });
+    }
+    const cn = $('[data-cancel]', host); if (cn) cn.onclick = () => engExpand(host, Store.find('engProjetos', p.id), null);
+    const sv = $('[data-save]', host);
+    if (sv) sv.onclick = async () => {
+      const val = (f) => ($(`[data-f="${f}"]`, host).value || '').trim();
+      const numero = val('numero'), data = val('data');
+      if (numero.length < 2) { toast(`Informe o número da ${ENG_DOC[modo].l}`, 'warn'); $('[data-f="numero"]', host).focus(); return; }
+      if (!data || data > todayISO()) return toast('Data inválida', 'warn');
+      const cur = Store.find('engProjetos', p.id);
+      if ((cur.docs || []).some((d) => d.tipo === modo && d.numero.toLowerCase() === numero.toLowerCase())) return toast(`Essa ${ENG_DOC[modo].l} já está no projeto`, 'warn');
+      sv.disabled = true; sv.innerHTML = `${ic('refresh')}Enviando…`; Icons.apply(sv);
+      const docId = Store.uid('ed'); const arquivos = []; let falhou = 0;
+      for (const f of arqs) {
+        const id = Store.uid('ef'); const cloudName = id + '__' + f.name.replace(/[^\w.\-]+/g, '_');
+        await Store.blobs.put(id, f, { name: f.name, type: f.type, size: f.size });
+        let ok = false; try { if (window.Cloud && window.Cloud.ok) { await window.Cloud.addFile('engProjetos', p.id, modo, new File([f], cloudName, { type: f.type || 'application/octet-stream' })); ok = true; } } catch (e) {}
+        if (!ok) falhou++;
+        arquivos.push({ id, name: f.name, cloudName, type: f.type || '', size: f.size });
+      }
+      const doc = { id: docId, tipo: modo, numero, data, descricao: val('descricao'), arquivos, por: (typeof pvMe === 'function' && pvMe()) || '', em: new Date().toISOString() };
+      Store.update('engProjetos', p.id, { docs: (cur.docs || []).concat([doc]) });
+      toast(falhou ? `${ENG_DOC[modo].l} salva · ${falhou} arquivo(s) ficaram só neste navegador` : `${ENG_DOC[modo].l} ${numero} registrada`, falhou ? 'warn' : undefined);
+      engAberto = p.id; go(currentRoute);
+    };
+    $$('[data-open]', host).forEach((b) => (b.onclick = async () => {
+      const [did, fid] = b.dataset.open.split('|'); const d = (Store.find('engProjetos', p.id).docs || []).find((x) => x.id === did); const f = d && (d.arquivos || []).find((x) => x.id === fid); if (!f) return;
+      let blob = null; const rec = await Store.blobs.get(f.id); if (rec && rec.blob) blob = rec.blob;
+      else if (window.Cloud && window.Cloud.ok) { blob = await window.Cloud.fetchFileBlob('engProjetos', p.id, d.tipo, f.cloudName); if (blob) Store.blobs.put(f.id, blob, { name: f.name, type: f.type, size: f.size }); }
+      if (!blob) return toast('Arquivo indisponível', 'warn');
+      const url = URL.createObjectURL(blob.type ? blob : new Blob([blob], { type: f.type || 'application/octet-stream' })); const el = document.createElement('a'); el.href = url; el.target = '_blank'; el.rel = 'noopener';
+      if (!/^(application\/pdf|image\/)/.test(f.type || blob.type || '')) el.download = f.name; document.body.appendChild(el); el.click(); el.remove(); setTimeout(() => URL.revokeObjectURL(url), 60000);
+    }));
+    $$('[data-rm]', host).forEach((b) => (b.onclick = () => { const cur = Store.find('engProjetos', p.id); const d = (cur.docs || []).find((x) => x.id === b.dataset.rm); if (!d) return;
+      confirmDialog(`Excluir a ${ENG_DOC[d.tipo].l} ${d.numero}${(d.arquivos || []).length ? ' e os arquivos dela' : ''}?`, () => {
+        (d.arquivos || []).forEach((f) => { Store.blobs.del(f.id); try { if (window.Cloud && window.Cloud.ok) window.Cloud.removeFile('engProjetos', p.id, d.tipo, f.cloudName).catch(() => {}); } catch (e) {} });
+        Store.update('engProjetos', p.id, { docs: cur.docs.filter((x) => x.id !== d.id) }); toast(`${ENG_DOC[d.tipo].l} excluída`); engAberto = p.id; go(currentRoute); }, 'danger'); }));
+  }
 
   let engF = { st: 'ativos', q: '' };
   PAGES['eng-projetos'] = () => {
@@ -2925,10 +3003,16 @@
     const box = document.createElement('div'); view.appendChild(box);
     const paint = () => {
       let l = all.filter(grp[engF.st]); if (engF.st === 'concluidos') l.sort((a, b) => String(b.conclusao).localeCompare(String(a.conclusao)));
-      if (engF.q) { const q = engF.q.toLowerCase(); l = l.filter((p) => [p.nome, p.cliente, p.codigo, p.tipo, (rhPessoa(p.responsavelId) || {}).name].join(' ').toLowerCase().includes(q)); }
+      if (engF.q) { const q = engF.q.toLowerCase(); l = l.filter((p) => [p.nome, p.cliente, p.codigo, p.tipo, (rhPessoa(p.responsavelId) || {}).name, (rhPessoa(p.gestorId) || {}).name, ...(p.docs || []).map((d) => d.numero)].join(' ').toLowerCase().includes(q)); }
       box.innerHTML = l.length ? `<div class="eng-list">${l.map(engRow).join('')}</div>` : `<div class="tbl-wrap">${emptyState('settings', all.length ? 'Nenhum projeto neste filtro' : 'Nenhum projeto cadastrado', all.length ? '' : 'Cadastre os projetos para gerar os indicadores.')}${!all.length && pode ? `<div class="rh-sug"><button type="button" class="btn primary" id="engNovo2">${ic('plus')}Cadastrar projeto</button></div>` : ''}</div>`;
       Icons.apply(box); const b2 = $('#engNovo2', box); if (b2) b2.onclick = () => engForm(null);
-      $$('[data-p]', box).forEach((b) => (b.onclick = () => (pode ? engForm(Store.find('engProjetos', b.dataset.p)) : null)));
+      const abrir = (id, rolar) => {
+        $$('.eng-it', box).forEach((it) => { const on = it.dataset.it === id; it.classList.toggle('open', on); $('.eng-row', it).setAttribute('aria-expanded', on); });
+        engAberto = id; const it = id && $(`.eng-it[data-it="${id}"]`, box);
+        if (it) { engExpand($('[data-exp]', it), Store.find('engProjetos', id), null); if (rolar) setTimeout(() => it.scrollIntoView({ behavior: 'smooth', block: 'nearest' }), 320); }
+      };
+      $$('.eng-row', box).forEach((b) => (b.onclick = () => abrir(engAberto === b.dataset.p ? null : b.dataset.p, true)));
+      if (engAberto && l.some((x) => x.id === engAberto)) abrir(engAberto, false);
     };
     $$('[data-f]', bar).forEach((b) => (b.onclick = () => { engF.st = b.dataset.f; $$('[data-f]', bar).forEach((x) => x.classList.toggle('on', x === b)); paint(); }));
     $('#engQ', bar).oninput = (e) => { engF.q = e.target.value; paint(); };
@@ -2970,13 +3054,13 @@
     grid.innerHTML = `<section class="pvp-card eng-card eng-wide"><div class="pvp-card-h"><b>Concluídos por mês</b><span class="eng-lg"><i style="--c:#46D39A"></i>no prazo<i style="--c:#F5B840"></i>com atraso</span></div>
         <div class="eng-bars">${porMes.map((m) => `<div class="eng-bc" title="${mNome(m.k, true)}: ${m.ok} no prazo, ${m.tarde} com atraso"><span class="eng-bv">${m.ok + m.tarde || ''}</span><div class="eng-b"><i style="height:${(100 * m.tarde) / mx}%;--c:#F5B840"></i><i style="height:${(100 * m.ok) / mx}%;--c:#46D39A"></i></div><small>${MES_C[Number(m.k.slice(5, 7)) - 1]}</small></div>`).join('')}</div></section>
       <section class="pvp-card eng-card"><div class="pvp-card-h"><b>Atenção</b><span>atrasados e vencendo em 7 dias</span></div>
-        ${atencao.length ? `<div class="eng-at">${atencao.map((p) => { const P = engPrazoSt(p); return `<button type="button" class="eng-ai" data-p="${p.id}" style="--c:${P.c}"><i></i><span><b>${esc(p.nome)}</b><small>${esc(p.codigo)} · ${esc((rhPessoa(p.responsavelId) || {}).name || 'sem responsável')}</small></span><em>${esc(P.l)}</em></button>`; }).join('')}</div>` : `<div class="qf-empty">${ic('check')}<span>Nenhum prazo em risco</span></div>`}</section>
-      <section class="pvp-card eng-card"><div class="pvp-card-h"><b>Carga por responsável</b><span>projetos em andamento</span></div>
-        ${respL.length ? `<div class="eng-rl">${respL.map(([id, r]) => { const u = rhPessoa(id); return `<div class="eng-ri"><span class="eng-rn">${u ? rhAvatar(u.name) : ''}<b>${esc(u ? u.name : 'Sem responsável')}</b></span><span class="eng-rb"><i style="width:${(100 * r.n) / rmx}%"></i></span><em>${r.n}${r.at ? ` <small>· ${r.at} atrasado${r.at > 1 ? 's' : ''}</small>` : ''}</em></div>`; }).join('')}</div>` : `<div class="qf-empty">${ic('users')}<span>Nenhum projeto em andamento</span></div>`}</section>
+        ${atencao.length ? `<div class="eng-at">${atencao.map((p) => { const P = engPrazoSt(p); return `<button type="button" class="eng-ai" data-p="${p.id}" style="--c:${P.c}"><i></i><span><b>${esc(p.nome)}</b><small>${esc(p.codigo)} · ${esc((rhPessoa(p.responsavelId) || {}).name || 'sem projetista')}</small></span><em>${esc(P.l)}</em></button>`; }).join('')}</div>` : `<div class="qf-empty">${ic('check')}<span>Nenhum prazo em risco</span></div>`}</section>
+      <section class="pvp-card eng-card"><div class="pvp-card-h"><b>Carga por projetista</b><span>projetos em andamento</span></div>
+        ${respL.length ? `<div class="eng-rl">${respL.map(([id, r]) => { const u = rhPessoa(id); return `<div class="eng-ri"><span class="eng-rn">${u ? rhAvatar(u.name) : ''}<b>${esc(u ? u.name : 'Sem projetista')}</b></span><span class="eng-rb"><i style="width:${(100 * r.n) / rmx}%"></i></span><em>${r.n}${r.at ? ` <small>· ${r.at} atrasado${r.at > 1 ? 's' : ''}</small>` : ''}</em></div>`; }).join('')}</div>` : `<div class="qf-empty">${ic('users')}<span>Nenhum projeto em andamento</span></div>`}</section>
       <section class="pvp-card eng-card"><div class="pvp-card-h"><b>Em andamento por tipo</b><span>${ativos.length}</span></div>
         ${porTipo.length ? `<div class="eng-rl">${porTipo.map((x) => `<div class="eng-ri"><span class="eng-rn"><b>${esc(x.t)}</b></span><span class="eng-rb"><i style="width:${(100 * x.n) / Math.max(...porTipo.map((y) => y.n))}%"></i></span><em>${x.n}</em></div>`).join('')}</div>` : `<div class="qf-empty">${ic('list')}<span>Nenhum projeto em andamento</span></div>`}</section>`;
     view.appendChild(grid); Icons.apply(grid);
-    $$('[data-p]', grid).forEach((b) => (b.onclick = () => (pode ? engForm(Store.find('engProjetos', b.dataset.p)) : null)));
+    $$('[data-p]', grid).forEach((b) => (b.onclick = () => { engAberto = b.dataset.p; engF.st = 'todos'; engF.q = ''; navTo('eng-projetos'); }));
   };
 
   /* =========================== PLANO ANUAL DE TREINAMENTO (IATF 7.2 · ISO 9001 7.2) ===========================
