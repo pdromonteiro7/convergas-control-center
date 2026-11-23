@@ -111,6 +111,8 @@
   };
   const sBadge = (s) => { const m = STATUS[s] || { cls: 'neutral', label: s }; return `<span class="badge ${m.cls}">${esc(m.label)}</span>`; };
   const yn = (v) => v ? `<span class="yn y">${ic('check')}Sim</span>` : `<span class="yn n">${ic('x')}Não</span>`;
+  // listas de seleção de pessoas: só ativos (quem foi desligado ou excluído não aparece); mantém o já vinculado
+  const teamAtivos = (...manter) => Store.get('team').filter((u) => u.situacao !== 'desligado' || manter.includes(u.id) || manter.includes(u.name)).sort((x, y) => (x.name || '').localeCompare(y.name || ''));
   const userName = (id) => { const u = Store.find('team', id); return u ? u.name : null; };
   const compName = (id) => { const c = Store.find('computers', id); return c ? c.hostname : null; };
 
@@ -907,7 +909,7 @@
 
   function formPhone(p) {
     const editing = !!p; p = p || {};
-    const uOpts = [{ v: '', t: '— Nenhum (usar nome livre) —' }].concat(Store.get('team').map((u) => ({ v: u.id, t: u.name })));
+    const uOpts = [{ v: '', t: '— Nenhum (usar nome livre) —' }].concat(teamAtivos(p.userId).map((u) => ({ v: u.id, t: u.name })));
     const card = modal({
       wide: true, title: editing ? 'Editar linha' : 'Nova linha', sub: 'Telefonia',
       body: `<div class="form-grid">
@@ -1021,7 +1023,7 @@
       const used = l.assignments || [];
       const total = Number(l.seatsTotal) || 0;
       const free = Store.licenseSeatsFree(l);
-      const teamOpts = `<option value="">— nenhum —</option>` + Store.get('team').map((u) => `<option value="${u.id}">${esc(u.name)}</option>`).join('');
+      const teamOpts = `<option value="">— nenhum —</option>` + teamAtivos().map((u) => `<option value="${u.id}">${esc(u.name)}</option>`).join('');
       const compOpts = `<option value="">— nenhuma —</option>` + Store.get('computers').map((c) => `<option value="${c.id}">${esc(c.hostname)}</option>`).join('');
       const off = free <= 0;
       const body = `
@@ -1122,7 +1124,7 @@
         ${field('Rótulo', 'label', v.label, 'text', { ph: 'Ex: Wi-Fi Convergas' })}
         ${field('Identificador (SSID / usuário / host)', 'identifier', v.identifier, 'text', { full: true, ph: 'Ex: leonardo@convergas.com.br' })}
         ${field('Segredo (senha / chave)', 'secret', v.secret, 'text', { full: true, ph: '••••••••' })}
-        ${field('Usuário vinculado (opcional)', 'userId', v.userId, 'select', { options: [{ v: '', t: '— Nenhum —' }].concat(Store.get('team').map((u) => ({ v: u.id, t: u.name }))) })}
+        ${field('Usuário vinculado (opcional)', 'userId', v.userId, 'select', { options: [{ v: '', t: '— Nenhum —' }].concat(teamAtivos(v.userId).map((u) => ({ v: u.id, t: u.name }))) })}
         ${field('Máquina vinculada (opcional)', 'machineId', v.machineId, 'select', { options: [{ v: '', t: '— Nenhuma —' }].concat(Store.get('computers').map((c) => ({ v: c.id, t: c.hostname }))) })}
         ${field('Observações', 'notes', v.notes, 'textarea', { full: true })}
       </div>`,
@@ -6619,7 +6621,7 @@
     const localSet = new Set(['Produção', 'Almoxarifado', 'Manutenção', 'Engenharia', 'Expedição', 'Escritório']);
     Store.get('equipments').forEach((e) => { if (e.sector) localSet.add(e.sector); });
     Store.get('serviceOrders').forEach((s) => { if (s.local) localSet.add(s.local); });
-    const team = Store.get('team').slice().sort((a, b) => (a.name || '').localeCompare(b.name || ''));
+    const team = teamAtivos(o.regBy);
     const regInTeam = team.some((u) => u.name === o.regBy);
     const regByInit = !o.regBy ? '' : (regInTeam ? o.regBy : '__outro__');
     const regByOpts = [{ v: '', t: '— selecione —' }].concat(team.map((u) => ({ v: u.name, t: u.name + (u.sector ? ` · ${u.sector}` : '') }))).concat([{ v: '__outro__', t: 'Outro (digitar)' }]);
@@ -8469,7 +8471,7 @@
       if (!it) return closeModal();
       const used = it.assignments || [];
       const avail = Store.availableOf(it);
-      const candidates = Store.get('team').filter((u) => !used.some((a) => a.userId === u.id));
+      const candidates = teamAtivos().filter((u) => !used.some((a) => a.userId === u.id));
       const locked = it.status === 'reserva';
       const off = (avail <= 0 || !candidates.length || locked);
       const body = `
@@ -8608,7 +8610,7 @@
   /* ---- Computer form ---- */
   function formComputer(c) {
     const editing = !!c; c = c || {};
-    const userOpts = [{ v: '', t: '— Sem usuário —' }].concat(Store.get('team').map((u) => ({ v: u.id, t: u.name })));
+    const userOpts = [{ v: '', t: '— Sem usuário —' }].concat(teamAtivos(c.userId).map((u) => ({ v: u.id, t: u.name })));
     const avLicOpts = [{ v: '', t: '— Nenhuma —' }].concat(Store.get('licenses').filter((l) => l.type === 'Antivírus').map((l) => ({ v: l.id, t: l.name })));
     const card = modal({
       title: editing ? 'Editar computador' : 'Novo computador', sub: 'Computadores',
