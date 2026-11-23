@@ -2837,6 +2837,141 @@
     render(); tabsThumbInit(tabsEl, 'rhi');
   };
 
+  /* =========================== ENGENHARIA · projetos e indicadores ===========================
+     Cadastro enxuto de projetos (só o que alimenta os números) + painel de indicadores.
+     "No prazo" compara a conclusão com o PRAZO ORIGINAL; mudanças de prazo ficam registradas. */
+  const ENG_COR = '#A3E635';
+  const ENG_TIPOS = ['Novo produto', 'Alteração de produto', 'Melhoria de processo', 'Desenho / documentação técnica', 'Ferramental / dispositivo', 'Outro'];
+  const ENG_ST = { andamento: { l: 'Em andamento', cls: 'info' }, pausado: { l: 'Pausado', cls: 'neutral' }, concluido: { l: 'Concluído', cls: 'ok' }, cancelado: { l: 'Cancelado', cls: 'neutral' } };
+  const engList = () => (Store.get('engProjetos') || []).slice();
+  const engPrazoOrig = (p) => p.prazoOriginal || p.prazo;
+  // situação de prazo: concluido no prazo / com atraso; em andamento: atrasado / vence em breve / em dia
+  function engPrazoSt(p) {
+    const h = todayISO();
+    if (p.status === 'concluido') return p.conclusao && engPrazoOrig(p) && p.conclusao > engPrazoOrig(p) ? { k: 'tarde', l: 'Concluído com atraso', c: '#F5B840' } : { k: 'ok', l: 'Concluído no prazo', c: '#46D39A' };
+    if (p.status === 'cancelado') return { k: 'canc', l: 'Cancelado', c: '#94A3B8' };
+    if (p.prazo && p.prazo < h) return { k: 'atrasado', l: `Atrasado há ${daysBetween(p.prazo, h)} d`, c: '#FF7A7A' };
+    if (p.prazo && daysBetween(h, p.prazo) <= 7) return { k: 'breve', l: `Vence em ${daysBetween(h, p.prazo)} d`, c: '#F5B840' };
+    return { k: 'dia', l: p.prazo ? `Prazo ${fmtDate(p.prazo)}` : 'Sem prazo', c: '#3FA9F5' };
+  }
+  function engCodigo() { const y = new Date().getFullYear(); const n = engList().filter((p) => String(p.codigo || '').startsWith(`ENG-${y}-`)).length + 1; return `ENG-${y}-${String(n).padStart(3, '0')}`; }
+
+  function engForm(p) {
+    const editing = !!(p && p.id); p = p || { status: 'andamento', inicio: todayISO(), progresso: 0, tipo: 'Novo produto' };
+    const pessoas = rhAtivos().slice().sort((a, b) => a.name.localeCompare(b.name));
+    const card = modal({
+      title: editing ? `${p.codigo} · ${p.nome}` : 'Novo projeto', sub: editing ? (ENG_ST[p.status] || {}).l : 'Engenharia', wide: true,
+      body: `<div class="form-grid">${field('Nome do projeto', 'nome', p.nome, 'text', { full: true, ph: 'Ex.: Kit dual-fuel Scania R450' })}
+        ${field('Cliente', 'cliente', p.cliente, 'text', { ph: 'Opcional' })}
+        <div class="field"><label>Tipo</label><select name="tipo">${ENG_TIPOS.map((t) => `<option ${p.tipo === t ? 'selected' : ''}>${t}</option>`).join('')}</select></div>
+        <div class="field"><label>Responsável</label><select name="responsavelId"><option value="">—</option>${pessoas.map((u) => `<option value="${u.id}" ${p.responsavelId === u.id ? 'selected' : ''}>${esc(u.name)}</option>`).join('')}</select></div>
+        <div class="field"><label>Situação</label><select name="status">${Object.entries(ENG_ST).map(([k, v]) => `<option value="${k}" ${p.status === k ? 'selected' : ''}>${v.l}</option>`).join('')}</select></div>
+        ${field('Início', 'inicio', p.inicio, 'date')}
+        ${field('Prazo', 'prazo', p.prazo, 'date', editing && p.prazoOriginal && p.prazoOriginal !== p.prazo ? { hint: `Prazo original: ${fmtDate(p.prazoOriginal)}` } : {})}
+        <div class="field full" id="engMot" hidden><label>Motivo da mudança de prazo</label><input name="motivo" placeholder="Ex.: aguardando amostra do cliente"></div>
+        <div class="field"><label>Andamento</label><div class="eng-pr"><input type="range" name="progresso" min="0" max="100" step="5" value="${Number(p.progresso) || 0}"><b id="engPv">${Number(p.progresso) || 0}%</b></div></div>
+        <div id="engConc" class="field" ${p.status === 'concluido' ? '' : 'hidden'}>${field('Concluído em', 'conclusao', p.conclusao || todayISO(), 'date').replace(/^<div class="field">|<\/div>$/g, '')}</div>
+        ${field('Observação', 'obs', p.obs, 'textarea', { full: true })}</div>
+        ${(p.replan || []).length ? `<div class="tu-emis"><span class="sv-msg-h">Mudanças de prazo</span>${p.replan.slice().reverse().map((r) => `<div>${ic('calendar')}<b>${fmtDate(r.de)} → ${fmtDate(r.para)}</b><span>${esc(r.motivo || '')}${r.por ? ' · ' + esc(r.por) : ''}</span></div>`).join('')}</div>` : ''}`,
+      footer: (editing ? `<button class="btn danger ghost" id="delBtn" style="margin-right:auto">${ic('trash')}Excluir</button>` : '') + submitFooter(editing),
+    });
+    ['tipo', 'responsavelId', 'status'].forEach((n) => ccSelect($(`[name="${n}"]`, card), { search: n === 'responsavelId', icon: { tipo: 'list', responsavelId: 'users', status: 'check' }[n] }));
+    const rg = $('[name="progresso"]', card); rg.oninput = () => { $('#engPv', card).textContent = rg.value + '%'; };
+    $('[name="status"]', card).addEventListener('change', (e) => { $('#engConc', card).hidden = e.target.value !== 'concluido'; if (e.target.value === 'concluido') { rg.value = 100; $('#engPv', card).textContent = '100%'; } });
+    $('[name="prazo"]', card).addEventListener('change', (e) => { $('#engMot', card).hidden = !(editing && p.prazo && e.target.value !== p.prazo); });
+    const del = $('#delBtn', card); if (del) del.onclick = () => confirmDialog(`Excluir o projeto ${p.codigo}?`, () => { Store.remove('engProjetos', p.id); closeModal(); toast('Projeto excluído'); go(currentRoute); }, 'danger');
+    $('#saveBtn', card).onclick = () => {
+      const d = readForm(card);
+      if ((d.nome || '').length < 3) return toast('Informe o nome do projeto', 'warn');
+      if (!d.inicio || !d.prazo) return toast('Informe início e prazo', 'warn');
+      if (d.prazo < d.inicio) return toast('O prazo é anterior ao início', 'warn');
+      if (d.status === 'concluido' && (!d.conclusao || d.conclusao > todayISO())) return toast('Informe a data de conclusão', 'warn');
+      const mudouPrazo = editing && p.prazo && d.prazo !== p.prazo;
+      if (mudouPrazo && (d.motivo || '').trim().length < 3) return toast('Informe o motivo da mudança de prazo', 'warn');
+      const obj = { nome: d.nome, cliente: d.cliente, tipo: d.tipo, responsavelId: d.responsavelId, status: d.status, inicio: d.inicio, prazo: d.prazo, progresso: d.status === 'concluido' ? 100 : Number(d.progresso) || 0, conclusao: d.status === 'concluido' ? d.conclusao : '', obs: d.obs };
+      if (mudouPrazo) obj.replan = (p.replan || []).concat([{ de: p.prazo, para: d.prazo, motivo: d.motivo.trim(), em: new Date().toISOString(), por: (typeof pvMe === 'function' && pvMe()) || '' }]);
+      if (editing) Store.update('engProjetos', p.id, obj); else Store.add('engProjetos', { ...obj, codigo: engCodigo(), prazoOriginal: d.prazo, criadoEm: new Date().toISOString() });
+      closeModal(); toast(editing ? 'Projeto atualizado' : 'Projeto cadastrado'); go(currentRoute);
+    };
+  }
+  const engRow = (p, i) => { const S = ENG_ST[p.status] || ENG_ST.andamento; const P = engPrazoSt(p); const u = rhPessoa(p.responsavelId);
+    return `<button type="button" class="eng-row" data-p="${p.id}" style="--d:${(i || 0) * 30}ms;--c:${P.c}">
+      <span class="eng-cd">${esc(p.codigo || '')}</span>
+      <span class="eng-nm"><b>${esc(p.nome)}</b><small>${esc([p.tipo, p.cliente].filter(Boolean).join(' · '))}</small></span>
+      <span class="eng-rs">${u ? rhAvatar(u.name) + `<small>${esc(u.name.split(' ')[0])}</small>` : '<small>—</small>'}</span>
+      <span class="eng-pg"><i><em style="width:${Number(p.progresso) || 0}%"></em></i><small>${Number(p.progresso) || 0}%</small></span>
+      <span class="eng-pz"><b>${esc(P.l)}</b>${(p.replan || []).length ? `<small>${p.replan.length} replanejamento${p.replan.length > 1 ? 's' : ''}</small>` : ''}</span>
+      <span class="badge ${S.cls} plain">${S.l}</span></button>`; };
+
+  let engF = { st: 'ativos', q: '' };
+  PAGES['eng-projetos'] = () => {
+    const pode = Perm.podeGravar('engProjetos');
+    pageShell('Engenharia', 'Projetos', 'Projetos da engenharia e seus prazos.', pode ? `<button class="btn primary" id="engNovo">${ic('plus')}Novo projeto</button>` : '');
+    if (pode) $('#engNovo').onclick = () => engForm(null);
+    const all = engList().sort((a, b) => String(a.prazo || '9').localeCompare(String(b.prazo || '9')));
+    const grp = { ativos: (p) => ['andamento', 'pausado'].includes(p.status), atrasados: (p) => engPrazoSt(p).k === 'atrasado', concluidos: (p) => p.status === 'concluido', todos: () => true };
+    const FL = [['ativos', 'Em andamento'], ['atrasados', 'Atrasados'], ['concluidos', 'Concluídos'], ['todos', 'Todos']];
+    const bar = document.createElement('div'); bar.className = 'rh-mxf';
+    bar.innerHTML = `<label class="rh-pk-q">${ic('search')}<input id="engQ" placeholder="Buscar projeto, cliente ou código…" value="${esc(engF.q)}" autocomplete="off"></label>
+      <div class="rh-mxf-c">${FL.map(([k, l]) => `<button type="button" class="rh-fc${engF.st === k ? ' on' : ''}" data-f="${k}">${l}<em>${all.filter(grp[k]).length}</em></button>`).join('')}</div>`;
+    view.appendChild(bar); Icons.apply(bar);
+    const box = document.createElement('div'); view.appendChild(box);
+    const paint = () => {
+      let l = all.filter(grp[engF.st]); if (engF.st === 'concluidos') l.sort((a, b) => String(b.conclusao).localeCompare(String(a.conclusao)));
+      if (engF.q) { const q = engF.q.toLowerCase(); l = l.filter((p) => [p.nome, p.cliente, p.codigo, p.tipo, (rhPessoa(p.responsavelId) || {}).name].join(' ').toLowerCase().includes(q)); }
+      box.innerHTML = l.length ? `<div class="eng-list">${l.map(engRow).join('')}</div>` : `<div class="tbl-wrap">${emptyState('settings', all.length ? 'Nenhum projeto neste filtro' : 'Nenhum projeto cadastrado', all.length ? '' : 'Cadastre os projetos para gerar os indicadores.')}${!all.length && pode ? `<div class="rh-sug"><button type="button" class="btn primary" id="engNovo2">${ic('plus')}Cadastrar projeto</button></div>` : ''}</div>`;
+      Icons.apply(box); const b2 = $('#engNovo2', box); if (b2) b2.onclick = () => engForm(null);
+      $$('[data-p]', box).forEach((b) => (b.onclick = () => (pode ? engForm(Store.find('engProjetos', b.dataset.p)) : null)));
+    };
+    $$('[data-f]', bar).forEach((b) => (b.onclick = () => { engF.st = b.dataset.f; $$('[data-f]', bar).forEach((x) => x.classList.toggle('on', x === b)); paint(); }));
+    $('#engQ', bar).oninput = (e) => { engF.q = e.target.value; paint(); };
+    paint();
+  };
+
+  PAGES['eng-painel'] = () => {
+    const pode = Perm.podeGravar('engProjetos');
+    pageShell('Engenharia', 'Painel', 'Indicadores dos projetos.', pode ? `<button class="btn primary" id="engNovo">${ic('plus')}Novo projeto</button>` : '');
+    if (pode) $('#engNovo').onclick = () => engForm(null);
+    const all = engList(); const h = todayISO(); const ano = h.slice(0, 4);
+    const ativos = all.filter((p) => ['andamento', 'pausado'].includes(p.status));
+    const atras = ativos.filter((p) => engPrazoSt(p).k === 'atrasado');
+    const concAno = all.filter((p) => p.status === 'concluido' && String(p.conclusao).slice(0, 4) === ano);
+    const noPrazo = concAno.filter((p) => engPrazoSt(p).k === 'ok').length;
+    const pct = concAno.length ? Math.round((100 * noPrazo) / concAno.length) : null;
+    const durs = concAno.filter((p) => p.inicio && p.conclusao).map((p) => Math.max(0, daysBetween(p.inicio, p.conclusao)));
+    const tMed = durs.length ? Math.round(durs.reduce((a, b) => a + b, 0) / durs.length) : null;
+    const replan = all.filter((p) => (p.replan || []).length).length;
+    const tile = (cls, icn, v, l, s) => `<div class="pvd-tile ${cls}"><span class="pvd-ti">${ic(icn)}</span><b>${v}</b><span>${esc(l)}</span><small>${esc(s)}</small></div>`;
+    const tiles = document.createElement('section'); tiles.className = 'pc-tiles tp-tiles eng-tiles';
+    tiles.innerHTML = tile('t-info', 'settings', ativos.length, 'Em andamento', `${ativos.filter((p) => p.status === 'pausado').length} pausado(s)`)
+      + tile(atras.length ? 't-danger' : 't-ok', 'alert', atras.length, 'Atrasados', atras.length ? 'prazo vencido' : 'nenhum')
+      + tile('t-ok', 'check', concAno.length, `Concluídos em ${ano}`, `${noPrazo} no prazo`)
+      + tile(pct == null ? '' : pct >= 90 ? 't-ok' : pct >= 70 ? 't-warn' : 't-danger', 'activity', pct == null ? '—' : pct + '%', 'Entregues no prazo', 'contra o prazo original')
+      + tile('', 'clock', tMed == null ? '—' : tMed + ' d', 'Tempo médio', `${replan} com prazo replanejado`);
+    view.appendChild(tiles); Icons.apply(tiles);
+    if (!all.length) { const e = document.createElement('div'); e.className = 'tbl-wrap'; e.innerHTML = `${emptyState('settings', 'Nenhum projeto cadastrado', 'Os indicadores aparecem conforme os projetos são cadastrados e concluídos.')}${pode ? `<div class="rh-sug"><button type="button" class="btn primary" id="engNovo2">${ic('plus')}Cadastrar projeto</button></div>` : ''}`; view.appendChild(e); Icons.apply(e); const b2 = $('#engNovo2', e); if (b2) b2.onclick = () => engForm(null); return; }
+    // concluídos por mês (12 meses): no prazo × com atraso
+    const meses = []; for (let i = 11; i >= 0; i--) meses.push(mAdd(mKey(h), -i));
+    const porMes = meses.map((k) => { const l = all.filter((p) => p.status === 'concluido' && mKey(p.conclusao) === k); return { k, ok: l.filter((p) => engPrazoSt(p).k === 'ok').length, tarde: l.filter((p) => engPrazoSt(p).k === 'tarde').length }; });
+    const mx = Math.max(1, ...porMes.map((m) => m.ok + m.tarde));
+    // carga por responsável
+    const resp = {}; ativos.forEach((p) => { const k = p.responsavelId || '_'; resp[k] = resp[k] || { n: 0, at: 0 }; resp[k].n++; if (engPrazoSt(p).k === 'atrasado') resp[k].at++; });
+    const respL = Object.entries(resp).sort((a, b) => b[1].n - a[1].n); const rmx = Math.max(1, ...respL.map((r) => r[1].n));
+    const porTipo = ENG_TIPOS.map((t) => ({ t, n: ativos.filter((p) => p.tipo === t).length })).filter((x) => x.n);
+    const atencao = ativos.filter((p) => ['atrasado', 'breve'].includes(engPrazoSt(p).k)).sort((a, b) => String(a.prazo).localeCompare(String(b.prazo)));
+    const grid = document.createElement('div'); grid.className = 'eng-grid';
+    grid.innerHTML = `<section class="pvp-card eng-card eng-wide"><div class="pvp-card-h"><b>Concluídos por mês</b><span class="eng-lg"><i style="--c:#46D39A"></i>no prazo<i style="--c:#F5B840"></i>com atraso</span></div>
+        <div class="eng-bars">${porMes.map((m) => `<div class="eng-bc" title="${mNome(m.k, true)}: ${m.ok} no prazo, ${m.tarde} com atraso"><span class="eng-bv">${m.ok + m.tarde || ''}</span><div class="eng-b"><i style="height:${(100 * m.tarde) / mx}%;--c:#F5B840"></i><i style="height:${(100 * m.ok) / mx}%;--c:#46D39A"></i></div><small>${MES_C[Number(m.k.slice(5, 7)) - 1]}</small></div>`).join('')}</div></section>
+      <section class="pvp-card eng-card"><div class="pvp-card-h"><b>Atenção</b><span>atrasados e vencendo em 7 dias</span></div>
+        ${atencao.length ? `<div class="eng-at">${atencao.map((p) => { const P = engPrazoSt(p); return `<button type="button" class="eng-ai" data-p="${p.id}" style="--c:${P.c}"><i></i><span><b>${esc(p.nome)}</b><small>${esc(p.codigo)} · ${esc((rhPessoa(p.responsavelId) || {}).name || 'sem responsável')}</small></span><em>${esc(P.l)}</em></button>`; }).join('')}</div>` : `<div class="qf-empty">${ic('check')}<span>Nenhum prazo em risco</span></div>`}</section>
+      <section class="pvp-card eng-card"><div class="pvp-card-h"><b>Carga por responsável</b><span>projetos em andamento</span></div>
+        ${respL.length ? `<div class="eng-rl">${respL.map(([id, r]) => { const u = rhPessoa(id); return `<div class="eng-ri"><span class="eng-rn">${u ? rhAvatar(u.name) : ''}<b>${esc(u ? u.name : 'Sem responsável')}</b></span><span class="eng-rb"><i style="width:${(100 * r.n) / rmx}%"></i></span><em>${r.n}${r.at ? ` <small>· ${r.at} atrasado${r.at > 1 ? 's' : ''}</small>` : ''}</em></div>`; }).join('')}</div>` : `<div class="qf-empty">${ic('users')}<span>Nenhum projeto em andamento</span></div>`}</section>
+      <section class="pvp-card eng-card"><div class="pvp-card-h"><b>Em andamento por tipo</b><span>${ativos.length}</span></div>
+        ${porTipo.length ? `<div class="eng-rl">${porTipo.map((x) => `<div class="eng-ri"><span class="eng-rn"><b>${esc(x.t)}</b></span><span class="eng-rb"><i style="width:${(100 * x.n) / Math.max(...porTipo.map((y) => y.n))}%"></i></span><em>${x.n}</em></div>`).join('')}</div>` : `<div class="qf-empty">${ic('list')}<span>Nenhum projeto em andamento</span></div>`}</section>`;
+    view.appendChild(grid); Icons.apply(grid);
+    $$('[data-p]', grid).forEach((b) => (b.onclick = () => (pode ? engForm(Store.find('engProjetos', b.dataset.p)) : null)));
+  };
+
   /* =========================== PLANO ANUAL DE TREINAMENTO (IATF 7.2 · ISO 9001 7.2) ===========================
      Levantamento de necessidades (LNT) → plano por mês → realizado (turmas/registros do próprio sistema). */
   const RH_ORIG = { vencimento: 'Reciclagem (vencimento)', exigencia: 'Exigido pelo cargo', cliente: 'Requisito do cliente', melhoria: 'Ação corretiva / melhoria', lnt: 'Necessidade do setor' };
@@ -4230,7 +4365,7 @@
 
   // áreas e abas que entram na tela de permissões (na ordem da Home)
   const permAreas = () => {
-    const ord = ['qualidade', 'pos-vendas', 'manutencao', 'programacao', 'rh', 'ti', 'sistemas'];
+    const ord = ['qualidade', 'pos-vendas', 'manutencao', 'programacao', 'engenharia', 'rh', 'ti', 'sistemas'];
     return ord.filter((a) => NAV[a]).map((a) => {
       const ha = (HOME_AREAS_ALL.find((x) => x.area === a) || {});
       const abas = []; NAV[a].groups.forEach((g) => g.items.forEach((it) => { if (it.r !== 'usuarios') abas.push({ r: it.r, t: it.t, i: it.i, g: g.label }); }));
@@ -4434,7 +4569,7 @@
      OS, RH e Programação). Metas guardadas na coleção "qaKpi" (registro "metas"). */
   const KPI_AREAS = {
     'pos-vendas': { l: 'Pós-Vendas', i: 'phone' }, qualidade: { l: 'Qualidade', i: 'award' }, manutencao: { l: 'Manutenção', i: 'wrench' },
-    rh: { l: 'RH', i: 'users' }, programacao: { l: 'Programação', i: 'calendar' },
+    rh: { l: 'RH', i: 'users' }, programacao: { l: 'Programação', i: 'calendar' }, engenharia: { l: 'Engenharia', i: 'settings' },
   };
   const kpiCor = (a) => (HOME_AREAS_ALL.find((x) => x.area === a) || {}).color || '#5CE1E6';
   const mKey = (iso) => String(iso || '').slice(0, 7);
@@ -4522,6 +4657,10 @@
       { k: 'rh_turn', a: 'rh', t: 'Turnover', c: '7.1.2', u: '%', melhor: 'menor', meta: 2, como: 'Desligamentos no mês ÷ colaboradores ativos.',
         v: (k) => { const at = rhList('team').filter((u) => (!u.admissao || u.admissao <= mFim(k)) && (u.situacao !== 'desligado' || (u.desligamento && u.desligamento >= mIni(k)))).length; const des = rhList('team').filter((u) => naMes(u.desligamento, k)).length; return { v: at ? pctOf(des, at) : null, n: at }; } },
       // ---------------- Programação ----------------
+      { k: 'eng_prazo', a: 'engenharia', t: 'Projetos entregues no prazo', c: '8.3.4', u: '%', melhor: 'maior', meta: 90, como: 'Projetos concluídos até o prazo original ÷ concluídos no mês.',
+        v: (k) => { const l = engList().filter((p) => p.status === 'concluido' && mKey(p.conclusao) === k); return { v: pctOf(l.filter((p) => engPrazoSt(p).k === 'ok').length, l.length), n: l.length }; } },
+      { k: 'eng_atraso', a: 'engenharia', t: 'Projetos atrasados', c: '8.3.4', u: 'n', melhor: 'menor', meta: 0, atual: true, como: 'Projetos em andamento com prazo vencido.',
+        v: () => { const l = engList().filter((p) => ['andamento', 'pausado'].includes(p.status)); return { v: l.filter((p) => engPrazoSt(p).k === 'atrasado').length, n: l.length }; } },
       { k: 'pg_rnc', a: 'programacao', t: 'RNCs internas abertas', c: '8.7 · 10.2', u: 'n', melhor: 'menor', meta: null, como: 'Não conformidades abertas no mês.',
         v: (k) => { const l = prnc().filter((r) => naMes(r.criadoEm, k)); return { v: l.length, n: l.length }; } },
       { k: 'pg_acoes', a: 'programacao', t: 'Ações de RNC no prazo', c: '10.2.3', u: '%', melhor: 'maior', meta: 90, como: 'Ações concluídas ÷ ações com prazo no mês (já vencido).',
@@ -8635,6 +8774,9 @@
       { label: 'Operação', items: [ { r: 'prog-atividades', t: 'Atividades', s: 'Atividades', i: 'list' }, { r: 'prog-pedidos', t: 'Pedidos', s: 'Pedidos', i: 'file' }, { r: 'prog-rnc', t: 'Não Conformidades', s: 'RNC', i: 'alert' } ] },
       { label: 'Cadastros', items: [ { r: 'prog-cadastros', t: 'Equipe & Setores', s: 'Equipe', i: 'users' }, { r: 'prog-catalogo', t: 'Famílias, Fornecedores & Estoque', s: 'Catálogo', i: 'box' } ] },
     ] },
+    engenharia: { label: 'Engenharia', groups: [
+      { label: 'Projetos', items: [ { r: 'eng-painel', t: 'Painel', s: 'Painel', i: 'grid' }, { r: 'eng-projetos', t: 'Projetos', s: 'Projetos', i: 'settings' } ] },
+    ] },
   };
   const TITLES = {}; const ROUTE_AREA = {};
   Object.keys(NAV).forEach((area) => NAV[area].groups.forEach((g) => g.items.forEach((it) => { TITLES[it.r] = it.t; if (it.r !== 'settings') ROUTE_AREA[it.r] = area; })));
@@ -8661,6 +8803,7 @@
     if (c === 'team') return ['rh', 'ti', 'programacao'];
     if (/^rh/.test(c)) return ['rh'];
     if (/^prog/.test(c)) return ['programacao'];
+    if (/^eng/.test(c)) return ['engenharia'];
     return ['*'];
   };
   const Perm = {
@@ -8699,7 +8842,7 @@
     };
   });
 
-  const AREA_HOME = { ti: 'dashboard', qualidade: 'qa-dashboard', sistemas: 'sistemas-home', 'pos-vendas': 'pv-painel', manutencao: 'manutencao-home', programacao: 'prog-atividades', rh: 'rh-painel' };
+  const AREA_HOME = { ti: 'dashboard', qualidade: 'qa-dashboard', sistemas: 'sistemas-home', 'pos-vendas': 'pv-painel', manutencao: 'manutencao-home', programacao: 'prog-atividades', rh: 'rh-painel', engenharia: 'eng-painel' };
 
   function renderSidebar(area) {
     const cfg = NAV[area]; const nav = $('#nav');
@@ -8820,6 +8963,8 @@
       stat: () => { const n = Store.get('serviceOrders').filter((o) => o.kind === 'os' && !['finalizada', 'concluida', 'cancelada'].includes(o.status)).length; return { v: n, l: n === 1 ? 'ordem de serviço aberta' : 'ordens de serviço abertas', tone: n ? 'info' : 'ok' }; } },
     { area: 'programacao', label: 'Programação', icon: 'calendar', color: '#A78BFA', desc: 'Atividades do PCP, pedidos e RNC internas.',
       stat: () => { const t = todayISO(); const l = Store.get('progAtividades') || []; const late = l.filter((a) => a.status !== 'done' && a.prazo && a.prazo < t).length; return late ? { v: late, l: 'atividade(s) atrasada(s)', tone: 'warn' } : { v: l.filter((a) => a.status !== 'done').length, l: 'atividades em andamento', tone: 'info' }; } },
+    { area: 'engenharia', label: 'Engenharia', icon: 'settings', color: ENG_COR, desc: 'Projetos, prazos e indicadores.', isNew: true,
+      stat: () => { const at = engList().filter((p) => ['andamento', 'pausado'].includes(p.status)); const late = at.filter((p) => engPrazoSt(p).k === 'atrasado').length; return late ? { v: late, l: late === 1 ? 'projeto atrasado' : 'projetos atrasados', tone: 'danger' } : { v: at.length, l: at.length === 1 ? 'projeto em andamento' : 'projetos em andamento', tone: at.length ? 'info' : 'ok' }; } },
     { area: 'rh', label: 'RH', icon: 'users', color: '#FB923C', desc: 'Pessoas, treinamentos, férias e veículos.', isNew: true,
       stat: () => { const at = rhAtivos(); let pend = 0; at.forEach((u) => { const r = rhTreinoResumo(u); pend += r.vencido + r.faltando; }); if (pend) return { v: pend, l: pend === 1 ? 'treinamento pendente' : 'treinamentos pendentes', tone: 'warn' }; return { v: at.length, l: at.length === 1 ? 'colaborador ativo' : 'colaboradores ativos', tone: 'info' }; } },
     { area: 'ti', label: 'T.I', icon: 'cpu', color: '#5CE1E6', desc: 'Computadores, impressoras, licenças e cofre.',
