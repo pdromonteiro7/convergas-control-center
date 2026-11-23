@@ -9487,12 +9487,18 @@
   }
 
   /* ---------- theme ---------- */
+  // troca de tema leve: sem remontar a planta 3D, sem animar cada elemento e com a gravação depois da troca
   function setTheme(t) {
-    document.documentElement.setAttribute('data-theme', t);
-    try { CP.built = ''; campusBuild(true); } catch (e) {}
-    Store.setSetting('theme', t);
-    ['#themeToggle', '#themeToggleHome'].forEach((sel) => { const tt = $(sel); if (!tt) return; tt.dataset.iconDone = ''; tt.innerHTML = ''; tt.setAttribute('data-icon', t === 'dark' ? 'sun' : 'moon'); Icons.apply(tt); });
-    toast(t === 'dark' ? 'Modo escuro' : 'Modo claro', 'info');
+    const root = document.documentElement;
+    const aplica = () => {
+      root.classList.add('th-sw');
+      root.setAttribute('data-theme', t);
+      ['#themeToggle', '#themeToggleHome'].forEach((sel) => { const tt = $(sel); if (!tt) return; tt.dataset.iconDone = ''; tt.innerHTML = ''; tt.setAttribute('data-icon', t === 'dark' ? 'sun' : 'moon'); Icons.apply(tt); });
+      try { if (window.Campus3D && Campus3D.tema && Campus3D.tema(t === 'light')) { if (CP.built) CP.built = JSON.stringify([campusData(window.__campusDemo), t]); } else { CP.built = ''; campusBuild(true); } } catch (e) {}
+      requestAnimationFrame(() => requestAnimationFrame(() => root.classList.remove('th-sw')));
+    };
+    if (document.startViewTransition && !hxReduce()) { try { document.startViewTransition(aplica); } catch (e) { aplica(); } } else aplica();
+    setTimeout(() => { Store.setSetting('theme', t); toast(t === 'dark' ? 'Modo escuro' : 'Modo claro', 'info'); }, 420);
   }
   $('#themeToggle').onclick = () => setTheme(document.documentElement.getAttribute('data-theme') === 'dark' ? 'light' : 'dark');
 

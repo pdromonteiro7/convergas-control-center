@@ -389,7 +389,7 @@
     const fs = new G.Mesh(new G.PlaneGeometry(3.0, .82), new G.MeshBasicMaterial({ map: brandTex(1024, 280, 'horizontal'), transparent: true, toneMapped: false })); fs.position.set(0, .55, .16); frontSign.add(fs);
 
     /* luzes */
-    scene.add(new G.HemisphereLight(light ? '#FFFFFF' : '#D4E3FF', light ? '#B8C6D8' : '#1A2A44', light ? 1.05 : .85));
+    const hemi = new G.HemisphereLight(light ? '#FFFFFF' : '#D4E3FF', light ? '#B8C6D8' : '#1A2A44', light ? 1.05 : .85); scene.add(hemi);
     const sun = new G.DirectionalLight('#FFF3E2', light ? 2.2 : 2.1); sun.position.set(SW * .45, Math.max(SW, SD) * .9, SD * .3); sun.castShadow = true;
     const ext = Math.max(SW, SD) * .75; Object.assign(sun.shadow.camera, { left: -ext, right: ext, top: ext, bottom: -ext, near: 1, far: Math.max(SW, SD) * 3 });
     sun.shadow.mapSize.set(2048, 2048); sun.shadow.bias = -.0005; sun.shadow.normalBias = .03; sun.shadow.radius = 4;
@@ -506,6 +506,12 @@
     }
     if (fit()) { fitted = true; cv.style.opacity = ''; } loop();
     return {
+      // troca de tema sem reconstruir a cena: só cores e luzes (antes a planta era montada do zero e travava a tela)
+      tema(lt) {
+        M.wall.color.set(lt ? '#FFFFFF' : '#E9EFF6'); M.slabTop.color.set(lt ? '#D9E3EE' : '#2A3B55'); M.slabSide.color.set(lt ? '#AFC0D4' : '#132036'); M.road.color.set(lt ? '#C7D3E1' : '#1C2A40');
+        hemi.color.set(lt ? '#FFFFFF' : '#D4E3FF'); hemi.groundColor.set(lt ? '#B8C6D8' : '#1A2A44'); hemi.intensity = lt ? 1.05 : .85;
+        sun.intensity = lt ? 2.2 : 2.1; fill.intensity = lt ? .4 : .55; renderer.toneMappingExposure = lt ? 1.0 : 1.08;
+      },
       zoom(f, x, z) { cam.zoom = f || 1; if (x != null) { const c = new G.Vector3(x, 0, z); cam.position.copy(c).addScaledVector(dir, 120); cam.lookAt(c); } cam.updateProjectionMatrix(); },
       resize: () => { fit(); },
       stop() { alive = false; if (ro) ro.disconnect(); cancelAnimationFrame(raf); cv.removeEventListener('pointermove', onMove); scene.traverse((o) => { if (o.geometry) o.geometry.dispose(); if (o.material) [].concat(o.material).forEach((m) => { if (m.map) m.map.dispose(); m.dispose(); }); }); renderer.dispose(); renderer.forceContextLoss && renderer.forceContextLoss(); cv.remove(); overlay.remove(); },
@@ -540,6 +546,7 @@
     preview, avatarOf, OPC: { SKIN, HAIR, ROUPA, ESTILOS, ESTILO_TXT },
     render(host, data) { if (S) { S.stop(); S = null; } if (!T()) return false; S = build(host, data); return true; },
     resize() { if (S) S.resize(); },
+    tema(light) { if (!S || !S.tema) return false; S.tema(!!light); return true; },
     zoom(f, x, z) { if (S) S.zoom(f, x, z); },
     stop() { if (S) { S.stop(); S = null; } },
   };
