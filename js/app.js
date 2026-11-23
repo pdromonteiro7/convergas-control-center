@@ -2089,6 +2089,8 @@
       rhList('rhTurmas').filter((t) => (t.convocados || []).includes(u.id) || (t.presentes || []).includes(u.id)).forEach((t) => Store.update('rhTurmas', t.id, { convocados: (t.convocados || []).filter((x) => x !== u.id), presentes: (t.presentes || []).filter((x) => x !== u.id) }));
       rhList('rhIntegracoes').filter((t) => (t.participantes || []).includes(u.id)).forEach((t) => Store.update('rhIntegracoes', t.id, { participantes: t.participantes.filter((x) => x !== u.id) }));
       rhList('team').filter((p) => p.gestorId === u.id).forEach((p) => Store.update('team', p.id, { gestorId: '' }));
+      rhList('rhHabil').filter((h) => h.colaboradorId === u.id || h.liberadoPor === u.id).forEach((h) => h.colaboradorId === u.id ? Store.remove('rhHabil', h.id) : Store.update('rhHabil', h.id, { liberadoPor: '' }));
+      rhList('rhAuditores').filter((x) => x.colaboradorId === u.id).forEach((x) => Store.remove('rhAuditores', x.id));
       rhList('rhVeiculos').filter((v) => v.responsavelId === u.id).forEach((v) => Store.update('rhVeiculos', v.id, { responsavelId: '' }));
       Store.remove('team', u.id);
       closeModal(); toast('Cadastro excluído'); go(currentRoute === 'rh-pessoa' ? 'rh-colab' : currentRoute);
@@ -2833,6 +2835,289 @@
     const tabsEl = $('#riTabs', tb);
     $$('button', tabsEl).forEach((b) => (b.onclick = () => { rhIntTab = b.dataset.s; $$('button', tabsEl).forEach((x) => x.classList.toggle('on', x === b)); tabsThumb(tabsEl); render(); }));
     render(); tabsThumbInit(tabsEl, 'rhi');
+  };
+
+  /* =========================== POLIVALÊNCIA (IATF 7.2.2 · 6.1.2.3) ===========================
+     Matriz pessoa × posto com nível 0–4. Nível 3+ = habilitado (liberado pelo líder).
+     Posto crítico com menos habilitados que o mínimo = risco (plano de contingência de mão de obra). */
+  const RH_NIV = [
+    { n: 0, l: 'Não treinado', s: 'Não opera o posto', c: '#94A3B8' },
+    { n: 1, l: 'Em treinamento', s: 'Aprendendo no posto', c: '#3FA9F5' },
+    { n: 2, l: 'Com supervisão', s: 'Executa acompanhado', c: '#F5B840' },
+    { n: 3, l: 'Habilitado', s: 'Executa sozinho', c: '#46D39A' },
+    { n: 4, l: 'Multiplicador', s: 'Treina outras pessoas', c: '#22C3A6' },
+  ];
+  // símbolo clássico da matriz: círculo preenchido em quartos
+  function rhNivGlyph(n, size) {
+    size = size || 22; const r = size / 2 - 1.5, c = size / 2; const N = RH_NIV[n] || RH_NIV[0];
+    let fill = '';
+    if (n >= 4) fill = `<circle cx="${c}" cy="${c}" r="${r}" fill="${N.c}"/>`;
+    else if (n > 0) { const ang = (n / 4) * 2 * Math.PI; const x = c + r * Math.sin(ang), y = c - r * Math.cos(ang); fill = `<path d="M${c} ${c} L${c} ${c - r} A${r} ${r} 0 ${n > 2 ? 1 : 0} 1 ${x.toFixed(2)} ${y.toFixed(2)} Z" fill="${N.c}"/>`; }
+    return `<svg class="pl-g" viewBox="0 0 ${size} ${size}" width="${size}" height="${size}" aria-label="Nível ${n}">${fill}<circle cx="${c}" cy="${c}" r="${r}" fill="none" stroke="${n ? N.c : 'currentColor'}" stroke-width="1.6" ${n ? '' : 'opacity=".45"'}/></svg>`;
+  }
+  const rhPostos = () => rhList('rhPostos').slice().sort((a, b) => (a.setor || '').localeCompare(b.setor || '') || a.nome.localeCompare(b.nome));
+  const rhHabId = (pid, cid) => `hb_${pid}_${cid}`;
+  const rhHab = (pid, cid) => Store.find('rhHabil', rhHabId(pid, cid));
+  const rhNivel = (pid, cid) => { const h = rhHab(pid, cid); return h ? Number(h.nivel) || 0 : 0; };
+  function rhPostoCob(p) {
+    const ativos = new Set(rhAtivos().map((u) => u.id));
+    const hs = rhList('rhHabil').filter((h) => h.postoId === p.id && ativos.has(h.colaboradorId));
+    const hab = hs.filter((h) => Number(h.nivel) >= 3).length, trein = hs.filter((h) => [1, 2].includes(Number(h.nivel))).length;
+    const min = Number(p.minimo) || 2;
+    const st = hab === 0 ? 'sem' : hab < min ? 'risco' : 'ok';
+    return { hab, trein, min, st };
+  }
+  const RH_COB = { ok: { l: 'Coberto', cls: 'ok' }, risco: { l: 'Em risco', cls: 'warn' }, sem: { l: 'Sem habilitado', cls: 'danger' } };
+  // treinamentos exigidos pelo posto que a pessoa não tem válidos
+  const rhPostoPend = (p, cid) => (p.treinos || []).filter((tid) => Store.find('rhTreinos', tid) && !['ok', 'vencendo'].includes(rhTreinoSt(cid, tid).st));
+
+  function rhFormPosto(p, done) {
+    const editing = !!(p && p.id); p = p || {};
+    const tr = rhTreinos(); const sel = new Set(p.treinos || []);
+    const card = modal({
+      title: editing ? 'Editar posto' : 'Novo posto', sub: 'Posto de trabalho / operação',
+      body: `<div class="form-grid">${field('Nome do posto', 'nome', p.nome, 'text', { full: true, ph: 'Ex.: Montagem do kit GNV · bancada 2' })}
+        ${field('Setor', 'setor', p.setor || '', 'select', { options: [{ v: '', t: 'Sem setor' }].concat(rhSetores().map((s) => ({ v: s.nome, t: s.nome }))) })}
+        ${field('Mínimo de habilitados', 'minimo', p.minimo || 2, 'text', { hint: 'Abaixo disso o posto fica em risco' })}
+        <div class="field full">${sw('Posto crítico (afeta qualidade, segurança ou entrega)', 'critico', p.critico)}</div>
+        ${field('Descrição / instrução de trabalho', 'descricao', p.descricao, 'textarea', { full: true, ph: 'Ex.: IT-PRD-012 rev. 3' })}</div>
+        ${tr.length ? `<div class="form-sec">${ic('award')}Treinamentos exigidos para habilitar</div><div class="pl-chips">${tr.map((t) => `<button type="button" class="pl-chip${sel.has(t.id) ? ' on' : ''}" data-t="${t.id}">${ic('check')}${esc(t.nome)}</button>`).join('')}</div>` : ''}`,
+      footer: (editing ? `<button class="btn danger ghost" id="delBtn" style="margin-right:auto">${ic('trash')}Excluir</button>` : '') + submitFooter(editing),
+    });
+    ccSelect($('[name="setor"]', card), { icon: 'grid' }); rhMaskNum($('[name="minimo"]', card), 20);
+    $$('.pl-chip', card).forEach((b) => (b.onclick = () => { const id = b.dataset.t; sel.has(id) ? sel.delete(id) : sel.add(id); b.classList.toggle('on', sel.has(id)); }));
+    const del = $('#delBtn', card);
+    if (del) del.onclick = () => confirmDialog(`Excluir o posto "${p.nome}" e as habilitações dele?`, () => { rhList('rhHabil').filter((h) => h.postoId === p.id).forEach((h) => Store.remove('rhHabil', h.id)); Store.remove('rhPostos', p.id); closeModal(); toast('Posto excluído'); if (done) done(); else go(currentRoute); }, 'danger');
+    $('#saveBtn', card).onclick = () => {
+      const d = readForm(card); if ((d.nome || '').trim().length < 3) return toast('Informe o nome do posto', 'warn');
+      if (rhList('rhPostos').some((x) => x.id !== p.id && x.nome.trim().toLowerCase() === d.nome.trim().toLowerCase())) return toast('Já existe um posto com esse nome', 'warn');
+      const obj = { nome: d.nome.trim(), setor: d.setor, minimo: Math.max(1, rhNum(d.minimo) || 2), critico: !!d.critico, descricao: d.descricao, treinos: Array.from(sel) };
+      if (editing) Store.update('rhPostos', p.id, obj); else Store.add('rhPostos', obj);
+      closeModal(); toast(editing ? 'Posto atualizado' : 'Posto cadastrado'); if (done) done(); else go(currentRoute);
+    };
+  }
+
+  function rhFormHabil(p, u) {
+    const h = rhHab(p.id, u.id) || {}; let niv = Number(h.nivel) || 0;
+    const pend = rhPostoPend(p, u.id);
+    const lideres = rhAtivos().filter((x) => x.id !== u.id).sort((a, b) => a.name.localeCompare(b.name));
+    const card = modal({
+      title: u.name, sub: p.nome,
+      body: `<div class="pl-niv">${RH_NIV.map((N) => `<button type="button" class="pl-nb${N.n === niv ? ' on' : ''}" data-n="${N.n}" style="--c:${N.c}">${rhNivGlyph(N.n, 30)}<b>${N.n} · ${esc(N.l)}</b><small>${esc(N.s)}</small></button>`).join('')}</div>
+        ${pend.length ? `<div class="tu-alerta">${ic('alert')}<span>Treinamento pendente para este posto: ${pend.map((t) => esc((Store.find('rhTreinos', t) || {}).nome)).join(', ')}.</span></div>` : ''}
+        <div class="form-grid">${field('Data da avaliação', 'data', h.data && niv ? h.data : rhHoje(), 'date')}
+          <div class="field"><label>Liberado por (líder)</label><select name="liberadoPor"><option value="">—</option>${lideres.map((x) => `<option value="${x.id}" ${h.liberadoPor === x.id ? 'selected' : ''}>${esc(x.name)}</option>`).join('')}</select></div>
+          ${field('Observação', 'obs', '', 'textarea', { full: true, ph: 'Ex.: acompanhou 3 lotes, sem desvios' })}</div>
+        ${(h.hist || []).length ? `<div class="tu-emis"><span class="sv-msg-h">Histórico</span>${h.hist.slice().reverse().map((x) => `<div>${rhNivGlyph(x.nivel, 16)}<b>${x.nivel} · ${esc((RH_NIV[x.nivel] || RH_NIV[0]).l)}</b><span>${fmtDate(x.data)}${x.por ? ' · liberado por ' + esc(rhNome(x.por)) : ''}${x.obs ? ' · ' + esc(x.obs) : ''}</span></div>`).join('')}</div>` : ''}`,
+      footer: submitFooter(true),
+    });
+    ccSelect($('[name="liberadoPor"]', card), { search: true, icon: 'users' }); rhLimDates(card, { data: [rhAnos(-30), rhHoje()] });
+    $$('.pl-nb', card).forEach((b) => (b.onclick = () => { niv = Number(b.dataset.n); $$('.pl-nb', card).forEach((x) => x.classList.toggle('on', x === b)); }));
+    $('#saveBtn', card).onclick = () => {
+      const d = readForm(card);
+      if (!d.data || d.data > rhHoje()) return toast('Informe a data da avaliação', 'warn');
+      if (niv >= 3 && !d.liberadoPor) return toast('Informe quem liberou a pessoa no posto', 'warn');
+      if (niv === (Number(h.nivel) || 0) && !d.obs && h.id) { closeModal(); return; }
+      const hist = (h.hist || []).concat([{ nivel: niv, data: d.data, por: d.liberadoPor, obs: d.obs, em: new Date().toISOString(), reg: (typeof pvMe === 'function' && pvMe()) || '' }]);
+      const obj = { postoId: p.id, colaboradorId: u.id, nivel: niv, data: d.data, liberadoPor: d.liberadoPor, hist };
+      if (h.id) Store.update('rhHabil', h.id, obj); else Store.add('rhHabil', { id: rhHabId(p.id, u.id), ...obj });
+      closeModal(); toast(niv >= 3 ? `${u.name.split(' ')[0]} habilitado no posto` : 'Nível atualizado'); go(currentRoute);
+    };
+  }
+
+  function rhPostosGerenciar() {
+    const l = rhPostos();
+    const card = modal({
+      title: 'Postos de trabalho', sub: `${l.length} posto${l.length === 1 ? '' : 's'}`, wide: true,
+      body: l.length ? `<div class="pl-pl">${l.map((p) => { const cb = rhPostoCob(p); return `<button type="button" class="pl-pr" data-p="${p.id}"><span class="pl-pri">${ic(p.critico ? 'alert' : 'grid')}</span><span class="tu-t"><b>${esc(p.nome)}</b><small>${esc(p.setor || 'Sem setor')} · mínimo ${cb.min} · ${(p.treinos || []).length} treinamento${(p.treinos || []).length === 1 ? '' : 's'}</small></span>${p.critico ? '<span class="badge warn plain">Crítico</span>' : ''}</button>`; }).join('')}</div>` : emptyState('grid', 'Nenhum posto', ''),
+      footer: `<button class="btn ghost" data-close>Fechar</button><button class="btn primary" id="plNovo">${ic('plus')}Novo posto</button>`,
+    });
+    Icons.apply(card);
+    const again = () => { go(currentRoute); setTimeout(rhPostosGerenciar, 250); };
+    $('#plNovo', card).onclick = () => { closeModal(); setTimeout(() => rhFormPosto(null, again), 200); };
+    $$('[data-p]', card).forEach((b) => (b.onclick = () => { closeModal(); setTimeout(() => rhFormPosto(Store.find('rhPostos', b.dataset.p), again), 200); }));
+  }
+
+  function rhPoliPrint(postos, pessoas) {
+    const sym = [0, 1, 2, 3, 4].map((n) => rhNivGlyph(n, 16));
+    const corpo = `<style>@page { size: A4 landscape; margin: 12mm; } th.v { writing-mode: vertical-rl; transform: rotate(180deg); white-space: nowrap; height: 130px; text-align: left; padding: 6px 4px; } td.c { text-align: center; width: 34px; } td.c svg, .cont svg { vertical-align: middle; } .cont svg { margin: 0 2px 0 6px; } .crit { color: #b42318; }</style>
+      <div class="info"><div><small>Postos</small><b>${postos.length}</b></div><div><small>Críticos</small><b>${postos.filter((p) => p.critico).length}</b></div><div><small>Colaboradores</small><b>${pessoas.length}</b></div><div><small>Em risco</small><b>${postos.filter((p) => rhPostoCob(p).st !== 'ok').length}</b></div></div>
+      <p class="cont">Legenda: ${RH_NIV.map((N) => `${sym[N.n]} ${N.n} ${N.l}`).join(' · ')} · <span class="crit">*</span> posto crítico. Habilitado = nível 3 ou 4.</p>
+      <table><thead><tr><th>Colaborador</th>${postos.map((p) => `<th class="v">${p.critico ? '<span class="crit">*</span> ' : ''}${esc(p.nome)}</th>`).join('')}</tr></thead><tbody>
+      ${pessoas.map((u) => `<tr><td>${esc(u.name)}<br><small style="color:#667">${esc(u.sector || '')}</small></td>${postos.map((p) => `<td class="c">${sym[rhNivel(p.id, u.id)]}</td>`).join('')}</tr>`).join('')}
+      <tr><td><b>Habilitados / mínimo</b></td>${postos.map((p) => { const cb = rhPostoCob(p); return `<td class="c" style="font-size:11px"><b class="st ${cb.st === 'ok' ? 'ok' : 'vencido'}">${cb.hab}/${cb.min}</b></td>`; }).join('')}</tr></tbody></table>
+      <div class="ass"><div>&nbsp;<small>Responsável pelo setor</small></div><div>&nbsp;<small>Recursos Humanos</small></div></div>`;
+    rhPrintDoc('Matriz de polivalência', corpo);
+  }
+
+  let rhPlF = { setor: 'todos', q: '' };
+  PAGES['rh-polivalencia'] = () => {
+    const podeEd = Perm.podeGravar('rhHabil');
+    pageShell('RH', 'Polivalência', 'Quem está habilitado em cada posto.',
+      `<button class="btn" id="plPrint">${ic('file')}Imprimir</button>${podeEd ? `<button class="btn" id="plPostos">${ic('grid')}Postos</button><button class="btn primary" id="plNovo">${ic('plus')}Novo posto</button>` : ''}`);
+    if (podeEd) { $('#plPostos').onclick = rhPostosGerenciar; $('#plNovo').onclick = () => rhFormPosto(null); }
+    const todos = rhPostos(); const ativos = rhAtivos().slice().sort((a, b) => a.name.localeCompare(b.name));
+    $('#plPrint').onclick = () => (todos.length ? rhPoliPrint(todos, ativos) : toast('Cadastre os postos primeiro', 'warn'));
+    if (!todos.length) {
+      const e = document.createElement('div'); e.className = 'tbl-wrap'; e.innerHTML = `${emptyState('grid', 'Nenhum posto cadastrado', 'Cadastre os postos de trabalho e marque os críticos.')}${podeEd ? `<div class="rh-sug"><button type="button" class="btn primary" id="plNovo2">${ic('plus')}Cadastrar posto</button></div>` : ''}`;
+      view.appendChild(e); Icons.apply(e); const b = $('#plNovo2', e); if (b) b.onclick = () => rhFormPosto(null); return;
+    }
+    const cobs = todos.map((p) => ({ p, cb: rhPostoCob(p) }));
+    const crit = cobs.filter((x) => x.p.critico); const critRisco = crit.filter((x) => x.cb.st !== 'ok');
+    const habPessoas = new Set(rhList('rhHabil').filter((h) => Number(h.nivel) >= 3).map((h) => h.colaboradorId)); const ativosIds = new Set(ativos.map((u) => u.id));
+    const emTrein = rhList('rhHabil').filter((h) => [1, 2].includes(Number(h.nivel)) && ativosIds.has(h.colaboradorId)).length;
+    const polis = ativos.filter((u) => todos.filter((p) => rhNivel(p.id, u.id) >= 3).length >= 2).length;
+    const tile = (cls, icn, v, l, s) => `<div class="pvd-tile ${cls}"><span class="pvd-ti">${ic(icn)}</span><b>${v}</b><span>${esc(l)}</span><small>${esc(s)}</small></div>`;
+    const tiles = document.createElement('section'); tiles.className = 'pc-tiles tp-tiles';
+    tiles.innerHTML = tile('t-info', 'grid', todos.length, 'Postos', `${crit.length} crítico${crit.length === 1 ? '' : 's'}`)
+      + tile(critRisco.length ? 't-danger' : 't-ok', 'alert', critRisco.length, 'Críticos em risco', critRisco.length ? 'abaixo do mínimo' : 'todos cobertos')
+      + tile('t-ok', 'check', [...habPessoas].filter((x) => ativosIds.has(x)).length, 'Pessoas habilitadas', 'nível 3 ou 4')
+      + tile('t-warn', 'clock', emTrein, 'Em treinamento', 'níveis 1 e 2')
+      + tile('', 'users', polis, 'Polivalentes', 'habilitados em 2+ postos');
+    view.appendChild(tiles); Icons.apply(tiles);
+    if (critRisco.length) {
+      const al = document.createElement('div'); al.className = 'tu-alerta pl-al';
+      al.innerHTML = `${ic('alert')}<span><b>Postos críticos sem cobertura mínima:</b> ${critRisco.map((x) => `${esc(x.p.nome)} (${x.cb.hab}/${x.cb.min})`).join(', ')}</span>`;
+      view.appendChild(al); Icons.apply(al);
+    }
+    const setores = Array.from(new Set(todos.map((p) => p.setor || 'Sem setor')));
+    if (rhPlF.setor !== 'todos' && !setores.includes(rhPlF.setor)) rhPlF.setor = 'todos';
+    const bar = document.createElement('div'); bar.className = 'rh-mxf';
+    bar.innerHTML = `<label class="rh-pk-q">${ic('search')}<input id="plQ" placeholder="Buscar colaborador…" value="${esc(rhPlF.q)}" autocomplete="off"></label>
+      <div class="rh-mxf-c">${[['todos', 'Todos os setores', todos.length]].concat(setores.map((s) => [s, s, todos.filter((p) => (p.setor || 'Sem setor') === s).length])).map(([k, l, n]) => `<button type="button" class="rh-fc${rhPlF.setor === k ? ' on' : ''}" data-s="${esc(k)}">${esc(l)}<em>${n}</em></button>`).join('')}</div>`;
+    view.appendChild(bar); Icons.apply(bar);
+    const leg = document.createElement('div'); leg.className = 'pl-leg'; leg.innerHTML = RH_NIV.map((N) => `<span>${rhNivGlyph(N.n, 18)}<b>${N.n}</b>${esc(N.l)}</span>`).join('') + `<span class="pl-legc">${ic('alert')}Posto crítico</span>`;
+    view.appendChild(leg); Icons.apply(leg);
+    const box = document.createElement('div'); view.appendChild(box);
+    const paint = () => {
+      const ps = todos.filter((p) => rhPlF.setor === 'todos' || (p.setor || 'Sem setor') === rhPlF.setor);
+      let us = ativos; if (rhPlF.setor !== 'todos') us = us.filter((u) => (u.sector || 'Sem setor') === rhPlF.setor || ps.some((p) => rhNivel(p.id, u.id) > 0));
+      if (rhPlF.q) { const q = rhPlF.q.toLowerCase(); us = us.filter((u) => [u.name, u.sector].join(' ').toLowerCase().includes(q)); }
+      box.innerHTML = !us.length ? `<div class="tbl-wrap">${emptyState('users', 'Ninguém neste filtro', '')}</div>` : `<div class="pl-wrap"><table class="pl-mx"><thead><tr><th class="pl-hp">Colaborador</th>${ps.map((p) => { const cb = rhPostoCob(p); return `<th class="pl-hc${p.critico ? ' crit' : ''}" data-ph="${p.id}" title="${esc(p.nome)}"><span class="pl-hn">${p.critico ? ic('alert') : ''}${esc(p.nome)}</span><span class="pl-hb s-${cb.st}">${cb.hab}/${cb.min}</span></th>`; }).join('')}</tr></thead>
+        <tbody>${us.map((u) => `<tr><th class="pl-hp"><button type="button" class="pl-pn" data-u="${u.id}">${rhAvatar(u.name)}<span><b>${esc(u.name)}</b><small>${esc(u.sector || '—')}</small></span></button></th>${ps.map((p) => { const n = rhNivel(p.id, u.id); const pend = n >= 3 && rhPostoPend(p, u.id).length; return `<td><button type="button" class="pl-c n${n}${pend ? ' pend' : ''}" data-p="${p.id}" data-u="${u.id}" title="${esc(p.nome)} · ${esc(RH_NIV[n].l)}${pend ? ' · treinamento pendente' : ''}" ${podeEd ? '' : 'disabled'}>${rhNivGlyph(n, 24)}${pend ? '<i></i>' : ''}</button></td>`; }).join('')}</tr>`).join('')}</tbody></table></div>`;
+      Icons.apply(box);
+      $$('.pl-c', box).forEach((b) => (b.onclick = () => rhFormHabil(Store.find('rhPostos', b.dataset.p), rhPessoa(b.dataset.u))));
+      $$('.pl-pn', box).forEach((b) => (b.onclick = () => rhOpenPessoa(b.dataset.u)));
+      if (podeEd) $$('[data-ph]', box).forEach((b) => (b.onclick = () => rhFormPosto(Store.find('rhPostos', b.dataset.ph))));
+    };
+    $$('[data-s]', bar).forEach((b) => (b.onclick = () => { rhPlF.setor = b.dataset.s; $$('[data-s]', bar).forEach((x) => x.classList.toggle('on', x === b)); paint(); }));
+    $('#plQ', bar).oninput = (e) => { rhPlF.q = e.target.value; paint(); };
+    paint();
+  };
+
+  /* =========================== AUDITORES INTERNOS (IATF 7.2.3) =========================== */
+  const RH_AUD_TIPOS = { sistema: 'Sistema de gestão', processo: 'Processo de manufatura', produto: 'Produto' };
+  const RH_AUD_REQ = [
+    { k: 'abord', t: 'Abordagem de processo e mentalidade de risco (IATF 16949)' },
+    { k: 'norma', t: 'Requisitos da ISO 9001 e IATF 16949 aplicáveis' },
+    { k: 'csr', t: 'Requisitos específicos dos clientes (CSR)' },
+    { k: 'core', t: 'Core Tools: APQP, PPAP, FMEA, MSA e CEP' },
+    { k: 'cond', t: 'Planejar, conduzir, relatar e encerrar auditorias' },
+    { k: 'proc', t: 'Processo de manufatura auditado, incluindo PFMEA e plano de controle', tipo: 'processo' },
+    { k: 'prod', t: 'Requisitos do produto e uso de instrumentos de medição e ensaio', tipo: 'produto' },
+  ];
+  const rhAudCfg = () => Store.find('rhAuditores', 'cfg') || { minimo: 1 };
+  const rhAudList = () => rhList('rhAuditores').filter((a) => a.id !== 'cfg' && rhPessoa(a.colaboradorId));
+  const rhAudReqs = (a) => RH_AUD_REQ.filter((r) => !r.tipo || (a.tipos || []).includes(r.tipo));
+  function rhAudSt(a) {
+    const reqs = rhAudReqs(a); const ok = reqs.filter((r) => a.req && a.req[r.k] && a.req[r.k].ok).length;
+    const desde = addDays(rhHoje(), -365); const n12 = (a.auditorias || []).filter((x) => x.data >= desde).length; const min = Number(rhAudCfg().minimo) || 1;
+    const u = rhPessoa(a.colaboradorId);
+    const st = a.inativo || !u || u.situacao === 'desligado' ? 'inativo' : ok < reqs.length ? 'formacao' : n12 < min ? 'manter' : 'ok';
+    return { st, ok, tot: reqs.length, n12, min };
+  }
+  const RH_AUD_ST = { ok: { l: 'Qualificado', cls: 'ok', c: '#46D39A' }, manter: { l: 'Sem auditoria no ano', cls: 'warn', c: '#F5B840' }, formacao: { l: 'Em formação', cls: 'info', c: '#3FA9F5' }, inativo: { l: 'Inativo', cls: 'neutral', c: '#94A3B8' } };
+
+  function rhFormAuditor(a) {
+    const editing = !!(a && a.id); a = a ? JSON.parse(JSON.stringify(a)) : { tipos: ['sistema', 'processo'], req: {}, auditorias: [] };
+    const ja = new Set(rhAudList().map((x) => x.colaboradorId));
+    const opts = rhAtivos().filter((u) => editing ? u.id === a.colaboradorId : !ja.has(u.id)).sort((x, y) => x.name.localeCompare(y.name));
+    if (!editing && !opts.length) return toast('Todos os colaboradores ativos já são auditores', 'info');
+    const u0 = editing && rhPessoa(a.colaboradorId);
+    const card = modal({
+      title: editing ? u0.name : 'Novo auditor interno', sub: 'Competência do auditor · IATF 7.2.3', wide: true,
+      body: `${editing ? '' : `<div class="form-grid"><div class="field full"><label>Colaborador</label><select name="colaboradorId">${opts.map((u) => `<option value="${u.id}">${esc(u.name)}${u.sector ? ' · ' + esc(u.sector) : ''}</option>`).join('')}</select></div></div>`}
+        <div class="form-sec">${ic('clipboard')}Tipos de auditoria</div>
+        <div class="pl-chips" id="auTipos">${Object.entries(RH_AUD_TIPOS).map(([k, l]) => `<button type="button" class="pl-chip${(a.tipos || []).includes(k) ? ' on' : ''}" data-k="${k}">${ic('check')}${l}</button>`).join('')}</div>
+        <div class="form-sec">${ic('award')}Requisitos de competência</div><div id="auReq"></div>
+        <div class="form-sec">${ic('calendar')}Auditorias realizadas</div><div id="auAud"></div>
+        ${editing ? `<div class="field full" style="margin-top:14px">${sw('Auditor inativo', 'inativo', a.inativo)}</div>` : ''}`,
+      footer: (editing ? `<button class="btn danger ghost" id="delBtn" style="margin-right:auto">${ic('trash')}Remover</button>` : '') + submitFooter(editing),
+    });
+    const cs = $('[name="colaboradorId"]', card); if (cs) ccSelect(cs, { search: true, icon: 'users' });
+    const paintReq = () => {
+      $('#auReq', card).innerHTML = `<div class="au-rl">${rhAudReqs(a).map((r) => { const v = (a.req || {})[r.k] || {}; return `<div class="au-r${v.ok ? ' on' : ''}" data-k="${r.k}"><button type="button" class="au-ck">${ic('check')}</button><span class="au-rt"><b>${esc(r.t)}</b><span class="au-rf"><input type="date" data-f="data" value="${esc(v.data || '')}" max="${rhHoje()}"><input data-f="evid" placeholder="Evidência (certificado, curso, treinamento)" value="${esc(v.evid || '')}"></span></span></div>`; }).join('')}</div>`;
+      Icons.apply($('#auReq', card));
+      $$('.au-r', card).forEach((row) => {
+        const k = row.dataset.k; a.req = a.req || {}; a.req[k] = a.req[k] || {};
+        $('.au-ck', row).onclick = () => { a.req[k].ok = !a.req[k].ok; if (a.req[k].ok && !a.req[k].data) { a.req[k].data = rhHoje(); $('[data-f="data"]', row).value = rhHoje(); } row.classList.toggle('on', a.req[k].ok); };
+        $$('input', row).forEach((i) => (i.oninput = () => { a.req[k][i.dataset.f] = i.value; }));
+      });
+    };
+    const paintAud = () => {
+      const l = (a.auditorias || []).slice().sort((x, y) => String(y.data).localeCompare(String(x.data)));
+      $('#auAud', card).innerHTML = `${l.length ? `<div class="tu-emis" style="margin-top:0">${l.map((x) => `<div>${ic('clipboard')}<b>${fmtDate(x.data)}</b><span>${esc(RH_AUD_TIPOS[x.tipo] || '')}${x.escopo ? ' · ' + esc(x.escopo) : ''}</span><button type="button" class="mini-btn danger" data-rm="${x.id}" title="Remover">${ic('x')}</button></div>`).join('')}</div>` : ''}
+        <div class="au-add"><input type="date" id="auD" max="${rhHoje()}" value="${rhHoje()}"><select id="auT">${Object.entries(RH_AUD_TIPOS).map(([k, l2]) => `<option value="${k}">${l2}</option>`).join('')}</select><input id="auE" placeholder="Processo / área auditada"><button type="button" class="btn sm" id="auAdd">${ic('plus')}Adicionar</button></div>`;
+      Icons.apply($('#auAud', card));
+      $('#auAdd', card).onclick = () => { const d = $('#auD', card).value; if (!d || d > rhHoje()) return toast('Data inválida', 'warn'); a.auditorias = (a.auditorias || []).concat([{ id: 'au' + Date.now().toString(36), data: d, tipo: $('#auT', card).value, escopo: $('#auE', card).value.trim() }]); paintAud(); };
+      $$('[data-rm]', card).forEach((b) => (b.onclick = () => { a.auditorias = a.auditorias.filter((x) => x.id !== b.dataset.rm); paintAud(); }));
+    };
+    $$('#auTipos .pl-chip', card).forEach((b) => (b.onclick = () => { const k = b.dataset.k; const s = new Set(a.tipos || []); s.has(k) ? s.delete(k) : s.add(k); a.tipos = Array.from(s); b.classList.toggle('on', s.has(k)); paintReq(); }));
+    paintReq(); paintAud();
+    const del = $('#delBtn', card);
+    if (del) del.onclick = () => confirmDialog(`Remover ${u0.name} da lista de auditores?`, () => { Store.remove('rhAuditores', a.id); closeModal(); toast('Auditor removido'); go(currentRoute); }, 'danger');
+    $('#saveBtn', card).onclick = () => {
+      if (!(a.tipos || []).length) return toast('Marque ao menos um tipo de auditoria', 'warn');
+      const bad = Object.values(a.req || {}).find((v) => v.ok && (!v.data || v.data > rhHoje())); if (bad) return toast('Informe a data de cada requisito atendido', 'warn');
+      const obj = { tipos: a.tipos, req: a.req || {}, auditorias: a.auditorias || [], inativo: editing ? !!readForm(card).inativo : false };
+      if (editing) Store.update('rhAuditores', a.id, obj); else Store.add('rhAuditores', { ...obj, colaboradorId: cs.value });
+      closeModal(); toast(editing ? 'Auditor atualizado' : 'Auditor cadastrado'); go(currentRoute);
+    };
+  }
+  function rhAudPrint(l) {
+    const corpo = `<div class="info"><div><small>Auditores</small><b>${l.length}</b></div><div><small>Qualificados</small><b>${l.filter((x) => x.s.st === 'ok').length}</b></div><div><small>Mínimo por ano</small><b>${rhAudCfg().minimo} auditoria(s)</b></div><div><small>Referência</small><b>IATF 16949 · 7.2.3</b></div></div>
+      <table><thead><tr><th>Nº</th><th>Auditor</th><th>Tipos</th><th>Requisitos</th><th>Auditorias (12 meses)</th><th>Situação</th></tr></thead><tbody>
+      ${l.map((x, i) => `<tr><td class="n">${i + 1}</td><td>${esc(x.u.name)}<br><small style="color:#667">${esc(x.u.sector || '')}</small></td><td>${(x.a.tipos || []).map((t) => esc(RH_AUD_TIPOS[t])).join(', ')}</td><td>${x.s.ok}/${x.s.tot}</td><td>${x.s.n12}</td><td><b class="st ${x.s.st === 'ok' ? 'ok' : x.s.st === 'manter' ? 'vencendo' : 'pendente'}">${RH_AUD_ST[x.s.st].l}</b></td></tr>`).join('')}</tbody></table>
+      <div class="ass"><div>&nbsp;<small>Gestão da Qualidade</small></div><div>&nbsp;<small>Recursos Humanos</small></div></div>`;
+    rhPrintDoc('Auditores internos qualificados', corpo);
+  }
+  let rhAuF = 'todos';
+  PAGES['rh-auditores'] = () => {
+    const podeEd = Perm.podeGravar('rhAuditores');
+    pageShell('RH', 'Auditores internos', 'Competência dos auditores · IATF 7.2.3.',
+      `<button class="btn" id="auPrint">${ic('file')}Imprimir lista</button>${podeEd ? `<button class="btn" id="auCfg">${ic('settings')}Mínimo anual</button><button class="btn primary" id="auNovo">${ic('plus')}Novo auditor</button>` : ''}`);
+    const l = rhAudList().map((a) => ({ a, u: rhPessoa(a.colaboradorId), s: rhAudSt(a) })).sort((x, y) => x.u.name.localeCompare(y.u.name));
+    $('#auPrint').onclick = () => (l.length ? rhAudPrint(l.filter((x) => x.s.st !== 'inativo')) : toast('Cadastre os auditores primeiro', 'warn'));
+    if (podeEd) {
+      $('#auNovo').onclick = () => rhFormAuditor(null);
+      $('#auCfg').onclick = () => { const c = modal({ title: 'Mínimo anual', sub: 'Auditorias por auditor nos últimos 12 meses', body: `<div class="form-grid">${field('Auditorias por ano', 'minimo', rhAudCfg().minimo, 'text', { full: true, hint: 'Abaixo disso o auditor perde a qualificação' })}</div>`, footer: submitFooter(true) });
+        rhMaskNum($('[name="minimo"]', c), 24); $('#saveBtn', c).onclick = () => { const v = Math.max(1, rhNum(readForm(c).minimo) || 1); if (Store.find('rhAuditores', 'cfg')) Store.update('rhAuditores', 'cfg', { minimo: v }); else Store.add('rhAuditores', { id: 'cfg', minimo: v }); closeModal(); toast('Mínimo atualizado'); go(currentRoute); }; };
+    }
+    if (!l.length) {
+      const e = document.createElement('div'); e.className = 'tbl-wrap'; e.innerHTML = `${emptyState('clipboard', 'Nenhum auditor cadastrado', 'Cadastre quem faz as auditorias internas.')}${podeEd ? `<div class="rh-sug"><button type="button" class="btn primary" id="auNovo2">${ic('plus')}Cadastrar auditor</button></div>` : ''}`;
+      view.appendChild(e); Icons.apply(e); const b = $('#auNovo2', e); if (b) b.onclick = () => rhFormAuditor(null); return;
+    }
+    const cnt = { todos: l.length, ok: 0, manter: 0, formacao: 0, inativo: 0 }; l.forEach((x) => cnt[x.s.st]++);
+    const tile = (cls, icn, v, lb, s, f) => `<button type="button" class="pvd-tile ${cls}" data-af="${f}"><span class="pvd-ti">${ic(icn)}</span><b>${v}</b><span>${esc(lb)}</span><small>${esc(s)}</small></button>`;
+    const tiles = document.createElement('section'); tiles.className = 'pc-tiles au-tiles';
+    tiles.innerHTML = tile('t-info', 'clipboard', l.length - cnt.inativo, 'Auditores ativos', `${cnt.inativo} inativo${cnt.inativo === 1 ? '' : 's'}`, 'todos') + tile('t-ok', 'check', cnt.ok, 'Qualificados', 'requisitos e auditorias em dia', 'ok')
+      + tile(cnt.manter ? 't-warn' : '', 'clock', cnt.manter, 'Sem auditoria no ano', `mínimo ${rhAudCfg().minimo} em 12 meses`, 'manter') + tile('', 'award', cnt.formacao, 'Em formação', 'requisito pendente', 'formacao');
+    view.appendChild(tiles); Icons.apply(tiles);
+    const grid = document.createElement('div'); view.appendChild(grid);
+    const paint = () => {
+      const fl = l.filter((x) => rhAuF === 'todos' || x.s.st === rhAuF);
+      grid.innerHTML = fl.length ? `<div class="rh-cards au-cards">${fl.map((x, i) => { const S = RH_AUD_ST[x.s.st]; const ult = (x.a.auditorias || []).slice().sort((p, q) => String(q.data).localeCompare(String(p.data)))[0];
+        return `<button type="button" class="rh-card au-card" data-a="${x.a.id}" style="--d:${i * 40}ms;--c:${S.c}"><span class="rh-card-h">${rhAvatar(x.u.name)}<span><b>${esc(x.u.name)}</b><small>${esc([(rhCargo(x.u.cargoId) || {}).nome, x.u.sector].filter(Boolean).join(' · ') || '—')}</small></span><span class="badge ${S.cls} plain">${S.l}</span></span>
+          <span class="au-tp">${(x.a.tipos || []).map((t) => `<em>${esc(RH_AUD_TIPOS[t])}</em>`).join('')}</span>
+          <span class="rh-tc-k"><span>${ic('award')}<b>${x.s.ok}/${x.s.tot}</b><small>requisitos</small></span><span>${ic('clipboard')}<b>${x.s.n12}/${x.s.min}</b><small>auditorias no ano</small></span></span>
+          <span class="au-bar"><i style="width:${x.s.tot ? Math.round((100 * x.s.ok) / x.s.tot) : 0}%"></i></span>
+          <small class="au-ult">${ult ? `Última auditoria em ${fmtDate(ult.data)}${ult.escopo ? ' · ' + esc(ult.escopo) : ''}` : 'Nenhuma auditoria registrada'}</small></button>`; }).join('')}</div>`
+        : `<div class="tbl-wrap">${emptyState('clipboard', 'Ninguém neste filtro', '')}</div>`;
+      Icons.apply(grid);
+      $$('[data-a]', grid).forEach((b) => (b.onclick = () => (podeEd ? rhFormAuditor(Store.find('rhAuditores', b.dataset.a)) : rhOpenPessoa(Store.find('rhAuditores', b.dataset.a).colaboradorId))));
+    };
+    $$('[data-af]', tiles).forEach((b) => (b.onclick = () => { rhAuF = rhAuF === b.dataset.af ? 'todos' : b.dataset.af; $$('[data-af]', tiles).forEach((x) => x.classList.toggle('on', x.dataset.af === rhAuF && rhAuF !== 'todos')); paint(); }));
+    paint();
   };
 
   /* =========================== PERFIL DO TREINAMENTO + TURMAS ===========================
@@ -4018,6 +4303,10 @@
         v: () => { const l = rhAtivos(); return { v: pctOf(l.filter((u) => ['ok', 'vencendo'].includes(rhIntDe(u.id).st)).length, l.length), n: l.length }; } },
       { k: 'rh_treino', a: 'rh', t: 'Treinamentos exigidos em dia', c: '7.2.1 · 7.2.2', u: '%', melhor: 'maior', meta: 95, atual: true, como: 'Treinamentos válidos ÷ exigidos pelos cargos.',
         v: () => { let ok = 0, tot = 0; rhAtivos().forEach((u) => { const r = rhTreinoResumo(u); ok += r.ok + r.vencendo; tot += r.total; }); return { v: pctOf(ok, tot), n: tot }; } },
+      { k: 'rh_poli', a: 'rh', t: 'Postos críticos cobertos', c: '7.2.2 · 6.1.2.3', u: '%', melhor: 'maior', meta: 100, atual: true, como: 'Postos críticos com habilitados (nível 3+) no mínimo definido ÷ postos críticos.',
+        v: () => { const l = rhPostos().filter((p) => p.critico); return { v: pctOf(l.filter((p) => rhPostoCob(p).st === 'ok').length, l.length), n: l.length }; } },
+      { k: 'rh_aud', a: 'rh', t: 'Auditores internos qualificados', c: '7.2.3', u: '%', melhor: 'maior', meta: 100, atual: true, como: 'Auditores com requisitos e auditorias do ano em dia ÷ auditores ativos.',
+        v: () => { const l = rhAudList().map(rhAudSt).filter((s) => s.st !== 'inativo'); return { v: pctOf(l.filter((s) => s.st === 'ok').length, l.length), n: l.length }; } },
       { k: 'rh_efic', a: 'rh', t: 'Eficácia dos treinamentos', c: '7.2.1', u: '%', melhor: 'maior', meta: 90, como: 'Treinamentos avaliados como eficazes ÷ avaliados.',
         v: (k) => { const l = regs().filter((r) => naMes(r.data, k) && ['eficaz', 'nao'].includes(r.eficacia)); return { v: pctOf(l.filter((r) => r.eficacia === 'eficaz').length, l.length), n: l.length }; } },
       { k: 'rh_horas', a: 'rh', t: 'Horas de treinamento por pessoa', c: '7.2', u: 'h', melhor: 'maior', meta: null, como: 'Carga horária realizada no mês ÷ colaboradores ativos.',
@@ -8089,7 +8378,7 @@
     ] },
     rh: { label: 'RH', groups: [
       { label: 'Pessoas', items: [ { r: 'rh-painel', t: 'Painel', s: 'Painel', i: 'grid' }, { r: 'rh-colab', t: 'Pessoas & setores', s: 'Pessoas', i: 'users' }, { r: 'rh-movs', t: 'Admissão / Desligamento', s: 'Entradas', i: 'refresh' } ] },
-      { label: 'Desenvolvimento & rotina', items: [ { r: 'rh-integracao', t: 'Integração', s: 'Integração', i: 'shield' }, { r: 'rh-treinos', t: 'Treinamentos & competências', s: 'Treinos', i: 'award' }, { r: 'rh-ferias', t: 'Férias & ausências', s: 'Férias', i: 'sun2' }, { r: 'rh-veiculos', t: 'Controle de veículos', s: 'Veículos', i: 'car' } ] },
+      { label: 'Desenvolvimento & rotina', items: [ { r: 'rh-integracao', t: 'Integração', s: 'Integração', i: 'shield' }, { r: 'rh-treinos', t: 'Treinamentos & competências', s: 'Treinos', i: 'award' }, { r: 'rh-polivalencia', t: 'Polivalência', s: 'Polivalência', i: 'grid' }, { r: 'rh-auditores', t: 'Auditores internos', s: 'Auditores', i: 'clipboard' }, { r: 'rh-ferias', t: 'Férias & ausências', s: 'Férias', i: 'sun2' }, { r: 'rh-veiculos', t: 'Controle de veículos', s: 'Veículos', i: 'car' } ] },
     ] },
     programacao: { label: 'Programação', groups: [
       { label: 'Operação', items: [ { r: 'prog-atividades', t: 'Atividades', s: 'Atividades', i: 'list' }, { r: 'prog-pedidos', t: 'Pedidos', s: 'Pedidos', i: 'file' }, { r: 'prog-rnc', t: 'Não Conformidades', s: 'RNC', i: 'alert' } ] },
