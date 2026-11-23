@@ -1292,7 +1292,7 @@
   const PV_LOCAIS_CONT = ['Estoque Convergas', 'Em trânsito', 'Cliente', 'Fornecedor', 'Produção (WIP)'];
   const PV_DOCS = ['DFMEA', 'PFMEA', 'Plano de controle', 'Instrução de trabalho', 'Dispositivo à prova de erro', 'Lições aprendidas'];
   const PV_GRUPOS = {
-    abertura: 'Evidências da abertura', rnc_cliente: 'RNC / reclamação do cliente', atendimento: 'Relatório de atendimento',
+    abertura: 'Evidências da abertura', rnc_cliente: 'RNC / reclamação do cliente', atendimento: 'Relatório de atendimento', fotos: 'Fotos do atendimento',
     rnc: 'RNC (Qualidade)', d8: '8D / relatório de análise', verificacao: 'Evidência de eficácia',
   };
   const PV_MAX_MB = 15;
@@ -1469,7 +1469,7 @@
     const dias = ano.map((c) => Math.max(0, daysBetween(pvDay(c.criadoEm), c.encerramento.data)));
     const tMedio = dias.length ? (dias.reduce((a, b) => a + b, 0) / dias.length) : null;
     const noPrazo = ano.length ? Math.round(100 * ano.filter((c) => !c.prazo || c.encerramento.data <= c.prazo).length / ano.length) : null;
-    const custo = all.filter((c) => pvDay(c.criadoEm).slice(0, 4) === y).reduce((acc, c) => acc + (Number((c.atendimento || {}).custoTotal) || 0), 0);
+    const emCampo = all.filter((c) => (c.atendimento || {}).descricao && (c.atendimento.data || pvDay(c.criadoEm)).slice(0, 4) === y && c.atendimento.modalidade === 'Em campo').length;
     const notas = all.map((c) => Number((c.encerramento || {}).satisfacao)).filter((n) => n > 0).concat(pvAvResp().map((a) => Number(a.resposta.nota)).filter((n) => n > 0));
     const sat = notas.length ? (notas.reduce((a, b) => a + b, 0) / notas.length) : null;
     const MES = ['jan', 'fev', 'mar', 'abr', 'mai', 'jun', 'jul', 'ago', 'set', 'out', 'nov', 'dez'];
@@ -1505,7 +1505,7 @@
         <div class="pvp-kpis">
           <div><span>${ic('clock')}Tempo médio</span><b>${tMedio == null ? '—' : `<em data-count="${tMedio.toFixed(1)}" data-dec="1">0</em> d`}</b></div>
           <div><span>${ic('users')}Satisfação</span><b>${sat == null ? '—' : `<em data-count="${sat.toFixed(1)}" data-dec="1">0</em><small>/5</small>`}</b></div>
-          <div><span>${ic('shield')}Custo no ano</span><b class="pvp-money">${esc(pvMoney(custo))}</b></div>
+          <div><span>${ic('wrench')}Em campo no ano</span><b><em data-count="${emCampo}">0</em></b></div>
         </div>
       </div>
       <div class="pvd-side">
@@ -4263,9 +4263,6 @@
         v: (k) => { const l = ch().filter((c) => naMes((c.encerramento || {}).data, k)).map((c) => Number(c.encerramento.satisfacao)).filter((x) => x > 0).concat(avs().filter((a) => naMes(a.respostaEm, k)).map((a) => Number(a.resposta.nota)).filter((x) => x > 0)); return { v: media(l), n: l.length }; } },
       { k: 'pv_nps', a: 'pos-vendas', t: 'NPS', c: '9.1.2', u: 'nps', melhor: 'maior', meta: 50, como: '% promotores (9–10) − % detratores (0–6).',
         v: (k) => { const l = avs().filter((a) => naMes(a.respostaEm, k)).map((a) => Number(a.resposta.recomenda)).filter((x) => !isNaN(x) && x >= 0); return { v: l.length ? Math.round(pctOf(l.filter((x) => x >= 9).length, l.length) - pctOf(l.filter((x) => x <= 6).length, l.length)) : null, n: l.length }; } },
-      { k: 'pv_custo', a: 'pos-vendas', t: 'Custo de garantia e atendimento', c: '9.3.2.1 · 10.2.5', u: 'R$', melhor: 'menor', meta: null, como: 'Soma dos custos lançados nos atendimentos.',
-        v: (k) => { const l = ch().filter((c) => naMes(c.criadoEm, k) && Number((c.atendimento || {}).custoTotal) > 0); return { v: l.length ? l.reduce((s, c) => s + Number(c.atendimento.custoTotal), 0) : 0, n: l.length }; } },
-      // ---------------- Qualidade (situação atual) ----------------
       { k: 'qa_calib', a: 'qualidade', t: 'Calibrações em dia', c: '7.1.5.1.1 · 7.1.5.2', u: '%', melhor: 'maior', meta: 100, atual: true, como: 'Equipamentos com calibração válida ÷ equipamentos.',
         v: () => { const l = certs(['equipamento']); return { v: pctOf(l.filter((c) => certStatus(c.expiryDate).key !== 'vencido').length, l.length), n: l.length }; } },
       { k: 'qa_cert', a: 'qualidade', t: 'Certificados válidos', c: '8.4.2.3 · 8.6', u: '%', melhor: 'maior', meta: 100, atual: true, como: 'Certificados InMetro e de manutenção dentro da validade.',
@@ -4619,7 +4616,7 @@
     const dias = enc.map((c) => Math.max(0, daysBetween(pvDay(c.criadoEm), c.encerramento.data)));
     const tMed = dias.length ? dias.reduce((a, b) => a + b, 0) / dias.length : null;
     const noPrazo = enc.length ? Math.round((100 * enc.filter((c) => !c.prazo || c.encerramento.data <= c.prazo).length) / enc.length) : null;
-    const custo = ch.reduce((a, c) => a + (Number((c.atendimento || {}).custoTotal) || 0), 0);
+    const pecasQtd = ch.reduce((a, c) => a + pvPecasList(c.atendimento || {}).reduce((s, x) => s + (Number(x.qtd) || (x.desc ? 1 : 0)), 0), 0);
     const ult = ch.map((c) => pvDay(c.criadoEm)).sort().pop();
 
     pageShell('Pós-Vendas', k.fantasia || k.nome, 'Perfil do cliente.',
@@ -4659,7 +4656,7 @@
       tile('t-danger' + (atr.length ? ' hot' : ''), 'alert', `<span data-count="${atr.length}">0</span>`, 'Atrasados', atr.length ? 'fora do prazo' : 'nenhum'),
       tile('t-ok', 'check', noPrazo == null ? '—' : `<span data-count="${noPrazo}" data-suf="%">0%</span>`, 'Encerrados no prazo', `${enc.length} ${enc.length === 1 ? 'encerrado' : 'encerrados'}`),
       tile('', 'activity', tMed == null ? '—' : `<span data-count="${tMed.toFixed(1)}" data-dec="1">0</span><small class="pvc-of"> d</small>`, 'Tempo médio', 'da abertura ao encerramento'),
-      tile('', 'shield', `<span class="pc-money">${esc(pvMoney(custo))}</span>`, 'Custo de atendimento', 'soma dos chamados'),
+      tile('', 'box', `<span data-count="${pecasQtd}">0</span>`, 'Peças trocadas', 'nos atendimentos'),
     ].join('');
     view.appendChild(tiles); Icons.apply(tiles);
 
@@ -5634,7 +5631,8 @@
             ${precisa || ct.data ? `<div class="pvx-subh">Contenção <small>ação imediata para proteger o cliente</small></div>
               ${ct.data ? `<div class="pvx-kvs">${kvt('Ações de contenção', ct.acoes)}${kvt('Onde', (ct.locais || []).join(', '))}${kvt('Quantidade segregada', ct.qtd)}${kvt('Data', fmtDate(ct.data))}${kvt('Responsável', ct.responsavel)}</div>` : `<div class="pvx-cta sm">${ic('shield')}<div><b>Contenção não registrada</b><span>Recomendado em até 24 h quando há RNC.</span></div>${btn('pvCont', 'shield', 'Registrar contenção', 'primary')}</div>`}` : ''}
             <div class="pvx-subh">Atendimento <small>o que foi feito para resolver</small></div>
-            ${at.descricao ? `<div class="pvx-kvs">${kvt('Modalidade', at.modalidade)}${kvt('Técnico / responsável', at.tecnico)}${kvt('Data', fmtDate(at.data))}${kvt('Resultado', at.resultado)}${kvt('O que foi feito', at.descricao)}${kvt('Peças trocadas', at.pecas)}${kv('Análise sem defeito (NTF)', at.ntf ? 'Sim' : 'Não')}${kvt('Garantia', at.garantia)}${kv('Custo total', pvMoney(at.custoTotal))}</div>
+            ${at.descricao ? `<div class="pvx-kvs">${kvt('Modalidade', at.modalidade)}${kvt('Técnico / responsável', at.tecnico)}${kvt('Data', fmtDate(at.data))}${kvt('Resultado', at.resultado)}${kvt('O que foi feito', at.descricao)}${kvt('Peças trocadas', pvPecasTx(pvPecasList(at)))}${kvt('Horas / km', [at.horas ? at.horas + ' h' : '', at.km ? at.km + ' km' : ''].filter(Boolean).join(' · '))}${kv('Análise sem defeito (NTF)', at.ntf ? 'Sim' : 'Não')}${kvt('Garantia', at.garantia)}</div>
+              <div class="pvx-subh">Fotos do atendimento</div>${pvFileList(c, 'fotos', { readonly: !pvAberto(c), cta: 'Anexar fotos' })}
               <div class="pvx-subh">Relatório de atendimento</div>${pvFileList(c, 'atendimento', { readonly: !pvAberto(c) })}`
               : `<div class="pvx-cta sm">${ic('wrench')}<div><b>Atendimento não registrado</b><span>Correção em campo, análise da peça, troca em garantia…</span></div>${btn('pvAtend', 'wrench', 'Registrar atendimento', 'primary')}</div>`}`,
             `${ct.data ? btn('pvCont', 'shield', 'Contenção', 'ghost') : ''}${at.descricao ? btn('pvAtend', 'edit', 'Atendimento', 'ghost') : ''}`)}
@@ -5782,32 +5780,74 @@
       });
     return card;
   }
+  // peças trocadas: lista estruturada (o texto "pecas" continua salvo para relatórios antigos)
+  const pvPecasList = (at) => Array.isArray(at.pecasList) ? at.pecasList : (at.pecas ? [{ desc: at.pecas, qtd: '', lote: '' }] : []);
+  const pvPecasTx = (l) => l.map((x) => `${x.qtd ? x.qtd + '× ' : ''}${x.desc}${x.lote ? ' (lote/série ' + x.lote + ')' : ''}`).join('; ');
+  // reduz a foto do celular (até 1600 px, JPEG) antes de enviar
+  function pvFotoReduz(f) {
+    return new Promise((ok) => {
+      if (!/^image\/(jpe?g|png|webp|heic)/i.test(f.type || '') || f.size < 600 * 1024) return ok(f);
+      const img = new Image(); const u = URL.createObjectURL(f);
+      img.onload = () => { const k = Math.min(1, 1600 / Math.max(img.width, img.height)); const cv = document.createElement('canvas'); cv.width = Math.round(img.width * k); cv.height = Math.round(img.height * k);
+        cv.getContext('2d').drawImage(img, 0, 0, cv.width, cv.height); URL.revokeObjectURL(u);
+        cv.toBlob((b) => ok(b && b.size < f.size ? new File([b], f.name.replace(/\.\w+$/, '') + '.jpg', { type: 'image/jpeg' }) : f), 'image/jpeg', 0.82); };
+      img.onerror = () => { URL.revokeObjectURL(u); ok(f); }; img.src = u;
+    });
+  }
   function pvFormAtendimento(c, after) {
     const at = c.atendimento || {};
+    let pecas = pvPecasList(at).map((x) => ({ ...x })); const fotos = [];
     const card = pvSheet(c, 'Atendimento', 'tratativa', `
       <div class="form-sec">${ic('wrench')}O que foi feito</div>
       <div class="field"><label>Modalidade</label><select name="modalidade">${pvOpt(at.modalidade || 'Em campo', ['Em campo', 'Remoto / telefone', 'Análise na fábrica (peça devolvida)', 'Troca / reposição', 'Somente informação'])}</select></div>
-      ${field('Técnico / responsável', 'tecnico', at.tecnico || pvMe())}
+      ${field('Técnico', 'tecnico', at.tecnico || pvMe())}
       ${field('Data do atendimento', 'data', at.data || todayISO(), 'date')}
       <div class="field"><label>Resultado</label><select name="resultado">${pvOpt(at.resultado || '', ['', 'Resolvido', 'Resolvido parcialmente', 'Não resolvido — nova intervenção', 'Aguardando peça'])}</select></div>
-      ${field('Descrição do serviço / análise', 'descricao', at.descricao, 'textarea', { full: true, ph: 'Diagnóstico, o que foi corrigido, testes feitos…' })}
-      ${field('Peças trocadas', 'pecas', at.pecas, 'text', { full: true })}
-      <div class="field full"><label class="pvx-chk"><input type="checkbox" name="ntf" ${at.ntf ? 'checked' : ''}>Análise não encontrou defeito (NTF — "no trouble found")</label><span class="hint">A IATF pede que peças de garantia sem defeito também sejam analisadas e registradas.</span></div>
-      <div class="form-sec">${ic('shield')}Garantia e custos</div>
+      ${field('O que foi feito', 'descricao', at.descricao, 'textarea', { full: true, ph: 'Diagnóstico, o que foi corrigido, testes feitos…' })}
+      <div class="field full"><label class="pvx-chk"><input type="checkbox" name="ntf" ${at.ntf ? 'checked' : ''}>Não foi encontrado defeito (NTF)</label></div>
+      <div class="form-sec">${ic('box')}Peças trocadas</div>
+      <div class="field full"><div class="at-pecas" id="atPecas"></div><button type="button" class="btn sm" id="atPecaAdd">${ic('plus')}Adicionar peça</button></div>
+      <div class="form-sec">${ic('clock')}Tempo e deslocamento</div>
+      ${field('Horas trabalhadas', 'horas', at.horas, 'text', { ph: 'Ex.: 2,5' })}
+      ${field('Km rodados', 'km', at.km, 'text', { ph: 'Ex.: 40' })}
       <div class="field"><label>Garantia</label><select name="garantia">${pvOpt(at.garantia || 'Não se aplica', ['Não se aplica', 'Procedente — coberta', 'Improcedente — não coberta', 'Cortesia comercial'])}</select></div>
-      ${field('Mão de obra (R$)', 'custoMao', at.custoMao, 'number')}
-      ${field('Peças (R$)', 'custoPecas', at.custoPecas, 'number')}
-      ${field('Deslocamento / frete (R$)', 'custoDesl', at.custoDesl, 'number')}`,
-      (d) => {
+      <div class="form-sec">${ic('eye')}Fotos</div>
+      <div class="field full"><div class="at-fotos" id="atFotos"></div>
+        <div class="at-fbtns"><label class="btn" id="atCam">${ic('eye')}Tirar foto<input type="file" accept="image/*" capture="environment" hidden></label><label class="btn ghost">${ic('upload')}Da galeria<input type="file" accept="image/*" multiple hidden></label></div>
+        ${pvAnexos(c, 'fotos').length ? `<span class="hint">${pvAnexos(c, 'fotos').length} foto(s) já anexada(s) ao chamado</span>` : ''}</div>`,
+      async (d, card2) => {
         if (!d.descricao) { toast('Descreva o que foi feito', 'warn'); return false; }
         if (!d.resultado) { toast('Informe o resultado', 'warn'); return false; }
-        const custoTotal = (Number(d.custoMao) || 0) + (Number(d.custoPecas) || 0) + (Number(d.custoDesl) || 0);
-        const atendimento = Object.assign({}, d, { custoTotal });
+        const lista = pecas.map((x) => ({ desc: (x.desc || '').trim(), qtd: String(x.qtd || '').trim(), lote: (x.lote || '').trim() })).filter((x) => x.desc);
+        const base = Object.assign({}, at); // valores antigos (ex.: custo) ficam guardados, só não aparecem
+        const atendimento = Object.assign(base, d, { pecasList: lista, pecas: pvPecasTx(lista), horas: d.horas, km: d.km });
         const patch = { atendimento };
         if (d.ntf && c.triagem && c.triagem.procedencia === 'Em análise') patch.triagem = Object.assign({}, c.triagem, { procedencia: 'Improcedente' });
-        pvSave(c, patch, at.descricao ? 'Atendimento atualizado' : 'Atendimento registrado', `${d.modalidade} · ${d.resultado}`);
-        toast('Atendimento salvo'); after();
+        pvSave(c, patch, at.descricao ? 'Atendimento atualizado' : 'Atendimento registrado', `${d.modalidade} · ${d.resultado}${lista.length ? ' · ' + lista.length + ' peça(s)' : ''}`);
+        if (fotos.length) { toast('Enviando fotos…', 'info'); const n = await pvAttach(Store.find('pvChamados', c.id), 'fotos', fotos); toast(n ? `Atendimento salvo com ${n} foto${n > 1 ? 's' : ''}` : 'Atendimento salvo (fotos não enviadas)', n ? undefined : 'warn'); }
+        else toast('Atendimento salvo');
+        after();
       });
+    const hI = $('[name="horas"]', card); hI.setAttribute('inputmode', 'decimal'); hI.addEventListener('input', () => { let v = hI.value.replace('.', ',').replace(/[^\d,]/g, ''); const k = v.indexOf(','); if (k >= 0) v = v.slice(0, k + 1) + v.slice(k + 1).replace(/,/g, '').slice(0, 1); hI.value = v.slice(0, 5); });
+    rhMaskNum($('[name="km"]', card), 99999);
+    const paintPecas = () => {
+      const box = $('#atPecas', card);
+      box.innerHTML = pecas.length ? pecas.map((x, i) => `<div class="at-pc" data-i="${i}"><input data-f="desc" placeholder="Peça (código ou descrição)" value="${esc(x.desc || '')}"><input data-f="qtd" placeholder="Qtd" inputmode="numeric" value="${esc(x.qtd || '')}"><input data-f="lote" placeholder="Lote / série da peça retirada" value="${esc(x.lote || '')}"><button type="button" class="mini-btn danger" data-rm="${i}" title="Remover">${ic('x')}</button></div>`).join('') : '<span class="pvx-muted">Nenhuma peça trocada.</span>';
+      Icons.apply(box);
+      $$('.at-pc input', box).forEach((inp) => (inp.oninput = () => { const i = +inp.closest('.at-pc').dataset.i; if (inp.dataset.f === 'qtd') inp.value = inp.value.replace(/\D/g, '').slice(0, 4); pecas[i][inp.dataset.f] = inp.value; }));
+      $$('[data-rm]', box).forEach((b) => (b.onclick = () => { pecas.splice(+b.dataset.rm, 1); paintPecas(); }));
+    };
+    $('#atPecaAdd', card).onclick = () => { pecas.push({ desc: '', qtd: '1', lote: '' }); paintPecas(); const l = $$('.at-pc input[data-f="desc"]', card); if (l.length) l[l.length - 1].focus(); };
+    paintPecas();
+    const paintFotos = () => {
+      const box = $('#atFotos', card);
+      box.innerHTML = fotos.map((f, i) => `<div class="at-ft"><img src="${URL.createObjectURL(f)}" alt=""><button type="button" data-frm="${i}" title="Remover">${ic('x')}</button></div>`).join('');
+      Icons.apply(box); $$('[data-frm]', box).forEach((b) => (b.onclick = () => { fotos.splice(+b.dataset.frm, 1); paintFotos(); }));
+    };
+    $$('.at-fbtns input', card).forEach((inp) => (inp.onchange = async () => { const l = Array.from(inp.files || []); inp.value = ''; for (const f of l) fotos.push(await pvFotoReduz(f)); paintFotos(); }));
+    // pvSheet fecha só se onSave não devolver false; com async, a validação já foi feita antes do primeiro await
+    const sv = $('#saveBtn', card); const orig = sv.onclick;
+    sv.onclick = async () => { const d = readForm(card); if (!d.descricao) return toast('Descreva o que foi feito', 'warn'); if (!d.resultado) return toast('Informe o resultado', 'warn'); sv.disabled = true; orig(); };
     return card;
   }
   function pvFormRnc(c, after) {
@@ -5897,7 +5937,7 @@
       <header><div><h1>Chamado de pós-vendas ${esc(c.numero)}</h1><div class="sub">${esc(pvClienteNome(c))} · ${esc(t.label)}</div></div><div class="sub">Status: <b>${esc((PV_STATUS[c.status] || {}).label || c.status)}</b><br>Emitido em ${esc(pvFmtDT(pvNow()))}</div></header>
       ${block('1. Abertura', row('Aberto em / por', pvFmtDT(c.criadoEm) + ' · ' + (c.abertoPor || '')) + row('Canal', c.canal) + row('Prioridade', (PV_PRIO[c.prioridade] || {}).label) + row('Afeta segurança / legal', c.seguranca ? 'Sim' : 'Não') + row('Contato', [(c.contato || {}).nome, (c.contato || {}).info].filter(Boolean).join(' · ')) + row('Local', [(c.local || {}).endereco, (c.local || {}).cidade, (c.local || {}).uf].filter(Boolean).join(' · ')) + row('Data da ocorrência', fmtDate(c.dataOcorrencia)) + row('Descrição', c.descricao) + row('Produto', [pr.codigo, pr.descricao].filter(Boolean).join(' — ')) + row('Lote / série / NF', [pr.lote, pr.serie, pr.nf].filter(Boolean).join(' / ')) + row('Aplicação', pr.aplicacao) + row('Quantidade afetada', pr.quantidade) + row('RNC do cliente', (c.rncCliente || {}).tem ? `Sim ${c.rncCliente.numero || ''} · prazo ${fmtDate(c.rncCliente.prazoResposta)}` : 'Não') + row('Anexos', files('abertura') + (files('rnc_cliente') ? ' · ' + files('rnc_cliente') : '')))}
       ${block('2. Triagem', row('Necessária RNC', tr.rnc ? PV_RNC[tr.rnc].label : 'Não triado') + row('Justificativa', tr.justificativa) + row('Responsável', tr.responsavel) + row('Procedência', tr.procedencia) + row('Prazo', fmtDate(c.prazo)) + row('Triado por / em', [tr.por, pvFmtDT(tr.em)].filter(Boolean).join(' · ')))}
-      ${block('3. Tratativa', row('Contenção', ct.acoes) + row('Contenção — onde / qtd / data', [(ct.locais || []).join(', '), ct.qtd, fmtDate(ct.data)].filter(Boolean).join(' · ')) + row('Atendimento', [at.modalidade, at.tecnico, fmtDate(at.data)].filter(Boolean).join(' · ')) + row('O que foi feito', at.descricao) + row('Resultado', at.resultado) + row('Peças', at.pecas) + row('Sem defeito (NTF)', at.ntf ? 'Sim' : 'Não') + row('Garantia', at.garantia) + row('Custo total', pvMoney(at.custoTotal)))}
+      ${block('3. Tratativa', row('Contenção', ct.acoes) + row('Contenção — onde / qtd / data', [(ct.locais || []).join(', '), ct.qtd, fmtDate(ct.data)].filter(Boolean).join(' · ')) + row('Atendimento', [at.modalidade, at.tecnico, fmtDate(at.data)].filter(Boolean).join(' · ')) + row('O que foi feito', at.descricao) + row('Resultado', at.resultado) + row('Peças', pvPecasTx(pvPecasList(at))) + row('Horas / km', [at.horas ? at.horas + ' h' : '', at.km ? at.km + ' km' : ''].filter(Boolean).join(' · ')) + row('Sem defeito (NTF)', at.ntf ? 'Sim' : 'Não') + row('Garantia', at.garantia))}
       ${block('4. RNC', pvPrecisaRnc(c) ? row('Situação', (PV_RNC_ST[pvRncStatus(c)] || {}).label) + row('Nº', rn.numero) + row('Responsável', rn.responsavel) + row('Causa raiz', rn.causa) + row('Ação corretiva', rn.acao) + row('Resposta ao cliente', fmtDate(rn.respostaEm)) + row('Arquivos', [files('rnc'), files('d8')].filter(Boolean).join(' · ')) : row('Situação', 'Não aplicável'))}
       ${block('5. Verificação e encerramento', row('Eficácia', [fmtDate(vf.data), vf.eficaz].filter((x) => x && x !== '—').join(' · ')) + row('Evidência', vf.evidencia) + row('Documentos atualizados', (vf.docs || []).join(', ')) + row('Lições aprendidas', vf.licoes) + row('Aceite do cliente', en.aceite) + row('Satisfação', en.satisfacao ? en.satisfacao + ' / 5' : '') + row('Encerrado em / por', [fmtDate(en.data), en.por].filter((x) => x && x !== '—').join(' · ')))}
       <h2>Histórico</h2><table class="tl">${(c.historico || []).map((h) => `<tr><th>${esc(pvFmtDT(h.at))} · ${esc(h.by || '')}</th><td><b>${esc(h.acao)}</b>${h.det ? ' — ' + esc(h.det) : ''}</td></tr>`).join('')}</table>
@@ -5915,13 +5955,13 @@
     const flow = [
       ['1', 'Abertura', 'Comercial', 'Registra cliente, contato, local, produto (lote/série/NF), descrição e evidências. Se o cliente mandou RNC, anexa e informa o prazo de resposta.'],
       ['2', 'Triagem', 'Pós-vendas / responsável', 'Decide: o chamado precisa de RNC? (do cliente, interna, ou não). Se não, a justificativa é obrigatória. Define responsável, prazo e procedência.'],
-      ['3', 'Tratativa', 'Responsável + técnico', 'Contenção imediata quando há RNC (estoque, trânsito, cliente). Atendimento: o que foi feito, peças, resultado, garantia, custos, análise NTF.'],
+      ['3', 'Tratativa', 'Responsável + técnico', 'Contenção imediata quando há RNC (estoque, trânsito, cliente). Atendimento: o que foi feito, peças com lote, horas, km, fotos, resultado, garantia e análise NTF.'],
       ['4', 'RNC', 'Qualidade', 'Só quando necessária. A Qualidade abre/trata a RNC no sistema dela e anexa aqui o arquivo e o 8D. Registra causa, ação corretiva e a data de resposta ao cliente.'],
       ['5', 'Encerramento', 'Responsável + Qualidade', 'Verificação de eficácia (com RNC), documentos atualizados (FMEA, plano de controle), retorno e satisfação do cliente. O sistema bloqueia o encerramento enquanto houver pendências.'],
     ];
     const reqs = [
       ['IATF 10.2.6', 'Reclamações de clientes e análise de falhas em campo', 'Tipos "Reclamação" e "Falha em campo", análise registrada no atendimento, inclusive peças sem defeito (NTF).'],
-      ['IATF 10.2.5', 'Sistema de gestão de garantia', 'Campo garantia (procedente / improcedente / cortesia), custos e indicador de custo no Painel.'],
+      ['IATF 10.2.5', 'Sistema de gestão de garantia', 'Campo garantia (procedente / improcedente / cortesia), peças trocadas com lote e análise NTF.'],
       ['IATF 10.2.3 · 10.2.4', 'Solução de problemas e à prova de erro', 'Anexo do 8D, causa raiz, ação corretiva e checklist de documentos atualizados (FMEA, plano de controle, poka-yoke).'],
       ['ISO 10.2 · IATF 10.2.1', 'Não conformidade e ação corretiva', 'Decisão de RNC na triagem, contenção, ação corretiva e verificação de eficácia obrigatória para encerrar.'],
       ['IATF 8.7 · 4.4.1.2', 'Saída não conforme e segurança do produto', 'Contenção (onde, quantidade segregada) e marcação "afeta segurança/legal", que torna o chamado crítico.'],

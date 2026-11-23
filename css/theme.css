@@ -3205,3 +3205,22 @@ body.cc-ro #rpBoneco { display: none !important; }
 @media (max-width: 760px) { .tp-row.op { grid-template-columns: 36px minmax(0, 1fr) auto auto; } .tp-nv small, .rh-trn small { display: none; } }
 .rh-tr:has(.rh-trn) { grid-template-columns: 8px minmax(0, 1fr) auto auto; }
 .rh-tr > span.rh-trn { flex-direction: row; align-items: center; gap: 6px; margin: 0; }
+
+/* =========================== ATENDIMENTO (técnico em campo) =========================== */
+.at-pecas { display: flex; flex-direction: column; gap: 8px; margin-bottom: 10px; }
+.at-pc { display: grid; grid-template-columns: minmax(0, 1fr) 70px minmax(0, .8fr) 34px; gap: 8px; align-items: center; }
+.at-pc input { height: 42px; padding: 0 12px; border-radius: 11px; border: 1px solid var(--line); background: var(--bg-2, transparent); color: var(--text); font: inherit; font-size: .88rem; min-width: 0; }
+.at-pc input:focus { outline: none; border-color: color-mix(in srgb, var(--accent) 55%, var(--line)); }
+.at-fotos { display: grid; grid-template-columns: repeat(auto-fill, minmax(96px, 1fr)); gap: 8px; margin-bottom: 10px; }
+.at-fotos:empty { display: none; }
+.at-ft { position: relative; aspect-ratio: 1; border-radius: 12px; overflow: hidden; border: 1px solid var(--line); }
+.at-ft img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.at-ft button { position: absolute; top: 5px; right: 5px; width: 26px; height: 26px; border-radius: 8px; border: 0; display: grid; place-items: center; background: rgba(0, 0, 0, .6); color: #fff; cursor: pointer; }
+.at-ft button svg { width: 13px; height: 13px; }
+.at-fbtns { display: flex; gap: 8px; flex-wrap: wrap; }
+@media (max-width: 760px) {
+  .at-pc { grid-template-columns: minmax(0, 1fr) 64px 34px; padding: 10px; border-radius: 13px; border: 1px solid var(--line); }
+  .at-pc input[data-f="lote"] { grid-column: 1 / 3; grid-row: 2; }
+  .at-fbtns .btn { flex: 1; justify-content: center; height: 48px; }
+  .at-fotos { grid-template-columns: repeat(3, 1fr); }
+}
