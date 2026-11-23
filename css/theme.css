@@ -590,7 +590,8 @@ tr[data-cli],
 tr[data-rnc] {
     cursor: url("../assets/cursor-hover.png") 9 6, pointer !important;
     cursor: -webkit-image-set(url("../assets/cursor-hover.png") 1x, url("../assets/cursor-hover@2x.png") 2x) 9 6, pointer !important; }
-  input:not([type="checkbox"]):not([type="radio"]):not([type="file"]), textarea, [contenteditable="true"] { cursor: text !important; }
+  input:not([type="checkbox"]):not([type="radio"]):not([type="file"]):not([type="range"]), textarea, [contenteditable="true"] { cursor: text !important; }
+  input[type="range"] { cursor: url("../assets/cursor-hover.png") 9 6, pointer !important; cursor: -webkit-image-set(url("../assets/cursor-hover.png") 1x, url("../assets/cursor-hover@2x.png") 2x) 9 6, pointer !important; }
   button:disabled, [disabled] { cursor: not-allowed !important; }
 }
 /* lista de chamados: células em uma linha (com reticências) para não espremer as colunas */
@@ -3321,3 +3322,24 @@ body.cc-ro #rpBoneco { display: none !important; }
   .eng-bars { gap: 4px; height: 180px; } .eng-b { height: 120px; }
 }
 #engConc[hidden], #engMot[hidden] { display: none !important; }
+
+/* barra de andamento (Engenharia) */
+.eng-pr { --v: 0%; display: flex; align-items: center; gap: 14px; height: 48px; }
+.eng-rg { position: relative; flex: 1; height: 28px; display: flex; align-items: center; }
+.field .eng-rg input[type=range] { -webkit-appearance: none; appearance: none; width: 100%; height: 10px; padding: 0; margin: 0; border: 0; border-radius: 10px; outline: none; cursor: pointer;
+  background: linear-gradient(90deg, #A3E635, #46D39A) 0 0 / var(--v) 100% no-repeat, color-mix(in srgb, var(--text) 9%, transparent);
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, .28); position: relative; z-index: 1; }
+.field .eng-rg input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; appearance: none; width: 24px; height: 24px; border-radius: 50%; background: radial-gradient(circle at 35% 30%, #fff, #EAF8D2); border: 3px solid #A3E635; box-shadow: 0 0 0 5px color-mix(in srgb, #A3E635 22%, transparent), 0 3px 10px rgba(0, 0, 0, .35); cursor: grab; transition: transform .15s var(--ease), box-shadow .2s; }
+.field .eng-rg input[type=range]:hover::-webkit-slider-thumb { transform: scale(1.08); box-shadow: 0 0 0 7px color-mix(in srgb, #A3E635 26%, transparent), 0 3px 12px rgba(0, 0, 0, .4); }
+.field .eng-rg input[type=range]:active::-webkit-slider-thumb { cursor: grabbing; transform: scale(1.15); }
+.field .eng-rg input[type=range]::-moz-range-thumb { width: 18px; height: 18px; border-radius: 50%; background: #fff; border: 3px solid #A3E635; box-shadow: 0 0 0 5px color-mix(in srgb, #A3E635 22%, transparent), 0 3px 10px rgba(0, 0, 0, .35); cursor: grab; }
+.field .eng-rg input[type=range]::-moz-range-track { background: transparent; border: 0; }
+.field .eng-rg input[type=range]:focus-visible::-webkit-slider-thumb { box-shadow: 0 0 0 7px color-mix(in srgb, var(--accent) 40%, transparent); }
+.eng-tk { position: absolute; inset: 0; pointer-events: none; z-index: 2; }
+.eng-tk i { position: absolute; top: 50%; width: 2px; height: 6px; margin-top: -3px; border-radius: 2px; background: color-mix(in srgb, var(--text) 22%, transparent); }
+.eng-tk i:nth-child(1) { left: 25%; } .eng-tk i:nth-child(2) { left: 50%; } .eng-tk i:nth-child(3) { left: 75%; }
+.eng-pin { display: flex; align-items: center; justify-content: center; gap: 2px; height: 42px; min-width: 78px; padding: 0 12px; border-radius: 12px; border: 1px solid var(--line); background: color-mix(in srgb, var(--text) 4%, transparent); cursor: text; transition: border-color .2s, box-shadow .2s; }
+.eng-pin:hover { border-color: color-mix(in srgb, #A3E635 40%, var(--line)); }
+.eng-pin:focus-within { border-color: #A3E635; box-shadow: 0 0 0 3px color-mix(in srgb, #A3E635 20%, transparent); }
+.field .eng-pin input { width: 3.2ch; height: auto; padding: 0; margin: 0; border: 0; background: none; box-shadow: none; text-align: right; font: inherit; font-size: 1.05rem; font-weight: 700; color: var(--text); font-variant-numeric: tabular-nums; outline: none; }
+.eng-pin span { font-size: .95rem; font-weight: 600; color: var(--text-3); }

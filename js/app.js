@@ -2869,15 +2869,20 @@
         ${field('Início', 'inicio', p.inicio, 'date')}
         ${field('Prazo', 'prazo', p.prazo, 'date', editing && p.prazoOriginal && p.prazoOriginal !== p.prazo ? { hint: `Prazo original: ${fmtDate(p.prazoOriginal)}` } : {})}
         <div class="field full" id="engMot" hidden><label>Motivo da mudança de prazo</label><input name="motivo" placeholder="Ex.: aguardando amostra do cliente"></div>
-        <div class="field"><label>Andamento</label><div class="eng-pr"><input type="range" name="progresso" min="0" max="100" step="5" value="${Number(p.progresso) || 0}"><b id="engPv">${Number(p.progresso) || 0}%</b></div></div>
+        <div class="field"><label>Andamento</label><div class="eng-pr" style="--v:${Number(p.progresso) || 0}%"><div class="eng-rg"><input type="range" name="progresso" min="0" max="100" step="1" value="${Number(p.progresso) || 0}" aria-label="Andamento"><span class="eng-tk"><i></i><i></i><i></i></span></div><label class="eng-pin"><input id="engPn" inputmode="numeric" maxlength="3" value="${Number(p.progresso) || 0}" aria-label="Andamento em %"><span>%</span></label></div></div>
         <div id="engConc" class="field" ${p.status === 'concluido' ? '' : 'hidden'}>${field('Concluído em', 'conclusao', p.conclusao || todayISO(), 'date').replace(/^<div class="field">|<\/div>$/g, '')}</div>
         ${field('Observação', 'obs', p.obs, 'textarea', { full: true })}</div>
         ${(p.replan || []).length ? `<div class="tu-emis"><span class="sv-msg-h">Mudanças de prazo</span>${p.replan.slice().reverse().map((r) => `<div>${ic('calendar')}<b>${fmtDate(r.de)} → ${fmtDate(r.para)}</b><span>${esc(r.motivo || '')}${r.por ? ' · ' + esc(r.por) : ''}</span></div>`).join('')}</div>` : ''}`,
       footer: (editing ? `<button class="btn danger ghost" id="delBtn" style="margin-right:auto">${ic('trash')}Excluir</button>` : '') + submitFooter(editing),
     });
     ['tipo', 'responsavelId', 'status'].forEach((n) => ccSelect($(`[name="${n}"]`, card), { search: n === 'responsavelId', icon: { tipo: 'list', responsavelId: 'users', status: 'check' }[n] }));
-    const rg = $('[name="progresso"]', card); rg.oninput = () => { $('#engPv', card).textContent = rg.value + '%'; };
-    $('[name="status"]', card).addEventListener('change', (e) => { $('#engConc', card).hidden = e.target.value !== 'concluido'; if (e.target.value === 'concluido') { rg.value = 100; $('#engPv', card).textContent = '100%'; } });
+    const rg = $('[name="progresso"]', card), pn = $('#engPn', card), pr = $('.eng-pr', card);
+    const setPr = (v, deTexto) => { v = Math.max(0, Math.min(100, Math.round(Number(v) || 0))); rg.value = v; pr.style.setProperty('--v', v + '%'); if (!deTexto) pn.value = v; };
+    rg.oninput = () => setPr(rg.value);
+    pn.oninput = () => { const d = pn.value.replace(/\D/g, '').slice(0, 3); pn.value = d && Number(d) > 100 ? '100' : d; setPr(pn.value, true); };
+    pn.onblur = () => setPr(pn.value); pn.onfocus = () => pn.select();
+    pn.onkeydown = (e) => { if (e.key === 'ArrowUp' || e.key === 'ArrowDown') { e.preventDefault(); setPr(Number(pn.value || 0) + (e.key === 'ArrowUp' ? 5 : -5)); } if (e.key === 'Enter') { e.preventDefault(); pn.blur(); } };
+    $('[name="status"]', card).addEventListener('change', (e) => { $('#engConc', card).hidden = e.target.value !== 'concluido'; if (e.target.value === 'concluido') setPr(100); });
     $('[name="prazo"]', card).addEventListener('change', (e) => { $('#engMot', card).hidden = !(editing && p.prazo && e.target.value !== p.prazo); });
     const del = $('#delBtn', card); if (del) del.onclick = () => confirmDialog(`Excluir o projeto ${p.codigo}?`, () => { Store.remove('engProjetos', p.id); closeModal(); toast('Projeto excluído'); go(currentRoute); }, 'danger');
     $('#saveBtn', card).onclick = () => {
