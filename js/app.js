@@ -4842,9 +4842,14 @@
       if (!ok || !window.Campus3D || CP.built !== sig) return;
       host.classList.toggle('empty', !d.sectors.length);
       Campus3D.render(host, { ...d, theme, interactive: Perm.aba('rh-colab') !== 'nenhum',
-        onRoom: (nome) => setorDetalhe(nome, d) });
+        onRoom: (nome) => setorDetalhe(nome, d),
+        // contexto gráfico perdido: remonta a planta (no máximo 4 vezes a cada 5 min, para não insistir num PC sem GPU)
+        onLost: () => { const agora = Date.now(); CP.perdas = (CP.perdas || []).filter((x) => agora - x < 300000).concat([agora]);
+          if (CP.perdas.length > 4) { host.classList.add('empty'); return; }
+          setTimeout(() => { CP.built = ''; campusBuild(true); }, 700); } });
     });
   }
+  document.addEventListener('visibilitychange', () => { if (document.hidden) return; const cv = $('#homeCampus canvas'); if (cv && cv.style.visibility === 'hidden') { CP.built = ''; campusBuild(true); } });
   function campusFit() { if (window.Campus3D) Campus3D.resize(); }
   addEventListener('resize', () => { clearTimeout(CP.rz); CP.rz = setTimeout(() => { if (window.Campus3D) Campus3D.resize(); else campusBuild(); }, 150); });
   window.campusDemo = (on) => { window.__campusDemo = on || null; CP.built = ''; campusBuild(true); };

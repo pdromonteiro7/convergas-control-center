@@ -280,6 +280,10 @@
     renderer.toneMapping = G.ACESFilmicToneMapping; renderer.toneMappingExposure = light ? 1.0 : 1.08;
     renderer.outputColorSpace = G.SRGBColorSpace;
     const cv = renderer.domElement; cv.className = 'c3-canvas'; host.appendChild(cv);
+    // o navegador pode derrubar o contexto gráfico (aba parada, economia de energia, GPU reiniciada):
+    // esconde o quadro quebrado (ficava branco) e pede para a tela remontar a planta
+    let perdido = false;
+    cv.addEventListener('webglcontextlost', (e) => { e.preventDefault(); perdido = true; cv.style.visibility = 'hidden'; if (data.onLost) { try { data.onLost(); } catch (x) {} } });
     const overlay = document.createElement('div'); overlay.className = 'c3-ov' + (data.sectors.length > 6 ? ' many' : ''); host.appendChild(overlay);
     const tip = document.createElement('div'); tip.className = 'c3-tip'; overlay.appendChild(tip);
 
@@ -498,6 +502,7 @@
     const ro = window.ResizeObserver ? new ResizeObserver(() => { if (fit()) { fitted = true; cv.style.opacity = ''; } }) : null; if (ro) ro.observe(host);
     function loop() {
       if (!alive) return; raf = requestAnimationFrame(loop);
+      if (perdido) return;
       if (!host.isConnected || host.offsetParent === null || document.hidden) return;
       if (!fitted) { if (!fit()) return; fitted = true; cv.style.opacity = ''; }
       const dt = Math.min(.05, clock.getDelta()), t = clock.elapsedTime;
