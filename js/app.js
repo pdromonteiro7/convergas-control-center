@@ -2837,6 +2837,226 @@
     render(); tabsThumbInit(tabsEl, 'rhi');
   };
 
+  /* =========================== PLANO ANUAL DE TREINAMENTO (IATF 7.2 · ISO 9001 7.2) ===========================
+     Levantamento de necessidades (LNT) → plano por mês → realizado (turmas/registros do próprio sistema). */
+  const RH_ORIG = { vencimento: 'Reciclagem (vencimento)', exigencia: 'Exigido pelo cargo', cliente: 'Requisito do cliente', melhoria: 'Ação corretiva / melhoria', lnt: 'Necessidade do setor' };
+  const RH_PST = { ok: { l: 'Realizado', cls: 'ok', c: '#46D39A' }, atraso: { l: 'Realizado com atraso', cls: 'warn', c: '#F5B840' }, prog: { l: 'Turma programada', cls: 'info', c: '#3FA9F5' }, atrasado: { l: 'Atrasado', cls: 'danger', c: '#FF7A7A' }, plan: { l: 'Planejado', cls: 'neutral', c: '#94A3B8' }, canc: { l: 'Cancelado', cls: 'neutral', c: '#94A3B8' } };
+  // situação de um item do plano, calculada pelas turmas e registros do sistema
+  function rhPlanoSt(it) {
+    if (it.cancelado) return { st: 'canc' };
+    const ano = String(it.ano), mes = Number(it.mes);
+    const datas = rhList('rhTurmas').filter((x) => x.treinoId === it.treinoId && x.status === 'realizada').map((x) => x.data)
+      .concat(rhList('rhTreinoReg').filter((r) => r.treinoId === it.treinoId && !r.anulado && !r.turmaId).map((r) => r.data))
+      .filter((d) => String(d).slice(0, 4) === ano).map((d) => ({ d, m: Number(String(d).slice(5, 7)) })).filter((x) => x.m >= mes - 1).sort((a, b) => a.m - b.m);
+    if (datas.length) { const r = datas.find((x) => x.m <= mes) || datas[0]; return { st: r.m <= mes ? 'ok' : 'atraso', data: r.d }; }
+    const prog = rhList('rhTurmas').find((x) => x.treinoId === it.treinoId && x.status === 'programada' && String(x.data).slice(0, 4) === ano);
+    if (prog) return { st: 'prog', data: prog.data, turma: prog };
+    const hoje = rhHoje(); const atual = Number(hoje.slice(0, 4)) > Number(ano) || (hoje.slice(0, 4) === ano && Number(hoje.slice(5, 7)) > mes);
+    return { st: atual ? 'atrasado' : 'plan' };
+  }
+  const rhPlanoDo = (ano) => rhList('rhPlano').filter((x) => String(x.ano) === String(ano));
+  // LNT automático: vencimentos do ano + exigências pendentes dos cargos
+  function rhPlanoSugestoes(ano) {
+    const out = []; const ja = new Set(rhPlanoDo(ano).map((x) => x.treinoId + '|' + x.mes));
+    const abertos = new Set(rhPlanoDo(ano).filter((x) => ['plan', 'prog', 'atrasado'].includes(rhPlanoSt(x).st)).map((x) => x.treinoId));
+    const hoje = rhHoje(); const mesAtual = hoje.slice(0, 4) === String(ano) ? Number(hoje.slice(5, 7)) : 1;
+    rhTreinos().forEach((t) => {
+      const porMes = {}; let pend = 0;
+      rhAtivos().forEach((u) => {
+        const s = rhTreinoSt(u.id, t.id); const exig = rhExigidos(u).includes(t.id);
+        if (s.r && s.r.validade && s.r.validade.slice(0, 4) === String(ano)) { const m = Math.max(mesAtual, Number(s.r.validade.slice(5, 7)) - 1 || 1); porMes[m] = (porMes[m] || 0) + 1; }
+        else if (exig && (s.st === 'faltando' || s.st === 'vencido')) pend++;
+      });
+      Object.entries(porMes).forEach(([m, n]) => { if (!ja.has(t.id + '|' + m)) out.push({ treinoId: t.id, mes: Number(m), qtd: n, origem: 'vencimento' }); });
+      if (pend && !Object.keys(porMes).length && !abertos.has(t.id)) { const m = Math.min(12, mesAtual); if (!ja.has(t.id + '|' + m)) out.push({ treinoId: t.id, mes: m, qtd: pend, origem: 'exigencia' }); }
+    });
+    return out;
+  }
+  function rhFormPlano(it, ano) {
+    const editing = !!(it && it.id); it = it || { ano, mes: Math.min(12, Number(rhHoje().slice(5, 7))), origem: 'lnt', qtd: '' };
+    const tr = rhTreinos(); if (!tr.length) return toast('Cadastre os treinamentos primeiro', 'warn');
+    const card = modal({
+      title: editing ? 'Item do plano' : 'Incluir no plano', sub: `Plano de treinamento ${ano}`,
+      body: `<div class="form-grid"><div class="field full"><label>Treinamento</label><select name="treinoId">${tr.map((t) => `<option value="${t.id}" ${it.treinoId === t.id ? 'selected' : ''}>${esc(t.nome)}</option>`).join('')}</select></div>
+        <div class="field"><label>Mês previsto</label><select name="mes">${MES_L.map((l, i) => `<option value="${i + 1}" ${Number(it.mes) === i + 1 ? 'selected' : ''}>${l}</option>`).join('')}</select></div>
+        ${field('Pessoas previstas', 'qtd', it.qtd, 'text', { ph: 'Ex.: 6' })}
+        <div class="field"><label>Origem da necessidade</label><select name="origem">${Object.entries(RH_ORIG).map(([k, l]) => `<option value="${k}" ${it.origem === k ? 'selected' : ''}>${l}</option>`).join('')}</select></div>
+        ${field('Público / setor', 'publico', it.publico, 'text', { ph: 'Ex.: Produção · montadores' })}
+        ${field('Observação', 'obs', it.obs, 'textarea', { full: true })}
+        ${editing ? `<div class="field full">${sw('Cancelado (não será mais realizado)', 'cancelado', it.cancelado)}</div>` : ''}</div>`,
+      footer: (editing ? `<button class="btn danger ghost" id="delBtn" style="margin-right:auto">${ic('trash')}Excluir</button>` : '') + submitFooter(editing),
+    });
+    ccSelect($('[name="treinoId"]', card), { search: true, icon: 'award' }); ccSelect($('[name="mes"]', card), { icon: 'calendar' }); ccSelect($('[name="origem"]', card), { icon: 'list' });
+    rhMaskNum($('[name="qtd"]', card), 999);
+    const del = $('#delBtn', card); if (del) del.onclick = () => confirmDialog('Excluir este item do plano?', () => { Store.remove('rhPlano', it.id); closeModal(); toast('Item excluído'); go(currentRoute); }, 'danger');
+    $('#saveBtn', card).onclick = () => {
+      const d = readForm(card);
+      const obj = { ano: Number(ano), treinoId: d.treinoId, mes: Number(d.mes), qtd: rhNum(d.qtd) || '', origem: d.origem, publico: d.publico, obs: d.obs, cancelado: editing ? !!d.cancelado : false };
+      if (editing) Store.update('rhPlano', it.id, obj); else Store.add('rhPlano', obj);
+      closeModal(); toast(editing ? 'Plano atualizado' : 'Incluído no plano'); go(currentRoute);
+    };
+  }
+  function rhPlanoPrint(ano, itens) {
+    const corpo = `<style>@page { size: A4 landscape; margin: 12mm; } td.m { text-align: center; width: 26px; font-size: 10px; } td.m.on { background: #0b3d6b; color: #fff; font-weight: 700; } td.m.ok { background: #127a4b; color: #fff; }</style>
+      <div class="info"><div><small>Ano</small><b>${ano}</b></div><div><small>Itens</small><b>${itens.length}</b></div><div><small>Realizados</small><b>${itens.filter((x) => ['ok', 'atraso'].includes(x.s.st)).length}</b></div><div><small>Pessoas previstas</small><b>${itens.reduce((s, x) => s + (Number(x.it.qtd) || 0), 0)}</b></div></div>
+      <table><thead><tr><th>Treinamento</th><th>Origem</th><th>Público</th><th>Pessoas</th>${MES_C.map((m) => `<th style="text-align:center;padding:4px">${m}</th>`).join('')}<th>Situação</th></tr></thead><tbody>
+      ${itens.map((x) => `<tr><td>${esc(x.t.nome)}</td><td>${esc(RH_ORIG[x.it.origem] || '')}</td><td>${esc(x.it.publico || '')}</td><td style="text-align:center">${esc(x.it.qtd || '')}</td>${MES_C.map((m, i) => `<td class="m${Number(x.it.mes) === i + 1 ? (['ok', 'atraso'].includes(x.s.st) ? ' ok' : ' on') : ''}">${Number(x.it.mes) === i + 1 ? '●' : ''}</td>`).join('')}<td>${RH_PST[x.s.st].l}${x.s.data ? ' · ' + fmtDate(x.s.data) : ''}</td></tr>`).join('')}</tbody></table>
+      <div class="ass"><div>&nbsp;<small>Elaborado (RH)</small></div><div>&nbsp;<small>Aprovado (Direção)</small></div></div>`;
+    rhPrintDoc(`Plano anual de treinamento ${ano}`, corpo);
+  }
+  let rhPlAno = null; let rhPpF = 'todos';
+  PAGES['rh-plano'] = () => {
+    if (rhPlAno == null) rhPlAno = Number(rhHoje().slice(0, 4)); const ano = rhPlAno; const podeEd = Perm.podeGravar('rhPlano');
+    pageShell('RH', 'Plano de treinamento', `Planejado × realizado em ${ano}.`,
+      `<button class="btn" id="ppPrint">${ic('file')}Imprimir</button>${podeEd ? `<button class="btn" id="ppSug">${ic('refresh')}Levantar necessidades</button><button class="btn primary" id="ppNovo">${ic('plus')}Incluir</button>` : ''}`);
+    const itens = rhPlanoDo(ano).map((it) => ({ it, t: Store.find('rhTreinos', it.treinoId), s: rhPlanoSt(it) })).filter((x) => x.t).sort((a, b) => a.it.mes - b.it.mes || a.t.nome.localeCompare(b.t.nome));
+    $('#ppPrint').onclick = () => (itens.length ? rhPlanoPrint(ano, itens.filter((x) => x.s.st !== 'canc')) : toast('O plano está vazio', 'warn'));
+    if (podeEd) {
+      $('#ppNovo').onclick = () => rhFormPlano(null, ano);
+      $('#ppSug').onclick = () => {
+        const sug = rhPlanoSugestoes(ano);
+        if (!sug.length) return toast('Nenhuma necessidade nova encontrada', 'info');
+        const card = modal({ title: 'Levantamento de necessidades', sub: `${sug.length} sugest${sug.length === 1 ? 'ão' : 'ões'} para ${ano}`, wide: true,
+          body: `<p class="pp-intro">Calculado pelos vencimentos do ano e pelos treinamentos exigidos pelos cargos que ainda estão pendentes.</p><div class="pp-sl">${sug.map((x, i) => `<button type="button" class="tu-p on pp-s" data-i="${i}"><span class="pp-sm">${MES_C[x.mes - 1]}</span><span class="tu-t"><b>${esc(Store.find('rhTreinos', x.treinoId).nome)}</b><small>${esc(RH_ORIG[x.origem])} · ${x.qtd} pessoa${x.qtd > 1 ? 's' : ''}</small></span><i>${ic('check')}</i></button>`).join('')}</div>`,
+          footer: `<button class="btn ghost" data-close>Cancelar</button><button class="btn primary" id="ppAdd">${ic('plus')}Incluir no plano</button>` });
+        Icons.apply(card); const sel = new Set(sug.map((x, i) => i));
+        $$('.pp-s', card).forEach((b) => (b.onclick = () => { const i = +b.dataset.i; sel.has(i) ? sel.delete(i) : sel.add(i); b.classList.toggle('on', sel.has(i)); }));
+        $('#ppAdd', card).onclick = () => { if (!sel.size) return toast('Selecione ao menos um item', 'warn'); sug.filter((x, i) => sel.has(i)).forEach((x) => Store.add('rhPlano', { ano: Number(ano), ...x, publico: '', obs: '', cancelado: false })); closeModal(); toast(`${sel.size} ite${sel.size === 1 ? 'm incluído' : 'ns incluídos'}`); go(currentRoute); };
+      };
+    }
+    // ano
+    const yb = document.createElement('div'); yb.className = 'kp-mes pp-ano';
+    yb.innerHTML = `<button class="icon-btn" id="ppPrev" aria-label="Ano anterior">${ic('chevron')}</button><b>${ano}</b><button class="icon-btn" id="ppNext" aria-label="Próximo ano">${ic('chevron')}</button>`;
+    view.appendChild(yb); Icons.apply(yb);
+    $('#ppPrev', yb).onclick = () => { rhPlAno--; go('rh-plano'); }; $('#ppNext', yb).onclick = () => { rhPlAno++; go('rh-plano'); };
+    const ativos = itens.filter((x) => x.s.st !== 'canc');
+    const cnt = { ok: 0, atraso: 0, prog: 0, atrasado: 0, plan: 0, canc: 0 }; itens.forEach((x) => cnt[x.s.st]++);
+    const devidos = ativos.filter((x) => ['ok', 'atraso', 'atrasado'].includes(x.s.st)).length;
+    const cumpr = devidos ? Math.round((100 * (cnt.ok + cnt.atraso)) / devidos) : null;
+    const tile = (cls, icn, v, l, s, f) => `<button type="button" class="pvd-tile ${cls}" data-pf="${f}"><span class="pvd-ti">${ic(icn)}</span><b>${v}</b><span>${esc(l)}</span><small>${esc(s)}</small></button>`;
+    const tiles = document.createElement('section'); tiles.className = 'pc-tiles tp-tiles';
+    tiles.innerHTML = tile('t-info', 'list', ativos.length, 'No plano', `${ativos.reduce((s, x) => s + (Number(x.it.qtd) || 0), 0)} pessoas previstas`, 'todos') + tile('t-ok', 'check', cnt.ok + cnt.atraso, 'Realizados', cnt.atraso ? `${cnt.atraso} com atraso` : 'no prazo', 'ok')
+      + tile(cumpr == null ? '' : cumpr >= 90 ? 't-ok' : cumpr >= 70 ? 't-warn' : 't-danger', 'activity', cumpr == null ? '—' : cumpr + '%', 'Cumprimento', 'do que já venceu', 'todos')
+      + tile(cnt.atrasado ? 't-danger' : '', 'alert', cnt.atrasado, 'Atrasados', 'mês passou sem realizar', 'atrasado') + tile('', 'calendar', cnt.prog + cnt.plan, 'A realizar', `${cnt.prog} com turma programada`, 'plan');
+    view.appendChild(tiles); Icons.apply(tiles);
+    const box = document.createElement('div'); view.appendChild(box);
+    const paint = () => {
+      const l = itens.filter((x) => rhPpF === 'todos' || (rhPpF === 'ok' ? ['ok', 'atraso'].includes(x.s.st) : rhPpF === 'plan' ? ['plan', 'prog'].includes(x.s.st) : x.s.st === rhPpF));
+      if (!itens.length) { box.innerHTML = `<div class="tbl-wrap">${emptyState('calendar', `Plano ${ano} vazio`, 'Use Levantar necessidades para montar o plano a partir dos vencimentos e das exigências dos cargos.')}</div>`; Icons.apply(box); return; }
+      const mesHoje = rhHoje().slice(0, 4) === String(ano) ? Number(rhHoje().slice(5, 7)) : 0;
+      box.innerHTML = `<div class="pp-wrap"><table class="pp-gt"><thead><tr><th class="pp-hn">Treinamento</th>${MES_C.map((m, i) => `<th class="${i + 1 === mesHoje ? 'now' : ''}">${m}</th>`).join('')}<th class="pp-hs">Situação</th></tr></thead><tbody>
+        ${l.length ? l.map((x) => { const S = RH_PST[x.s.st]; return `<tr data-it="${x.it.id}" class="${x.s.st === 'canc' ? 'canc' : ''}"><td class="pp-hn"><b>${esc(x.t.nome)}</b><small>${esc(RH_ORIG[x.it.origem] || '')}${x.it.qtd ? ' · ' + x.it.qtd + ' pessoa' + (x.it.qtd > 1 ? 's' : '') : ''}${x.it.publico ? ' · ' + esc(x.it.publico) : ''}</small></td>
+          ${MES_C.map((m, i) => `<td class="${i + 1 === mesHoje ? 'now' : ''}">${Number(x.it.mes) === i + 1 ? `<span class="pp-dot" style="--c:${S.c}" title="${S.l}"></span>` : ''}</td>`).join('')}
+          <td class="pp-hs"><span class="badge ${S.cls} plain">${S.l}</span>${x.s.data ? `<small>${fmtDate(x.s.data)}</small>` : ''}</td></tr>`; }).join('') : `<tr><td colspan="14" class="pp-vz">Nenhum item neste filtro</td></tr>`}</tbody></table></div>`;
+      $$('tr[data-it]', box).forEach((tr) => (tr.onclick = () => rhPlanoItem(itens.find((x) => x.it.id === tr.dataset.it), ano, podeEd)));
+    };
+    $$('[data-pf]', tiles).forEach((b) => (b.onclick = () => { rhPpF = b.dataset.pf; paint(); }));
+    paint();
+  };
+  function rhPlanoItem(x, ano, podeEd) {
+    const S = RH_PST[x.s.st];
+    const card = modal({ title: x.t.nome, sub: `${MES_L[x.it.mes - 1]} de ${ano} · ${RH_ORIG[x.it.origem] || ''}`,
+      body: `<div class="ri-meta"><span>${ic('calendar')}<b>${MES_L[x.it.mes - 1]}</b><small>Mês previsto</small></span><span>${ic('users')}<b>${x.it.qtd || '—'}</b><small>Pessoas previstas</small></span><span>${ic('check')}<b><span class="badge ${S.cls} plain">${S.l}</span></b><small>${x.s.data ? fmtDate(x.s.data) : 'Situação'}</small></span></div>
+        ${x.it.publico ? `<p class="pp-intro"><b>Público:</b> ${esc(x.it.publico)}</p>` : ''}${x.it.obs ? `<p class="pp-intro">${esc(x.it.obs)}</p>` : ''}`,
+      footer: `${podeEd ? `<button class="btn ghost" id="piEd" style="margin-right:auto">${ic('edit')}Editar</button>` : ''}<button class="btn" id="piTr">${ic('award')}Abrir treinamento</button>${['plan', 'atrasado'].includes(x.s.st) && Perm.podeGravar('rhTurmas') ? `<button class="btn primary" id="piTu">${ic('calendar')}Programar turma</button>` : ''}` });
+    Icons.apply(card);
+    const on = (s, f) => { const b = $(s, card); if (b) b.onclick = f; };
+    on('#piEd', () => { closeModal(); setTimeout(() => rhFormPlano(x.it, ano), 200); });
+    on('#piTr', () => { closeModal(); rhOpenTreino(x.t.id); });
+    on('#piTu', () => { closeModal(); rhOpenTreino(x.t.id); setTimeout(() => rhFormTurma(Store.find('rhTreinos', x.t.id), null), 400); });
+  }
+
+  /* =========================== CONSCIENTIZAÇÃO (7.3.1) E SUGESTÕES DE MELHORIA (7.3.2) =========================== */
+  const RH_SUG_ST = { recebida: { l: 'Recebida', cls: 'info' }, analise: { l: 'Em análise', cls: 'warn' }, aprovada: { l: 'Aprovada', cls: 'ok' }, implementada: { l: 'Implementada', cls: 'ok' }, recusada: { l: 'Não aprovada', cls: 'neutral' } };
+  const RH_SUG_CAT = ['Qualidade', 'Segurança', 'Produtividade', 'Custo', 'Meio ambiente', 'Ergonomia', 'Outro'];
+  const rhConscCfg = () => Store.find('rhCfg', 'consc') || {};
+  function rhConscTreino() {
+    const id = rhConscCfg().treinoId; if (id && Store.find('rhTreinos', id)) return Store.find('rhTreinos', id);
+    return rhTreinos().find((t) => /conscientiza/i.test(t.nome)) || null;
+  }
+  function rhFormSugestao(s) {
+    const editing = !!(s && s.id); s = s || { data: rhHoje(), status: 'recebida', categoria: 'Qualidade' };
+    const pessoas = rhAtivos().slice().sort((a, b) => a.name.localeCompare(b.name));
+    const card = modal({ title: editing ? 'Sugestão de melhoria' : 'Nova sugestão', sub: editing ? `Registrada em ${fmtDate(s.data)}` : 'Ideia de um colaborador',
+      body: `<div class="form-grid">${field('Título', 'titulo', s.titulo, 'text', { full: true, ph: 'Ex.: Gabarito para posicionar o suporte do cilindro' })}
+        ${field('Descrição', 'descricao', s.descricao, 'textarea', { full: true, ph: 'Qual o problema e o que a pessoa propõe' })}
+        <div class="field"><label>Quem sugeriu</label><select name="colaboradorId"><option value="">Anônimo</option>${pessoas.map((u) => `<option value="${u.id}" ${s.colaboradorId === u.id ? 'selected' : ''}>${esc(u.name)}</option>`).join('')}</select></div>
+        <div class="field"><label>Categoria</label><select name="categoria">${RH_SUG_CAT.map((c) => `<option ${s.categoria === c ? 'selected' : ''}>${c}</option>`).join('')}</select></div>
+        ${field('Data', 'data', s.data, 'date')}
+        <div class="field"><label>Situação</label><select name="status">${Object.entries(RH_SUG_ST).map(([k, v]) => `<option value="${k}" ${s.status === k ? 'selected' : ''}>${v.l}</option>`).join('')}</select></div>
+        ${field('Responsável pela análise', 'responsavel', s.responsavel, 'text')}
+        ${field('Implementada em', 'implementadaEm', s.implementadaEm, 'date')}
+        ${field('Retorno dado ao colaborador', 'retorno', s.retorno, 'textarea', { full: true, ph: 'O que foi decidido e por quê' })}</div>`,
+      footer: (editing ? `<button class="btn danger ghost" id="delBtn" style="margin-right:auto">${ic('trash')}Excluir</button>` : '') + submitFooter(editing) });
+    ccSelect($('[name="colaboradorId"]', card), { search: true, icon: 'users' }); ccSelect($('[name="categoria"]', card), { icon: 'list' }); ccSelect($('[name="status"]', card), { icon: 'check' });
+    rhLimDates(card, { data: [rhAnos(-5), rhHoje()], implementadaEm: [rhAnos(-5), rhHoje()] });
+    const del = $('#delBtn', card); if (del) del.onclick = () => confirmDialog('Excluir esta sugestão?', () => { Store.remove('rhSugestoes', s.id); closeModal(); toast('Sugestão excluída'); go(currentRoute); }, 'danger');
+    $('#saveBtn', card).onclick = () => {
+      const d = readForm(card);
+      if ((d.titulo || '').length < 3) return toast('Informe o título', 'warn');
+      if (!d.data) return toast('Informe a data', 'warn');
+      if (d.status === 'implementada' && !d.implementadaEm) return toast('Informe quando foi implementada', 'warn');
+      const u = rhPessoa(d.colaboradorId);
+      const obj = { ...d, setor: u ? u.sector || '' : (s.setor || '') };
+      if (editing) Store.update('rhSugestoes', s.id, obj); else Store.add('rhSugestoes', obj);
+      closeModal(); toast(editing ? 'Sugestão atualizada' : 'Sugestão registrada'); go(currentRoute);
+    };
+  }
+  let rhEngTab = 'consc'; let rhSgF = 'todas';
+  PAGES['rh-engajamento'] = () => {
+    pageShell('RH', 'Conscientização & melhorias', 'Conscientização da equipe e sugestões de melhoria.', `${Perm.podeGravar('rhSugestoes') ? `<button class="btn primary" id="sgNova">${ic('plus')}Nova sugestão</button>` : ''}`);
+    const bNova = $('#sgNova'); if (bNova) bNova.onclick = () => rhFormSugestao(null);
+    const sugs = rhList('rhSugestoes').slice().sort((a, b) => String(b.data).localeCompare(String(a.data)));
+    const tabs = [['consc', 'Conscientização', null], ['sug', 'Sugestões de melhoria', sugs.length]];
+    const tb = document.createElement('div'); tb.className = 'pvf';
+    tb.innerHTML = `<div class="pvf-tabs" id="egTabs"><span class="pvf-thumb"></span>${tabs.map(([k, l, n]) => `<button data-s="${k}" class="${rhEngTab === k ? 'on' : ''}">${l}${n != null ? `<span class="pvf-n">${n}</span>` : ''}</button>`).join('')}</div>`;
+    view.appendChild(tb); $$('#egTabs button', tb).forEach((b) => (b.onclick = () => { rhEngTab = b.dataset.s; go('rh-engajamento'); }));
+    const holder = document.createElement('div'); view.appendChild(holder);
+    const tile = (cls, icn, v, l, s) => `<div class="pvd-tile ${cls}"><span class="pvd-ti">${ic(icn)}</span><b>${v}</b><span>${esc(l)}</span><small>${esc(s)}</small></div>`;
+    if (rhEngTab === 'consc') {
+      const t = rhConscTreino(); const ativos = rhAtivos().slice().sort((a, b) => a.name.localeCompare(b.name));
+      const podeCfg = Perm.podeGravar('rhCfg');
+      const cfgHtml = `<div class="eg-cfg"><span>${ic('award')}Treinamento de conscientização</span><select id="egT"><option value="">— escolha —</option>${rhTreinos().map((x) => `<option value="${x.id}" ${t && t.id === x.id ? 'selected' : ''}>${esc(x.nome)}</option>`).join('')}</select></div>`;
+      if (!t) {
+        holder.innerHTML = `<div class="tbl-wrap">${emptyState('shield', 'Defina o treinamento de conscientização', 'Ex.: "Conscientização IATF 16949 / ISO 9001": impacto do trabalho na qualidade, requisitos do cliente e riscos do produto não conforme.')}${podeCfg ? `<div class="rh-sug">${cfgHtml}</div>` : ''}</div>`;
+      } else {
+        const ps = ativos.map((u) => ({ u, s: rhTreinoSt(u.id, t.id) }));
+        const ok = ps.filter((p) => ['ok', 'vencendo'].includes(p.s.st)), venc = ps.filter((p) => p.s.st === 'vencendo'), pend = ps.filter((p) => ['faltando', 'vencido'].includes(p.s.st));
+        const pct = ativos.length ? Math.round((100 * ok.length) / ativos.length) : 0;
+        holder.innerHTML = `${podeCfg ? cfgHtml : ''}<section class="pc-tiles tp-tiles eg-tiles">${tile(pct >= 95 ? 't-ok' : pct >= 80 ? 't-warn' : 't-danger', 'shield', pct + '%', 'Equipe conscientizada', `${ok.length} de ${ativos.length} ativos`)}${tile(pend.length ? 't-danger' : 't-ok', 'alert', pend.length, 'Pendentes', 'nunca fizeram ou venceu')}${tile(venc.length ? 't-warn' : '', 'clock', venc.length, 'Vencendo', 'em até 30 dias')}${tile('t-info', 'refresh', rhValTx(t.validadeMeses), 'Reciclagem', esc(t.nome))}</section>
+          <div class="eg-acts"><button type="button" class="btn" id="egPerfil">${ic('award')}Abrir treinamento</button>${pend.length && Perm.podeGravar('rhTurmas') ? `<button type="button" class="btn primary" id="egTurma">${ic('calendar')}Programar turma para ${pend.length} pendente${pend.length > 1 ? 's' : ''}</button>` : ''}</div>
+          <section class="pvp-card eg-card"><div class="pvp-card-h"><b>Quem ainda precisa</b><span>${pend.length}</span></div>${pend.length ? `<div class="tu-l">${pend.map((p) => `<button type="button" class="tu-p" data-p="${p.u.id}">${rhAvatar(p.u.name)}<span class="tu-t"><b>${esc(p.u.name)}</b><small>${esc(p.u.sector || '—')}</small><span class="tu-s" style="--c:#FF7A7A">${p.s.r ? 'Venceu em ' + fmtDate(p.s.r.validade) : 'Nunca fez'}</span></span></button>`).join('')}</div>` : `<div class="qf-empty">${ic('check')}<span>Toda a equipe está em dia</span></div>`}</section>`;
+        const pb = $('#egPerfil', holder); if (pb) pb.onclick = () => rhOpenTreino(t.id);
+        const tb2 = $('#egTurma', holder); if (tb2) tb2.onclick = () => rhFormTurma(t, null);
+        $$('[data-p]', holder).forEach((b) => (b.onclick = () => rhOpenPessoa(b.dataset.p)));
+      }
+      Icons.apply(holder);
+      const sel = $('#egT', holder);
+      if (sel) { ccSelect(sel, { search: true, icon: 'award' }); sel.addEventListener('change', () => { if (!sel.value) return; if (Store.find('rhCfg', 'consc')) Store.update('rhCfg', 'consc', { treinoId: sel.value }); else Store.add('rhCfg', { id: 'consc', treinoId: sel.value }); go('rh-engajamento'); }); }
+      return;
+    }
+    // sugestões
+    const ano = rhHoje().slice(0, 4); const doAno = sugs.filter((s) => String(s.data).slice(0, 4) === ano);
+    const impl = doAno.filter((s) => s.status === 'implementada').length; const abertas = sugs.filter((s) => ['recebida', 'analise', 'aprovada'].includes(s.status)).length;
+    const desde = addDays(rhHoje(), -365); const ativosIds = new Set(rhAtivos().map((u) => u.id));
+    const autores = new Set(sugs.filter((s) => s.data >= desde && ativosIds.has(s.colaboradorId)).map((s) => s.colaboradorId));
+    const part = ativosIds.size ? Math.round((100 * autores.size) / ativosIds.size) : 0;
+    holder.innerHTML = `<section class="pc-tiles tp-tiles eg-tiles">${tile('t-info', 'activity', doAno.length, `Sugestões em ${ano}`, `${abertas} em aberto`)}${tile('t-ok', 'check', impl, 'Implementadas', `em ${ano}`)}${tile('', 'users', part + '%', 'Participação', 'da equipe nos últimos 12 meses')}${tile(abertas ? 't-warn' : '', 'clock', abertas, 'Aguardando retorno', 'recebidas, em análise ou aprovadas')}</section>
+      <div class="rh-mxf"><div class="rh-mxf-c">${[['todas', 'Todas', sugs.length]].concat(Object.entries(RH_SUG_ST).map(([k, v]) => [k, v.l, sugs.filter((s) => s.status === k).length])).map(([k, l, n]) => `<button type="button" class="rh-fc${rhSgF === k ? ' on' : ''}" data-f="${k}">${l}<em>${n}</em></button>`).join('')}</div></div><div id="sgL"></div>`;
+    Icons.apply(holder);
+    const paint = () => {
+      const l = sugs.filter((s) => rhSgF === 'todas' || s.status === rhSgF);
+      $('#sgL', holder).innerHTML = l.length ? `<div class="rh-cards eg-sugs">${l.map((s, i) => { const u = rhPessoa(s.colaboradorId); const S = RH_SUG_ST[s.status] || RH_SUG_ST.recebida;
+        return `<button type="button" class="rh-card eg-sg" data-s="${s.id}" style="--d:${i * 30}ms"><span class="rh-card-h">${u ? rhAvatar(u.name) : `<span class="qf-av eg-anon">${ic('users')}</span>`}<span><b>${esc(s.titulo)}</b><small>${u ? esc(u.name) : 'Anônimo'}${s.setor ? ' · ' + esc(s.setor) : ''} · ${fmtDate(s.data)}</small></span><span class="badge ${S.cls} plain">${S.l}</span></span>
+          ${s.descricao ? `<span class="eg-desc">${esc(s.descricao)}</span>` : ''}<span class="eg-ft"><em>${esc(s.categoria || '')}</em>${s.retorno ? `<small>${ic('check')}Retorno dado</small>` : ['recebida', 'analise'].includes(s.status) ? '<small class="w">Sem retorno ainda</small>' : ''}</span></button>`; }).join('')}</div>`
+        : `<div class="tbl-wrap">${emptyState('activity', sugs.length ? 'Nenhuma neste filtro' : 'Nenhuma sugestão registrada', sugs.length ? '' : 'Registre as ideias da equipe e o retorno dado a cada uma.')}</div>`;
+      Icons.apply($('#sgL', holder));
+      $$('[data-s]', holder).forEach((b) => (b.onclick = () => (Perm.podeGravar('rhSugestoes') ? rhFormSugestao(Store.find('rhSugestoes', b.dataset.s)) : null)));
+    };
+    $$('[data-f]', holder).forEach((b) => (b.onclick = () => { rhSgF = b.dataset.f; $$('[data-f]', holder).forEach((x) => x.classList.toggle('on', x === b)); paint(); }));
+    paint();
+  };
+
   /* =========================== POLIVALÊNCIA (IATF 7.2.2 · 6.1.2.3) ===========================
      Matriz pessoa × posto com nível 0–4. Nível 3+ = habilitado (liberado pelo líder).
      Posto crítico com menos habilitados que o mínimo = risco (plano de contingência de mão de obra). */
@@ -4289,6 +4509,12 @@
         v: () => { const l = rhPostos().filter((p) => p.critico); return { v: pctOf(l.filter((p) => rhPostoCob(p).st === 'ok').length, l.length), n: l.length }; } },
       { k: 'rh_aud', a: 'rh', t: 'Auditores internos qualificados', c: '7.2.3', u: '%', melhor: 'maior', meta: 100, atual: true, como: 'Auditores com requisitos e auditorias do ano em dia ÷ auditores ativos.',
         v: () => { const l = rhAudList().map(rhAudSt).filter((s) => s.st !== 'inativo'); return { v: pctOf(l.filter((s) => s.st === 'ok').length, l.length), n: l.length }; } },
+      { k: 'rh_plano', a: 'rh', t: 'Cumprimento do plano de treinamento', c: '7.2', u: '%', melhor: 'maior', meta: 90, atual: true, como: 'Itens do plano do ano já realizados ÷ itens cujo mês já passou ou que foram realizados.',
+        v: () => { const l = rhPlanoDo(rhHoje().slice(0, 4)).map(rhPlanoSt).filter((s) => ['ok', 'atraso', 'atrasado'].includes(s.st)); return { v: pctOf(l.filter((s) => s.st !== 'atrasado').length, l.length), n: l.length }; } },
+      { k: 'rh_consc', a: 'rh', t: 'Equipe conscientizada', c: '7.3.1', u: '%', melhor: 'maior', meta: 100, atual: true, como: 'Ativos com o treinamento de conscientização válido ÷ ativos.',
+        v: () => { const t = rhConscTreino(); const l = rhAtivos(); if (!t) return { v: null, n: 0 }; return { v: pctOf(l.filter((u) => ['ok', 'vencendo'].includes(rhTreinoSt(u.id, t.id).st)).length, l.length), n: l.length }; } },
+      { k: 'rh_sug', a: 'rh', t: 'Sugestões de melhoria implementadas', c: '7.3.2', u: 'n', melhor: 'maior', meta: null, como: 'Sugestões dos colaboradores implementadas no mês.',
+        v: (k) => { const l = rhList('rhSugestoes').filter((s) => s.status === 'implementada' && naMes(s.implementadaEm, k)); return { v: l.length, n: l.length }; } },
       { k: 'rh_efic', a: 'rh', t: 'Eficácia dos treinamentos', c: '7.2.1', u: '%', melhor: 'maior', meta: 90, como: 'Treinamentos avaliados como eficazes ÷ avaliados.',
         v: (k) => { const l = regs().filter((r) => naMes(r.data, k) && ['eficaz', 'nao'].includes(r.eficacia)); return { v: pctOf(l.filter((r) => r.eficacia === 'eficaz').length, l.length), n: l.length }; } },
       { k: 'rh_horas', a: 'rh', t: 'Horas de treinamento por pessoa', c: '7.2', u: 'h', melhor: 'maior', meta: null, como: 'Carga horária realizada no mês ÷ colaboradores ativos.',
@@ -8403,7 +8629,7 @@
     ] },
     rh: { label: 'RH', groups: [
       { label: 'Pessoas', items: [ { r: 'rh-painel', t: 'Painel', s: 'Painel', i: 'grid' }, { r: 'rh-colab', t: 'Pessoas & setores', s: 'Pessoas', i: 'users' }, { r: 'rh-movs', t: 'Admissão / Desligamento', s: 'Entradas', i: 'refresh' } ] },
-      { label: 'Desenvolvimento & rotina', items: [ { r: 'rh-integracao', t: 'Integração', s: 'Integração', i: 'shield' }, { r: 'rh-treinos', t: 'Treinamentos & competências', s: 'Treinos', i: 'award' }, { r: 'rh-polivalencia', t: 'Polivalência', s: 'Polivalência', i: 'grid' }, { r: 'rh-auditores', t: 'Auditores internos', s: 'Auditores', i: 'clipboard' }, { r: 'rh-ferias', t: 'Férias & ausências', s: 'Férias', i: 'sun2' }, { r: 'rh-veiculos', t: 'Controle de veículos', s: 'Veículos', i: 'car' } ] },
+      { label: 'Desenvolvimento & rotina', items: [ { r: 'rh-integracao', t: 'Integração', s: 'Integração', i: 'shield' }, { r: 'rh-treinos', t: 'Treinamentos & competências', s: 'Treinos', i: 'award' }, { r: 'rh-plano', t: 'Plano de treinamento', s: 'Plano', i: 'calendar' }, { r: 'rh-polivalencia', t: 'Polivalência', s: 'Polivalência', i: 'grid' }, { r: 'rh-auditores', t: 'Auditores internos', s: 'Auditores', i: 'clipboard' }, { r: 'rh-engajamento', t: 'Conscientização & melhorias', s: 'Melhorias', i: 'activity' }, { r: 'rh-ferias', t: 'Férias & ausências', s: 'Férias', i: 'sun2' }, { r: 'rh-veiculos', t: 'Controle de veículos', s: 'Veículos', i: 'car' } ] },
     ] },
     programacao: { label: 'Programação', groups: [
       { label: 'Operação', items: [ { r: 'prog-atividades', t: 'Atividades', s: 'Atividades', i: 'list' }, { r: 'prog-pedidos', t: 'Pedidos', s: 'Pedidos', i: 'file' }, { r: 'prog-rnc', t: 'Não Conformidades', s: 'RNC', i: 'alert' } ] },

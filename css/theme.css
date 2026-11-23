@@ -3224,3 +3224,50 @@ body.cc-ro #rpBoneco { display: none !important; }
   .at-fbtns .btn { flex: 1; justify-content: center; height: 48px; }
   .at-fotos { grid-template-columns: repeat(3, 1fr); }
 }
+
+/* =========================== PLANO DE TREINAMENTO =========================== */
+.pp-ano { margin: 0 auto 14px; width: fit-content; }
+.pp-wrap { overflow: auto; border-radius: 18px; border: 1px solid var(--line); background: var(--card); box-shadow: var(--shadow-card); animation: riseIn .55s var(--ease) both; }
+.pp-gt { width: 100%; border-collapse: separate; border-spacing: 0; }
+.pp-gt th { position: sticky; top: 0; background: var(--card); font-size: .7rem; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; color: var(--text-3); padding: 12px 6px; border-bottom: 1px solid var(--line); text-align: center; }
+.pp-gt td { border-bottom: 1px solid var(--line); text-align: center; padding: 0; height: 56px; min-width: 38px; }
+.pp-gt th.now, .pp-gt td.now { background: color-mix(in srgb, var(--accent) 7%, var(--card)); }
+.pp-gt th.now { color: var(--accent); }
+.pp-gt .pp-hn { text-align: left; padding: 10px 16px; min-width: 240px; position: sticky; left: 0; background: var(--card); z-index: 1; border-right: 1px solid var(--line); }
+.pp-gt td.pp-hn b { display: block; font-size: .88rem; font-weight: 600; color: var(--text); }
+.pp-gt td.pp-hn small { display: block; font-size: .72rem; color: var(--text-3); margin-top: 2px; }
+.pp-gt .pp-hs { text-align: right; padding: 8px 16px; min-width: 150px; white-space: nowrap; }
+.pp-gt td.pp-hs small { display: block; font-size: .7rem; color: var(--text-3); margin-top: 3px; }
+.pp-dot { display: inline-block; width: 16px; height: 16px; border-radius: 50%; background: var(--c); box-shadow: 0 0 0 5px color-mix(in srgb, var(--c) 18%, transparent); }
+.pp-gt tbody tr { cursor: pointer; transition: background .2s; }
+.pp-gt tbody tr:hover td { background: color-mix(in srgb, var(--text) 3%, var(--card)); }
+.pp-gt tr.canc td { opacity: .5; }
+.pp-vz { padding: 26px !important; color: var(--text-3); font-size: .86rem; }
+.pp-intro { margin: 0 0 14px; font-size: .86rem; color: var(--text-2); line-height: 1.5; }
+.pp-sl { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 8px; }
+.pp-s { grid-template-columns: 44px minmax(0, 1fr) 22px; }
+.pp-sm { width: 44px; height: 34px; border-radius: 10px; display: grid; place-items: center; font-size: .74rem; font-weight: 700; text-transform: uppercase; color: var(--accent); background: color-mix(in srgb, var(--accent) 11%, transparent); }
+
+/* =========================== CONSCIENTIZAÇÃO & MELHORIAS =========================== */
+.eg-cfg { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin-bottom: 14px; font-size: .84rem; color: var(--text-3); }
+.eg-cfg > span { display: inline-flex; align-items: center; gap: 7px; } .eg-cfg > span svg { width: 15px; height: 15px; color: var(--accent); }
+.eg-cfg .ccs { min-width: 280px; }
+.eg-tiles { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+.eg-acts { display: flex; gap: 8px; justify-content: flex-end; margin-bottom: 14px; flex-wrap: wrap; }
+.eg-card { opacity: 1; transform: none; }
+.eg-sugs { grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); }
+.eg-sg { display: flex; flex-direction: column; gap: 10px; text-align: left; }
+.eg-desc { font-size: .84rem; color: var(--text-2); line-height: 1.45; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
+.eg-ft { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.eg-ft em { font-style: normal; font-size: .72rem; color: var(--text-2); padding: 3px 9px; border-radius: 7px; border: 1px solid var(--line); }
+.eg-ft small { display: inline-flex; align-items: center; gap: 5px; font-size: .74rem; color: #46D39A; } .eg-ft small svg { width: 13px; height: 13px; }
+.eg-ft small.w { color: #D9971A; }
+.eg-anon { display: grid; place-items: center; color: var(--text-3); --h: 220; } .eg-anon svg { width: 16px; height: 16px; }
+@media (max-width: 760px) {
+  .eg-tiles { grid-template-columns: 1fr 1fr !important; }
+  .pp-gt .pp-hn { min-width: 170px; } .pp-gt .pp-hs { min-width: 120px; }
+  .eg-cfg .ccs { min-width: 0; width: 100%; }
+}
+#ppPrev svg { transform: rotate(180deg); }
+.eg-sg .rh-card-h b { white-space: normal; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; line-height: 1.3; }
+.eg-sg .rh-card-h { align-items: flex-start; }
