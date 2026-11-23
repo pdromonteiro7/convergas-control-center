@@ -4366,7 +4366,7 @@
   // áreas e abas que entram na tela de permissões (na ordem da Home)
   const permAreas = () => {
     const ord = ['qualidade', 'pos-vendas', 'manutencao', 'programacao', 'engenharia', 'rh', 'ti', 'sistemas'];
-    return ord.filter((a) => NAV[a]).map((a) => {
+    return ord.filter((a) => NAV[a] && !AREAS_OCULTAS.has(a)).map((a) => {
       const ha = (HOME_AREAS_ALL.find((x) => x.area === a) || {});
       const abas = []; NAV[a].groups.forEach((g) => g.items.forEach((it) => { if (it.r !== 'usuarios') abas.push({ r: it.r, t: it.t, i: it.i, g: g.label }); }));
       return { area: a, label: NAV[a].label, color: ha.color || '#5CE1E6', icon: ha.icon || 'grid', abas };
@@ -4567,10 +4567,13 @@
   /* =========================== INDICADORES IATF 16949 / ISO 9001 ===========================
      Tudo calculado a partir do que já é registrado no sistema (chamados, avaliações, certificados,
      OS, RH e Programação). Metas guardadas na coleção "qaKpi" (registro "metas"). */
+  // áreas fora de uso no momento: somem da Home, do menu, das permissões e dos indicadores (o código e os dados ficam)
+  const AREAS_OCULTAS = new Set(['programacao']);
   const KPI_AREAS = {
     'pos-vendas': { l: 'Pós-Vendas', i: 'phone' }, qualidade: { l: 'Qualidade', i: 'award' }, manutencao: { l: 'Manutenção', i: 'wrench' },
     rh: { l: 'RH', i: 'users' }, programacao: { l: 'Programação', i: 'calendar' }, engenharia: { l: 'Engenharia', i: 'settings' },
   };
+  AREAS_OCULTAS.forEach((a) => delete KPI_AREAS[a]);
   const kpiCor = (a) => (HOME_AREAS_ALL.find((x) => x.area === a) || {}).color || '#5CE1E6';
   const mKey = (iso) => String(iso || '').slice(0, 7);
   const mIni = (k) => k + '-01';
@@ -4586,7 +4589,8 @@
   const naMes = (iso, k) => mKey(iso) === k;
 
   // definição dos indicadores: v(k) devolve { v, n } para o mês k (n = base usada no cálculo)
-  function kpiDefs() {
+  function kpiDefs() { return kpiDefsAll().filter((d) => !AREAS_OCULTAS.has(d.a)); }
+  function kpiDefsAll() {
     const ch = () => (Store.get('pvChamados') || []).filter((c) => c.status !== 'cancelado');
     const avs = () => (Store.get('pvAvaliacoes') || []).filter((a) => a.status === 'respondida' && a.resposta);
     const os = () => Store.get('serviceOrders') || [];
@@ -8913,6 +8917,7 @@
 
   function go(route) {
     if (!PAGES[route]) route = AREA_HOME[currentArea] || 'dashboard';
+    if (AREAS_OCULTAS.has(ROUTE_AREA[route])) { goHome(); return; }
     if (Perm.aba(route) === 'nenhum') {
       const ar = ROUTE_AREA[route] || currentArea; const alt = Perm.primeira(ar);
       if (alt && alt !== route) { toast('Você não tem acesso a essa aba', 'warn'); route = alt; }
@@ -8972,6 +8977,7 @@
     { area: 'sistemas', label: 'Sistemas', icon: 'grid', color: '#3FA9F5', desc: 'Homologa, App de produção e painel da TV.',
       stat: () => ({ v: SISTEMAS.length, l: 'plataformas disponíveis', tone: 'info' }) },
   ];
+  for (let i = HOME_AREAS.length - 1; i >= 0; i--) if (AREAS_OCULTAS.has(HOME_AREAS[i].area)) HOME_AREAS.splice(i, 1);
   const HOME_AREAS_ALL = HOME_AREAS.slice(); // a Home mostra só as áreas liberadas; a tela de permissões usa todas
   const GUIDELINE = { area: 'guideline', ext: true };
   const HX = { sel: -1, cur: 0, vel: 0, target: 0, raf: null, leaving: false, touch: false, stats: [] };
