@@ -2865,7 +2865,7 @@
       { k: 'prazo_real', t: 'Prazo real', u: 'd', tipo: 'line', eixo: 0, cor: '#46D39A', fonte: 'manual' },
       { k: 'rnc', t: 'RNC', u: 'n', tipo: 'bar', eixo: 1, cor: '#F5B840', fonte: 'manual', rnc: true },
     ] },
-    { id: 'log', n: 'Logística', i: 'car', c: '#3FA9F5', series: [
+    { id: 'log', n: 'Entregas & estoque', i: 'box', c: '#2DD4BF', coll: 'supLanc', series: [
       { k: 'entregas', t: 'Entregas no prazo', u: '%', tipo: 'line', eixo: 0, cor: '#3FA9F5', fonte: 'manual' },
       { k: 'estoque', t: 'Acuracidade de estoque', u: '%', tipo: 'line', eixo: 0, cor: '#A78BFA', fonte: 'manual' },
       { k: 'rnc', t: 'RNC', u: 'n', tipo: 'bar', eixo: 1, cor: '#FF7A7A', fonte: 'manual', rnc: true },
@@ -2898,11 +2898,14 @@
     ] },
   ];
   const sxDocId = (ano) => `lanc-${ano}`;
-  const sxDoc = (ano) => Store.find('qaKpi', sxDocId(ano)) || { valores: {} };
+  const sxColl = (S) => S.coll || 'qaKpi';
+  const sxDoc = (ano, coll) => Store.find(coll || 'qaKpi', sxDocId(ano)) || { valores: {} };
+  function sxSalvar(ano, coll, patch) { const cur = Store.find(coll, sxDocId(ano)); const valores = { ...((cur && cur.valores) || {}), ...patch };
+    if (cur) Store.update(coll, cur.id, { valores, porUlt: (typeof pvMe === 'function' && pvMe()) || '', emUlt: new Date().toISOString() }); else Store.add(coll, { id: sxDocId(ano), valores }); }
   // valores do ano: { 'eng.custo_est': [12] }
-  function sxValores(ano) {
-    const doc = sxDoc(ano); const hoje = todayISO(); const out = {};
-    SX.forEach((S) => S.series.forEach((s) => {
+  function sxValores(ano, lista) {
+    const hoje = todayISO(); const out = {};
+    (lista || SX).forEach((S) => { const doc = sxDoc(ano, sxColl(S)); S.series.forEach((s) => {
       const key = `${S.id}.${s.k}`; const salvo = (doc.valores || {})[key] || [];
       out[key] = SX_MES.map((_, i) => {
         const k = `${ano}-${String(i + 1).padStart(2, '0')}`;
@@ -2911,16 +2914,25 @@
         if (s.fonte === 'retrato') { if (k === mKey(hoje)) { try { return s.f(k); } catch (e) { return null; } } const v = salvo[i]; return v == null ? null : Number(v); }
         try { const v = s.f(k); return v == null && s.conta ? 0 : v; } catch (e) { return null; }
       });
-    }));
+    }); });
     return out;
   }
   // guarda o valor do mês atual dos indicadores "retrato" (vira histórico com o tempo)
-  function sxGuardarRetrato(ano, vals) {
-    if (String(ano) !== todayISO().slice(0, 4) || !Perm.podeGravar('qaKpi')) return;
-    const i = Number(todayISO().slice(5, 7)) - 1; const doc = Store.find('qaKpi', sxDocId(ano)); const valores = { ...((doc && doc.valores) || {}) }; let mudou = false;
-    SX.forEach((S) => S.series.filter((s) => s.fonte === 'retrato').forEach((s) => { const key = `${S.id}.${s.k}`; const v = vals[key][i]; const arr = (valores[key] || Array(12).fill(null)).slice(); if (v != null && arr[i] !== v) { arr[i] = v; valores[key] = arr; mudou = true; } }));
-    if (!mudou) return;
-    if (doc) Store.update('qaKpi', doc.id, { valores }); else Store.add('qaKpi', { id: sxDocId(ano), valores });
+  function sxGuardarRetrato(ano, vals, lista) {
+    if (String(ano) !== todayISO().slice(0, 4)) return;
+    const i = Number(todayISO().slice(5, 7)) - 1;
+    (lista || SX).forEach((S) => { const coll = sxColl(S); if (!Perm.podeGravar(coll)) return; const doc = sxDoc(ano, coll); const patch = {};
+      S.series.filter((x) => x.fonte === 'retrato').forEach((x) => { const key = `${S.id}.${x.k}`; const v = vals[key][i]; const arr = (((doc.valores || {})[key]) || Array(12).fill(null)).slice(); if (v != null && arr[i] !== v) { arr[i] = v; patch[key] = arr; } });
+      if (Object.keys(patch).length) sxSalvar(ano, coll, patch); });
+  }
+  // os lançamentos de Logística eram guardados na Qualidade: passam para Suprimentos (uma vez)
+  function sxMigrarSup() {
+    if (!Perm.podeGravar('supLanc')) return;
+    (Store.get('qaKpi') || []).filter((d) => /^lanc-\d{4}$/.test(d.id)).forEach((d) => {
+      const ano = d.id.slice(5); const ja = sxDoc(ano, 'supLanc').valores || {}; const patch = {};
+      Object.keys(d.valores || {}).filter((k) => k.startsWith('log.') && !ja[k]).forEach((k) => { patch[k] = d.valores[k]; });
+      if (Object.keys(patch).length) sxSalvar(ano, 'supLanc', patch);
+    });
   }
   function sxFmt(v, u) {
     if (v == null || isNaN(v)) return '—';
@@ -2928,8 +2940,8 @@
     return u === '%' ? n(v, 1) + '%' : u === 'd' ? n(v, 1) + ' d' : u === 'mil' ? 'R$ ' + n(v, 1) + ' mil' : n(v, 1);
   }
   // gráfico combinado (barras + linhas, dois eixos) em SVG
-  function sxChart(S, vals) {
-    const W = 560, H = 230, L = 38, R = 38, T = 14, B = 26, iw = W - L - R, ih = H - T - B, cw = iw / 12;
+  function sxChart(S, vals, larg) {
+    const W = larg || 560, H = 230, L = 38, R = 38, T = 14, B = 26, iw = W - L - R, ih = H - T - B, cw = iw / 12;
     const ser = S.series.map((s) => ({ s, v: vals[`${S.id}.${s.k}`] }));
     const temR = ser.some((x) => x.s.eixo === 1 && x.v.some((y) => y != null));
     const maxEixo = (e) => { let m = 0; if (S.empilha && e === 0) { for (let i = 0; i < 12; i++) m = Math.max(m, ser.filter((x) => x.s.eixo === 0 && x.s.tipo === 'bar').reduce((a, x) => a + (x.v[i] || 0), 0)); } ser.filter((x) => x.s.eixo === e).forEach((x) => x.v.forEach((y) => { if (y != null) m = Math.max(m, y); })); return m ? m * 1.15 : 1; };
@@ -2957,81 +2969,94 @@
   }
   const sxFmtCurto = (v) => (v >= 1000 ? (v / 1000).toLocaleString('pt-BR', { maximumFractionDigits: 1 }) + 'k' : v >= 10 ? Math.round(v) : v.toLocaleString('pt-BR', { maximumFractionDigits: 1 }));
 
-  let sxAno = null, sxTab = 'painel', sxPer = 12;
-  PAGES['qa-setores'] = () => {
+  let sxAno = null, sxPer = 12; const sxTab = {};
+  function sxPagina(cx) {
+    const L = cx.lista; const tab = sxTab[cx.rota] || 'painel';
     if (sxAno == null) sxAno = Number(todayISO().slice(0, 4));
-    const ano = sxAno; const vals = sxValores(ano); sxGuardarRetrato(ano, vals);
-    pageShell('Qualidade', 'Painel por setor', 'Indicadores mensais de cada setor.', `<button class="btn" id="sxPrint">${ic('file')}Imprimir</button>`);
+    const ano = sxAno; const vals = sxValores(ano, L); sxGuardarRetrato(ano, vals, L);
+    pageShell(cx.crumb, cx.titulo, cx.sub, `<button class="btn" id="sxPrint">${ic('file')}Imprimir</button>`);
     const tb = document.createElement('div'); tb.className = 'sx-top';
-    tb.innerHTML = `<div class="pvf-tabs" id="sxTabs"><span class="pvf-thumb"></span>${[['painel', 'Painel'], ['lanc', 'Lançamentos']].map(([k, l]) => `<button data-s="${k}" class="${sxTab === k ? 'on' : ''}">${l}</button>`).join('')}</div>
+    tb.innerHTML = `<div class="pvf-tabs" id="sxTabs"><span class="pvf-thumb"></span>${[['painel', 'Painel'], ['lanc', 'Lançamentos']].map(([k, l]) => `<button data-s="${k}" class="${tab === k ? 'on' : ''}">${l}</button>`).join('')}</div>
       <div class="kp-mes sx-ano"><button class="icon-btn" id="sxPrev" aria-label="Ano anterior">${ic('chevron')}</button><b>${ano}</b><button class="icon-btn" id="sxNext" aria-label="Próximo ano">${ic('chevron')}</button></div>`;
     view.appendChild(tb); Icons.apply(tb);
-    $$('#sxTabs button', tb).forEach((b) => (b.onclick = () => { sxTab = b.dataset.s; go('qa-setores'); }));
-    $('#sxPrev', tb).onclick = () => { sxAno--; go('qa-setores'); }; $('#sxNext', tb).onclick = () => { sxAno++; go('qa-setores'); };
-    $('#sxPrint').onclick = () => sxImprimir(ano, vals);
+    $$('#sxTabs button', tb).forEach((b) => (b.onclick = () => { sxTab[cx.rota] = b.dataset.s; go(cx.rota); }));
+    $('#sxPrev', tb).onclick = () => { sxAno--; go(cx.rota); }; $('#sxNext', tb).onclick = () => { sxAno++; go(cx.rota); };
+    $('#sxPrint').onclick = () => sxImprimir(ano, vals, cx);
     const box = document.createElement('div'); view.appendChild(box);
-    if (sxTab === 'lanc') return sxLancamentos(box, ano, vals);
+    if (tab === 'lanc') return sxLancamentos(box, ano, vals, cx);
     // resumo do período
     const mesAtual = String(ano) === todayISO().slice(0, 4) ? Number(todayISO().slice(5, 7)) : 12;
     const pick = (arr, conta) => { if (sxPer === 12) { const l = arr.filter((v) => v != null); return conta ? l.reduce((a, b) => a + b, 0) : sxAvg(l); } return arr[sxPer]; };
-    const rncTot = SX.reduce((s, S) => s + S.series.filter((x) => x.rnc).reduce((a, x) => a + (pick(vals[`${S.id}.${x.k}`], true) || 0), 0), 0);
-    const ent = pick(vals['log.entregas']); const disp = pick(vals['man.disp']); const comp = pick(vals['rh.pct_comp']);
-    const engPz = (() => { const r = vals['eng.prazo_real'], e = vals['eng.prazo_est']; const a = pick(r), b = pick(e); return a != null && b != null ? a - b : null; })();
-    const tile = (cls, icn, v, l, s) => `<div class="pvd-tile ${cls}"><span class="pvd-ti">${ic(icn)}</span><b>${v}</b><span>${esc(l)}</span><small>${esc(s)}</small></div>`;
+    const rncTot = L.reduce((s, S) => s + S.series.filter((x) => x.rnc).reduce((a, x) => a + (pick(vals[`${S.id}.${x.k}`], true) || 0), 0), 0);
+    const tile = (cls, icn, v, l, s2) => `<div class="pvd-tile ${cls}"><span class="pvd-ti">${ic(icn)}</span><b>${v}</b><span>${esc(l)}</span><small>${esc(s2)}</small></div>`;
     box.innerHTML = `<div class="sx-per"><span>${ic('calendar')}Resumo de</span><select id="sxPer"><option value="12">${ano} (ano todo)</option>${SX_MES.map((m, i) => `<option value="${i}" ${i >= mesAtual ? 'disabled' : ''}>${MES_L[i]}</option>`).join('')}</select></div>
-      <section class="pc-tiles tp-tiles sx-tiles">${tile(rncTot ? 't-warn' : 't-ok', 'alert', rncTot, 'RNCs no período', 'todos os setores')}
-        ${tile(ent == null ? '' : ent >= 95 ? 't-ok' : ent >= 85 ? 't-warn' : 't-danger', 'car', sxFmt(ent, '%'), 'Entregas no prazo', 'Logística')}
-        ${tile(disp == null ? '' : disp >= 95 ? 't-ok' : 't-warn', 'wrench', sxFmt(disp, '%'), 'Disponibilidade', 'Manutenção')}
-        ${tile(comp == null ? '' : comp >= 95 ? 't-ok' : comp >= 80 ? 't-warn' : 't-danger', 'users', sxFmt(comp, '%'), 'Equipe competente', 'RH')}
-        ${tile(engPz == null ? '' : engPz <= 0 ? 't-ok' : 't-warn', 'settings', engPz == null ? '—' : (engPz > 0 ? '+' : '') + sxFmt(engPz, 'd'), 'Desvio de prazo', 'Engenharia · real − previsto')}</section>
-      <div class="sx-grid">${SX.map((S, si) => `<section class="pvp-card sx-card" style="--c:${S.c};--d:${si * 50}ms" data-s="${S.id}">
+      <section class="pc-tiles tp-tiles sx-tiles" style="--n:${cx.nTiles || 5}">${cx.tiles({ pick, vals, rncTot, tile })}</section>
+      <div class="sx-grid${L.length === 1 ? ' um' : ''}">${L.map((S, si) => `<section class="pvp-card sx-card" style="--c:${S.c};--d:${si * 50}ms" data-s="${S.id}">
         <div class="sx-h"><span class="sx-hi">${ic(S.i)}</span><b>${esc(S.n)}</b>${S.series.some((s) => s.fonte === 'manual') ? `<button type="button" class="sx-lk" data-lanc="${S.id}">${ic('edit')}Lançar</button>` : ''}</div>
         <div class="sx-leg">${S.series.map((s) => `<span><i class="${s.tipo}${s.dash ? ' dash' : ''}" style="--c:${s.cor}"></i>${esc(s.t)}${s.fonte === 'manual' ? '' : `<em title="${esc(s.como || '')}">auto</em>`}</span>`).join('')}</div>
-        <div class="sx-ch">${sxChart(S, vals)}<div class="sx-tip" hidden></div></div></section>`).join('')}</div>`;
+        <div class="sx-ch">${sxChart(S, vals, L.length === 1 ? 1120 : 560)}<div class="sx-tip" hidden></div></div></section>`).join('')}</div>`;
     Icons.apply(box);
-    const per = $('#sxPer', box); per.value = String(sxPer); ccSelect(per, { icon: 'calendar' }); per.addEventListener('change', () => { sxPer = Number(per.value); go('qa-setores'); });
-    $$('[data-lanc]', box).forEach((b) => (b.onclick = () => { sxTab = 'lanc'; sessionStorage.setItem('sx_foco', b.dataset.lanc); go('qa-setores'); }));
+    const per = $('#sxPer', box); per.value = String(sxPer); ccSelect(per, { icon: 'calendar' }); per.addEventListener('change', () => { sxPer = Number(per.value); go(cx.rota); });
+    $$('[data-lanc]', box).forEach((b) => (b.onclick = () => { sxTab[cx.rota] = 'lanc'; sessionStorage.setItem('sx_foco', b.dataset.lanc); go(cx.rota); }));
     // dica ao passar o mouse
     $$('.sx-card', box).forEach((card) => {
-      const S = SX.find((x) => x.id === card.dataset.s); const tip = $('.sx-tip', card); const ch = $('.sx-ch', card);
+      const S = L.find((x) => x.id === card.dataset.s); const tip = $('.sx-tip', card); const ch = $('.sx-ch', card);
       $$('.sx-hit', card).forEach((h) => { h.onmouseenter = () => { const i = +h.dataset.i;
         tip.innerHTML = `<b>${MES_L[i]} ${ano}</b>${S.series.map((s) => `<span><i style="--c:${s.cor}"></i>${esc(s.t)}<em>${sxFmt(vals[`${S.id}.${s.k}`][i], s.u)}</em></span>`).join('')}`;
         tip.hidden = false; const r = h.getBoundingClientRect(), rc = ch.getBoundingClientRect(); const x = r.left - rc.left + r.width / 2; tip.style.left = Math.min(Math.max(8, x - 95), rc.width - 198) + 'px'; };
         h.onmouseleave = () => { tip.hidden = true; }; });
     });
-  };
-  function sxLancamentos(box, ano, vals) {
-    const pode = Perm.podeGravar('qaKpi'); const doc = sxDoc(ano);
+  }
+  function sxLancamentos(box, ano, vals, cx) {
+    const L = cx.lista; const pode = L.some((S) => Perm.podeGravar(sxColl(S)));
     const mesAtual = String(ano) === todayISO().slice(0, 4) ? Number(todayISO().slice(5, 7)) : (ano > Number(todayISO().slice(0, 4)) ? 0 : 12);
     box.innerHTML = `<p class="sx-nota">${ic('activity')}<span>Linhas <em>auto</em> são calculadas pelo sistema. Digite só as linhas em branco, de outros sistemas.${pode ? '' : ' Você tem acesso só para visualizar.'}</span></p>
-      ${SX.map((S) => `<section class="pvp-card sx-lc" id="sxl-${S.id}" style="--c:${S.c}"><div class="sx-h"><span class="sx-hi">${ic(S.i)}</span><b>${esc(S.n)}</b></div>
+      ${L.map((S) => { const doc = sxDoc(ano, sxColl(S)); const podeS = Perm.podeGravar(sxColl(S)); return `<section class="pvp-card sx-lc" id="sxl-${S.id}" style="--c:${S.c}"><div class="sx-h"><span class="sx-hi">${ic(S.i)}</span><b>${esc(S.n)}</b></div>
         <div class="sx-tw"><table class="sx-tb"><thead><tr><th>Indicador</th>${SX_MES.map((m) => `<th>${m}</th>`).join('')}</tr></thead><tbody>
         ${S.series.map((s) => { const key = `${S.id}.${s.k}`; const salvo = ((doc.valores || {})[key]) || [];
           return `<tr class="${s.fonte}"><td><b>${esc(s.t)}</b><small>${s.u === '%' ? '%' : s.u === 'd' ? 'dias' : s.u === 'mil' ? 'R$ mil' : 'quantidade'}${s.fonte === 'manual' ? '' : ` · <em title="${esc(s.como || '')}">${s.fonte === 'retrato' ? 'auto (retrato do mês)' : 'auto'}</em>`}</small></td>
-            ${SX_MES.map((_, i) => s.fonte === 'manual' && pode && i < mesAtual ? `<td><input data-k="${key}" data-i="${i}" inputmode="decimal" value="${salvo[i] == null || salvo[i] === '' ? '' : String(salvo[i]).replace('.', ',')}" placeholder="—"></td>` : `<td class="ro">${s.fonte === 'manual' ? (salvo[i] == null || salvo[i] === '' ? '—' : esc(String(salvo[i]).replace('.', ','))) : sxFmt(vals[key][i], s.u).replace(/ (d|mil)$/, '').replace('R$ ', '')}</td>`).join('')}</tr>`; }).join('')}
-        </tbody></table></div></section>`).join('')}`;
+            ${SX_MES.map((_, i) => s.fonte === 'manual' && podeS && i < mesAtual ? `<td><input data-k="${key}" data-coll="${sxColl(S)}" data-i="${i}" inputmode="decimal" value="${salvo[i] == null || salvo[i] === '' ? '' : String(salvo[i]).replace('.', ',')}" placeholder="—"></td>` : `<td class="ro">${s.fonte === 'manual' ? (salvo[i] == null || salvo[i] === '' ? '—' : esc(String(salvo[i]).replace('.', ','))) : sxFmt(vals[key][i], s.u).replace(/ (d|mil)$/, '').replace('R$ ', '')}</td>`).join('')}</tr>`; }).join('')}
+        </tbody></table></div></section>`; }).join('')}`;
     Icons.apply(box);
     const foco = sessionStorage.getItem('sx_foco'); if (foco) { sessionStorage.removeItem('sx_foco'); setTimeout(() => { const el = $(`#sxl-${foco}`); if (el) { el.scrollIntoView({ behavior: 'smooth', block: 'start' }); el.classList.add('flash'); } }, 300); }
     $$('input[data-k]', box).forEach((inp) => {
       inp.oninput = () => { let v = inp.value.replace('.', ',').replace(/[^\d,]/g, ''); const p = v.indexOf(','); if (p >= 0) v = v.slice(0, p + 1) + v.slice(p + 1).replace(/,/g, '').slice(0, 2); inp.value = v.slice(0, 10); };
       inp.onkeydown = (e) => { if (e.key === 'Enter') { e.preventDefault(); const all = $$('input[data-k]', box); const n = all[all.indexOf(inp) + 1]; if (n) n.focus(); else inp.blur(); } };
       inp.onchange = () => {
-        const cur = Store.find('qaKpi', sxDocId(ano)); const valores = { ...((cur && cur.valores) || {}) }; const arr = (valores[inp.dataset.k] || Array(12).fill(null)).slice();
-        arr[+inp.dataset.i] = inp.value === '' ? null : Number(inp.value.replace(',', '.')); valores[inp.dataset.k] = arr;
-        if (cur) Store.update('qaKpi', cur.id, { valores, porUlt: (typeof pvMe === 'function' && pvMe()) || '', emUlt: new Date().toISOString() }); else Store.add('qaKpi', { id: sxDocId(ano), valores });
+        const coll = inp.dataset.coll; const arr = (((sxDoc(ano, coll).valores || {})[inp.dataset.k]) || Array(12).fill(null)).slice();
+        arr[+inp.dataset.i] = inp.value === '' ? null : Number(inp.value.replace(',', '.')); sxSalvar(ano, coll, { [inp.dataset.k]: arr });
         inp.classList.add('ok'); setTimeout(() => inp.classList.remove('ok'), 900);
       };
     });
   }
-  function sxImprimir(ano, vals) {
+  function sxImprimir(ano, vals, cx) {
     const corpo = `<style>@page { size: A4 landscape; margin: 10mm; } .sxp { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; } .sxp section { border: 1px solid #c9d2de; border-radius: 6px; padding: 8px 10px; page-break-inside: avoid; }
       .sxp h3 { margin: 0 0 4px; font-size: 13px; color: #0b3d6b; } .sxp svg { width: 100%; height: 150px; } .sxp .sx-gl { stroke: #e3e8ef; } .sxp .sx-ax { fill: #778; font-size: 9px; }
       .sxp .lg { display: flex; flex-wrap: wrap; gap: 4px 12px; font-size: 9.5px; color: #333; margin-bottom: 2px; } .sxp .lg i { display: inline-block; width: 9px; height: 9px; border-radius: 2px; margin-right: 4px; vertical-align: -1px; }
       table.v { margin-top: 6px; font-size: 9px; } table.v th, table.v td { padding: 2px 3px; text-align: center; } table.v td:first-child { text-align: left; }</style>
-      <div class="sxp">${SX.map((S) => `<section><h3>${esc(S.n)}</h3><div class="lg">${S.series.map((s) => `<span><i style="background:${s.cor}"></i>${esc(s.t)}</span>`).join('')}</div>${sxChart(S, vals)}
+      <div class="sxp${cx.lista.length === 1 ? ' um' : ''}">${cx.lista.map((S) => `<section><h3>${esc(S.n)}</h3><div class="lg">${S.series.map((s) => `<span><i style="background:${s.cor}"></i>${esc(s.t)}</span>`).join('')}</div>${sxChart(S, vals, cx.lista.length === 1 ? 1120 : 560)}
         <table class="v"><thead><tr><th></th>${SX_MES.map((m) => `<th>${m}</th>`).join('')}</tr></thead><tbody>${S.series.map((s) => `<tr><td>${esc(s.t)}</td>${vals[`${S.id}.${s.k}`].map((v) => `<td>${v == null ? '' : sxFmt(v, s.u).replace(/ (d|mil)$/, '').replace('R$ ', '')}</td>`).join('')}</tr>`).join('')}</tbody></table></section>`).join('')}</div>`;
-    rhPrintDoc(`Painel por setor · ${ano}`, corpo, 'Qualidade');
+    rhPrintDoc(`${cx.titulo} · ${ano}`, corpo.replace('.sxp { display: grid;', '.sxp.um { grid-template-columns: 1fr; } .sxp.um svg { height: 260px; } .sxp { display: grid;'), cx.crumb);
   }
+
+  // Qualidade: painel com os setores da casa
+  PAGES['qa-setores'] = () => sxPagina({ rota: 'qa-setores', crumb: 'Qualidade', titulo: 'Painel por setor', sub: 'Indicadores mensais de cada setor.', lista: SX.filter((S) => S.id !== 'log'),
+    tiles: ({ pick, vals, rncTot, tile }) => { const disp = pick(vals['man.disp']); const comp = pick(vals['rh.pct_comp']); const ac = pick(vals['qual.acoes'], true);
+      const engPz = (() => { const a = pick(vals['eng.prazo_real']), b = pick(vals['eng.prazo_est']); return a != null && b != null ? a - b : null; })();
+      return tile(rncTot ? 't-warn' : 't-ok', 'alert', rncTot, 'RNCs no período', 'Engenharia, Produção e Qualidade')
+        + tile('t-info', 'check', ac || 0, 'Ações corretivas', 'respondidas no período')
+        + tile(disp == null ? '' : disp >= 95 ? 't-ok' : 't-warn', 'wrench', sxFmt(disp, '%'), 'Disponibilidade', 'Manutenção')
+        + tile(comp == null ? '' : comp >= 95 ? 't-ok' : comp >= 80 ? 't-warn' : 't-danger', 'users', sxFmt(comp, '%'), 'Equipe competente', 'RH')
+        + tile(engPz == null ? '' : engPz <= 0 ? 't-ok' : 't-warn', 'settings', engPz == null ? '—' : (engPz > 0 ? '+' : '') + sxFmt(engPz, 'd'), 'Desvio de prazo', 'Engenharia · real − previsto'); } });
+  // Suprimentos: entregas, estoque e RNC
+  PAGES['sup-painel'] = () => { sxMigrarSup(); sxPagina({ rota: 'sup-painel', crumb: 'Suprimentos', titulo: 'Indicadores', sub: 'Entregas, estoque e RNC de Suprimentos.', lista: SX.filter((S) => S.id === 'log'), nTiles: 4,
+    tiles: ({ pick, vals, rncTot, tile }) => { const ent = pick(vals['log.entregas']); const est = pick(vals['log.estoque']); const meses = vals['log.entregas'].filter((v) => v != null).length;
+      return tile(ent == null ? '' : ent >= 95 ? 't-ok' : ent >= 85 ? 't-warn' : 't-danger', 'calendar', sxFmt(ent, '%'), 'Entregas no prazo', 'meta 95%')
+        + tile(est == null ? '' : est >= 98 ? 't-ok' : est >= 95 ? 't-warn' : 't-danger', 'box', sxFmt(est, '%'), 'Acuracidade de estoque', 'meta 98%')
+        + tile(rncTot ? 't-warn' : 't-ok', 'alert', rncTot, 'RNC', 'no período')
+        + tile('t-info', 'edit', meses, 'Meses lançados', meses < 12 ? 'lance na aba Lançamentos' : 'ano completo'); } }); };
+  // último valor lançado de um indicador de Suprimentos (para a roda da Home e os Indicadores IATF)
+  function supUltimo(key) { const y = todayISO().slice(0, 4); for (const ano of [y, String(Number(y) - 1)]) { const v = (sxDoc(ano, 'supLanc').valores || {})[key] || []; for (let i = 11; i >= 0; i--) if (v[i] != null) return { v: Number(v[i]), mes: i, ano }; } return null; }
 
   /* =========================== ENGENHARIA · projetos e indicadores ===========================
      Cadastro enxuto de projetos (só o que alimenta os números) + painel de indicadores.
@@ -4650,7 +4675,7 @@
 
   // áreas e abas que entram na tela de permissões (na ordem da Home)
   const permAreas = () => {
-    const ord = ['qualidade', 'pos-vendas', 'manutencao', 'programacao', 'engenharia', 'rh', 'ti', 'sistemas'];
+    const ord = ['qualidade', 'pos-vendas', 'manutencao', 'programacao', 'engenharia', 'suprimentos', 'rh', 'ti', 'sistemas'];
     return ord.filter((a) => NAV[a] && !AREAS_OCULTAS.has(a)).map((a) => {
       const ha = (HOME_AREAS_ALL.find((x) => x.area === a) || {});
       const abas = []; NAV[a].groups.forEach((g) => g.items.forEach((it) => { if (it.r !== 'usuarios') abas.push({ r: it.r, t: it.t, i: it.i, g: g.label }); }));
@@ -4861,7 +4886,7 @@
   const AREAS_OCULTAS = new Set(['programacao']);
   const KPI_AREAS = {
     'pos-vendas': { l: 'Pós-Vendas', i: 'phone' }, qualidade: { l: 'Qualidade', i: 'award' }, manutencao: { l: 'Manutenção', i: 'wrench' },
-    rh: { l: 'RH', i: 'users' }, programacao: { l: 'Programação', i: 'calendar' }, engenharia: { l: 'Engenharia', i: 'settings' },
+    rh: { l: 'RH', i: 'users' }, programacao: { l: 'Programação', i: 'calendar' }, engenharia: { l: 'Engenharia', i: 'settings' }, suprimentos: { l: 'Suprimentos', i: 'box' },
   };
   AREAS_OCULTAS.forEach((a) => delete KPI_AREAS[a]);
   const kpiCor = (a) => (HOME_AREAS_ALL.find((x) => x.area === a) || {}).color || '#5CE1E6';
@@ -4951,6 +4976,10 @@
       { k: 'rh_turn', a: 'rh', t: 'Turnover', c: '7.1.2', u: '%', melhor: 'menor', meta: 2, como: 'Desligamentos no mês ÷ colaboradores ativos.',
         v: (k) => { const at = rhList('team').filter((u) => (!u.admissao || u.admissao <= mFim(k)) && (u.situacao !== 'desligado' || (u.desligamento && u.desligamento >= mIni(k)))).length; const des = rhList('team').filter((u) => naMes(u.desligamento, k)).length; return { v: at ? pctOf(des, at) : null, n: at }; } },
       // ---------------- Programação ----------------
+      { k: 'sup_ent', a: 'suprimentos', t: 'Entregas no prazo', c: '9.1.2.1', u: '%', melhor: 'maior', meta: 95, como: 'Lançado em Suprimentos → Indicadores (vem de outro sistema).',
+        v: (k) => { const v = ((sxDoc(k.slice(0, 4), 'supLanc').valores || {})['log.entregas'] || [])[Number(k.slice(5, 7)) - 1]; return { v: v == null ? null : Number(v), n: v == null ? 0 : 1 }; } },
+      { k: 'sup_est', a: 'suprimentos', t: 'Acuracidade de estoque', c: '8.5.4', u: '%', melhor: 'maior', meta: 98, como: 'Lançado em Suprimentos → Indicadores.',
+        v: (k) => { const v = ((sxDoc(k.slice(0, 4), 'supLanc').valores || {})['log.estoque'] || [])[Number(k.slice(5, 7)) - 1]; return { v: v == null ? null : Number(v), n: v == null ? 0 : 1 }; } },
       { k: 'eng_prazo', a: 'engenharia', t: 'Projetos entregues no prazo', c: '8.3.4', u: '%', melhor: 'maior', meta: 90, como: 'Projetos concluídos até o prazo original ÷ concluídos no mês.',
         v: (k) => { const l = engList().filter((p) => p.status === 'concluido' && mKey(p.conclusao) === k); return { v: pctOf(l.filter((p) => engPrazoSt(p).k === 'ok').length, l.length), n: l.length }; } },
       { k: 'eng_atraso', a: 'engenharia', t: 'Projetos atrasados', c: '8.3.4', u: 'n', melhor: 'menor', meta: 0, atual: true, como: 'Projetos em andamento com prazo vencido.',
@@ -9077,6 +9106,9 @@
       { label: 'Operação', items: [ { r: 'prog-atividades', t: 'Atividades', s: 'Atividades', i: 'list' }, { r: 'prog-pedidos', t: 'Pedidos', s: 'Pedidos', i: 'file' }, { r: 'prog-rnc', t: 'Não Conformidades', s: 'RNC', i: 'alert' } ] },
       { label: 'Cadastros', items: [ { r: 'prog-cadastros', t: 'Equipe & Setores', s: 'Equipe', i: 'users' }, { r: 'prog-catalogo', t: 'Famílias, Fornecedores & Estoque', s: 'Catálogo', i: 'box' } ] },
     ] },
+    suprimentos: { label: 'Suprimentos', groups: [
+      { label: 'Suprimentos', items: [ { r: 'sup-painel', t: 'Indicadores', s: 'Indicadores', i: 'activity' } ] },
+    ] },
     engenharia: { label: 'Engenharia', groups: [
       { label: 'Projetos', items: [ { r: 'eng-painel', t: 'Painel', s: 'Painel', i: 'grid' }, { r: 'eng-projetos', t: 'Projetos', s: 'Projetos', i: 'settings' } ] },
     ] },
@@ -9107,6 +9139,7 @@
     if (/^rh/.test(c)) return ['rh'];
     if (/^prog/.test(c)) return ['programacao'];
     if (/^eng/.test(c)) return ['engenharia'];
+    if (/^sup/.test(c)) return ['suprimentos'];
     return ['*'];
   };
   const Perm = {
@@ -9145,7 +9178,7 @@
     };
   });
 
-  const AREA_HOME = { ti: 'dashboard', qualidade: 'qa-dashboard', sistemas: 'sistemas-home', 'pos-vendas': 'pv-painel', manutencao: 'manutencao-home', programacao: 'prog-atividades', rh: 'rh-painel', engenharia: 'eng-painel' };
+  const AREA_HOME = { ti: 'dashboard', qualidade: 'qa-dashboard', sistemas: 'sistemas-home', 'pos-vendas': 'pv-painel', manutencao: 'manutencao-home', programacao: 'prog-atividades', rh: 'rh-painel', engenharia: 'eng-painel', suprimentos: 'sup-painel' };
 
   function renderSidebar(area) {
     const cfg = NAV[area]; const nav = $('#nav');
@@ -9269,6 +9302,8 @@
       stat: () => { const t = todayISO(); const l = Store.get('progAtividades') || []; const late = l.filter((a) => a.status !== 'done' && a.prazo && a.prazo < t).length; return late ? { v: late, l: 'atividade(s) atrasada(s)', tone: 'warn' } : { v: l.filter((a) => a.status !== 'done').length, l: 'atividades em andamento', tone: 'info' }; } },
     { area: 'engenharia', label: 'Engenharia', icon: 'settings', color: ENG_COR, desc: 'Projetos, prazos e indicadores.', isNew: true,
       stat: () => { const at = engList().filter((p) => ['andamento', 'pausado'].includes(p.status)); const late = at.filter((p) => engPrazoSt(p).k === 'atrasado').length; return late ? { v: late, l: late === 1 ? 'projeto atrasado' : 'projetos atrasados', tone: 'danger' } : { v: at.length, l: at.length === 1 ? 'projeto em andamento' : 'projetos em andamento', tone: at.length ? 'info' : 'ok' }; } },
+    { area: 'suprimentos', label: 'Suprimentos', icon: 'box', color: '#2DD4BF', desc: 'Compras, estoque e entregas.', isNew: true,
+      stat: () => { const u = supUltimo('log.entregas'); return u ? { v: sxFmt(u.v, '%'), l: `entregas no prazo · ${MES_C[u.mes]}`, tone: u.v >= 95 ? 'ok' : u.v >= 85 ? 'warn' : 'danger' } : { v: '—', l: 'lance os indicadores', tone: 'info' }; } },
     { area: 'rh', label: 'RH', icon: 'users', color: '#FB923C', desc: 'Pessoas, treinamentos, férias e veículos.', isNew: true,
       stat: () => { const at = rhAtivos(); let pend = 0; at.forEach((u) => { const r = rhTreinoResumo(u); pend += r.vencido + r.faltando; }); if (pend) return { v: pend, l: pend === 1 ? 'treinamento pendente' : 'treinamentos pendentes', tone: 'warn' }; return { v: at.length, l: at.length === 1 ? 'colaborador ativo' : 'colaboradores ativos', tone: 'info' }; } },
     { area: 'ti', label: 'T.I', icon: 'cpu', color: '#5CE1E6', desc: 'Computadores, impressoras, licenças e cofre.',

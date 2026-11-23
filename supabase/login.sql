@@ -68,6 +68,7 @@ returns text[] language sql immutable as $$
     when ent like 'rh%' then array['rh']
     when ent like 'prog%' then array['programacao']
     when ent like 'eng%' then array['engenharia']
+    when ent like 'sup%' then array['suprimentos']
     when ent = 'history' then array['*']
     else array[]::text[]
   end;
@@ -209,6 +210,7 @@ returns text[] language sql immutable as $$
     when ent like 'rh%' then array['rh']
     when ent like 'prog%' then array['programacao']
     when ent like 'eng%' then array['engenharia']
+    when ent like 'sup%' then array['suprimentos']
     when ent = 'history' then array['*']
     else array[]::text[]
   end;

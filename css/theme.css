@@ -3518,3 +3518,5 @@ button.eng-fc:hover { border-color: color-mix(in srgb, var(--accent) 45%, var(--
 /* troca de tema: sem transição em cada elemento (evita a travada) e esmaecimento suave da tela inteira */
 html.th-sw *, html.th-sw *::before, html.th-sw *::after { transition: none !important; }
 ::view-transition-old(root), ::view-transition-new(root) { animation-duration: .32s; animation-timing-function: cubic-bezier(.4, 0, .2, 1); }
+.sx-grid.um { grid-template-columns: 1fr; } .sx-grid.um .sx-svg { height: 300px; }
+.sx-tiles[style*="--n:4"] { grid-template-columns: repeat(4, minmax(0, 1fr)); }
