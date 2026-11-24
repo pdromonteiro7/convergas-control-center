@@ -127,6 +127,25 @@
       starM: new (T().MeshBasicMaterial)({ color: '#FFD84D' }),
       eyeHi: M({ color: '#FFFFFF', emissive: '#FFFFFF', emissiveIntensity: .4 }),
       hit: new (T().MeshBasicMaterial)({ visible: false }),
+      // oficina (Produção)
+      concrete: M({ color: light ? '#C9D0D8' : '#9AA4B0', roughness: .92 }),
+      yellow: M({ color: '#F2B51C', roughness: .5 }),
+      black: M({ color: '#1C2026', roughness: .6 }),
+      tire: M({ color: '#1A1D22', roughness: .9 }),
+      rim: M({ color: '#C9D1DA', roughness: .3, metalness: .8 }),
+      cab: M({ color: '#F4F7FA', roughness: .35, metalness: .1 }),
+      cab2: M({ color: '#2E86D6', roughness: .35, metalness: .1 }),
+      winGlass: M({ color: '#1E3A55', roughness: .1, metalness: .4 }),
+      headL: M({ color: '#FFF6D8', emissive: '#FFE9A8', emissiveIntensity: 1.2 }),
+      tailL: M({ color: '#D8343A', emissive: '#D8343A', emissiveIntensity: .8 }),
+      gnv: M({ color: '#24A36B', roughness: .35, metalness: .35 }),
+      gnvCap: M({ color: '#D9DEE4', roughness: .25, metalness: .8 }),
+      steel: M({ color: '#7D8896', roughness: .35, metalness: .7 }),
+      redBox: M({ color: '#C8333A', roughness: .45, metalness: .2 }),
+      drum: M({ color: '#2E6FB8', roughness: .5, metalness: .2 }),
+      orange: M({ color: '#F07A22', roughness: .6 }),
+      helmet: M({ color: '#F6C21C', roughness: .35 }),
+      door: M({ color: light ? '#AEB8C4' : '#8592A1', roughness: .6, metalness: .3 }),
     };
   }
 
@@ -159,7 +178,7 @@
   }
 
   /* ---------- bonequinho ---------- */
-  function makePerson(p, M, Gm) {
+  function makePerson(p, M, Gm, capacete) {
     const G = T(); const h = hash(p.name + p.id); const av = avatarOf(p); const fem = av.sexo === 'F';
     const skin = new G.MeshStandardMaterial({ color: SKIN[av.pele % SKIN.length], roughness: .7 });
     const hair = new G.MeshStandardMaterial({ color: HAIR[av.corCabelo % HAIR.length], roughness: .85 });
@@ -182,16 +201,17 @@
     add(Gm.nose, skin, 0, -.03, .3, head);
     const mo = add(Gm.mouth, fem ? M.lips : M.eye, 0, -.1, .27, head); mo.rotation.set(-.25, 0, Math.PI);
     // cabelo
-    const st = av.cabelo;
+    const st = capacete && ['topete', 'coque'].includes(av.cabelo) ? 'raspado' : av.cabelo;   // com capacete, o que fica no alto da cabeça some
     if (st !== 'careca') { const cap = add(Gm.hairCap, hair, 0, .02, -.01, head); cap.rotation.x = -.22; if (st === 'raspado') cap.scale.set(.985, .55, .985); }
     if (st === 'topete') { const t = add(Gm.hairBack, hair, 0, .24, .1, head); t.scale.set(.55, .35, .55); }
     if (st === 'comprido') { const b = add(Gm.hairBack, hair, 0, -.16, -.1, head); b.scale.set(1.06, 1.25, .8); [-1, 1].forEach((sd) => { const f = add(Gm.tail, hair, sd * .27, -.16, .02, head); f.scale.set(1.1, 1.3, 1); }); }
     if (st === 'chanel') { const b = add(Gm.hairBack, hair, 0, -.06, -.04, head); b.scale.set(1.1, .95, 1.02); }
     if (st === 'rabo') { add(Gm.hairBack, hair, 0, .02, -.22, head).scale.set(.32, .32, .32); const t = add(Gm.tail, hair, 0, -.2, -.33, head); t.rotation.x = .35; }
     if (st === 'coque') add(Gm.hairBack, hair, 0, .27, -.18, head).scale.set(.42, .42, .42);
-    if (st === 'cacheado') { for (let i = 0; i < 11; i++) { const a = (i / 11) * Math.PI * 2; add(Gm.curl, hair, Math.cos(a) * .22, .19 + (i % 2) * .05, Math.sin(a) * .22 - .03, head); } add(Gm.curl, hair, 0, .29, 0, head).scale.setScalar(1.6); if (fem) { for (let i = 0; i < 7; i++) { const a = Math.PI * .15 + (i / 6) * Math.PI * .7; add(Gm.curl, hair, Math.cos(a) * .28, -.12 - (i % 2) * .06, -Math.sin(a) * .2, head).scale.setScalar(1.3); } } }
+    if (st === 'cacheado') { if (!capacete) for (let i = 0; i < 11; i++) { const a = (i / 11) * Math.PI * 2; add(Gm.curl, hair, Math.cos(a) * .22, .19 + (i % 2) * .05, Math.sin(a) * .22 - .03, head); } if (!capacete) add(Gm.curl, hair, 0, .29, 0, head).scale.setScalar(1.6); if (fem) { for (let i = 0; i < 7; i++) { const a = Math.PI * .15 + (i / 6) * Math.PI * .7; add(Gm.curl, hair, Math.cos(a) * .28, -.12 - (i % 2) * .06, -Math.sin(a) * .2, head).scale.setScalar(1.3); } } }
     if (av.barba) { const b = add(Gm.beard, hair, 0, -.02, .02, head); b.scale.set(1.04, 1.02, 1.05); }
     if (av.oculos) { [-1, 1].forEach((sd) => add(Gm.lens, M.eye, sd * .105, .03, .29, head)); }
+    if (capacete) { const hc = add(Gm.hairCap, M.helmet, 0, .05, 0, head); hc.scale.set(1.1, 1.05, 1.1); const ab = add(new G.CylinderGeometry(.36, .36, .025, 24), M.helmet, 0, .06, .04, head); ab.scale.set(1, 1, 1.08); }
     // área de clique
     const hit = new G.Mesh(Gm.hit, M.hit); hit.position.y = 1; hit.userData.personId = p.id; g.add(hit);
     // sombra-contato (anel luminoso no chão)
@@ -239,6 +259,61 @@
     const b = new (T().Mesh)(new (T().SphereGeometry)(.16, 16, 12), M.lampBulb); b.position.set(x, 2.7, z); parent.add(b);
     cyl(.2, .12, .08, M.lampPole, x, 2.82, z, parent, 12);
   }
+
+  /* ---------- oficina: caminhão GNV, elevador e equipamentos ---------- */
+  // caminhãozinho com cilindros de GNV atrás da cabine; frente para +x
+  function truck(M, x, z, parent, opt) {
+    opt = opt || {}; const G = T(); const g = new G.Group(); g.position.set(x, opt.y || 0, z); if (opt.rot) g.rotation.y = opt.rot; parent.add(g);
+    const wheel = (wx, wz) => { const w = cyl(.46, .46, .34, M.tire, wx, .46, wz, g, 20); w.rotation.x = Math.PI / 2; const r = cyl(.24, .24, .36, M.rim, wx, .46, wz, g, 14); r.rotation.x = Math.PI / 2; };
+    [2.15, -1.35, -2.3].forEach((wx) => [-.92, .92].forEach((wz) => wheel(wx, wz)));
+    box(6.0, .22, .9, M.black, -.2, .78, 0, g);                       // chassi
+    // cabine
+    box(1.55, 1.55, 2.1, opt.cor || M.cab, 2.35, 1.72, 0, g);
+    box(1.6, .32, 2.12, M.cab2, 2.35, 1.1, 0, g, false);              // faixa azul
+    box(.04, .62, 1.8, M.winGlass, 3.13, 2.05, 0, g, false);         // para-brisa
+    [-1, 1].forEach((sd) => { box(.8, .5, .02, M.winGlass, 2.5, 2.05, sd * 1.06, g, false); box(.06, .08, .2, M.headL, 3.14, 1.02, sd * .78, g, false); box(.06, .12, .1, M.tailL, -3.2, .92, sd * .7, g, false); box(.14, .14, .2, M.black, 2.6, 2.35, sd * 1.12, g); });
+    box(.12, .3, 2.1, M.black, 3.18, .82, 0, g);                      // para-choque
+    box(.05, .35, 1.2, M.steel, 3.14, 1.45, 0, g, false);             // grade
+    box(1.5, .14, 1.9, M.cab2, 2.3, 2.56, 0, g);                      // defletor
+    // suporte e cilindros de GNV
+    box(1.3, .08, 2.0, M.steel, .95, 1.0, 0, g);
+    [[.6, 1.32], [1.3, 1.32], [.6, 1.9], [1.3, 1.9]].forEach(([cx, cy]) => {
+      const c = cyl(.27, .27, 1.7, M.gnv, cx, cy, 0, g, 18); c.rotation.x = Math.PI / 2;
+      [-1, 1].forEach((sd) => { const cap = new G.Mesh(new G.SphereGeometry(.27, 16, 10, 0, Math.PI * 2, 0, Math.PI / 2), M.gnvCap); cap.position.set(cx, cy, sd * .85); cap.rotation.x = sd * Math.PI / 2; cap.castShadow = true; g.add(cap); });
+    });
+    [-.55, .55].forEach((bz) => { box(.95, .04, .06, M.black, .95, 1.62, bz, g, false); box(.95, .04, .06, M.black, .95, 2.2, bz, g, false); });
+    // carroceria aberta
+    box(3.0, .12, 2.1, M.wood, -1.85, 1.0, 0, g);
+    [-1, 1].forEach((sd) => box(3.0, .34, .06, M.cab2, -1.85, 1.22, sd * 1.02, g)); box(.06, .34, 2.1, M.cab2, -3.33, 1.22, 0, g);
+    if (opt.carga) { [-.45, .45].forEach((cz) => { const c = cyl(.25, .25, 1.5, M.gnv, -1.9, 1.32, cz, g, 16); c.rotation.z = Math.PI / 2; }); }
+    return g;
+  }
+  // elevador de 2 colunas
+  function lift(M, x, z, parent, comp) {
+    [-1, 1].forEach((sd) => { box(.32, 2.9, .32, M.yellow, x, 1.45, z + sd * 1.5, parent); box(.5, .08, .5, M.black, x, .05, z + sd * 1.5, parent); box(.1, .7, .1, M.black, x + .17, 1.6, z + sd * 1.5, parent, false); });
+    box(.4, .08, 3.3, M.yellow, x, 2.94, z, parent);
+    [-1, 1].forEach((sd) => [-1, 1].forEach((sx) => box(comp * .28, .06, .12, M.steel, x + sx * comp * .14, .62, z + sd * 1.1, parent, false)));
+  }
+  function bancada(M, x, z, parent, rot) {
+    const g = new (T().Group)(); g.position.set(x, 0, z); g.rotation.y = rot || 0; parent.add(g);
+    box(2.2, .08, .7, M.wood, 0, .9, 0, g); box(2.1, .8, .62, M.steel, 0, .46, 0, g);
+    box(2.2, 1.0, .05, M.door, 0, 1.55, -.33, g);                     // painel de ferramentas
+    [[-.7, '#C8333A'], [-.3, '#2E86D6'], [.1, '#F2B51C'], [.5, '#1C2026'], [.8, '#7D8896']].forEach(([fx, c]) => box(.06, .4 + (fx + 1) * .08, .04, new (T().MeshStandardMaterial)({ color: c, roughness: .5 }), fx, 1.55, -.3, g, false));
+    box(.5, .25, .35, M.redBox, .7, 1.07, .05, g);                     // maleta
+    return g;
+  }
+  function gaveteiro(M, x, z, parent) { box(.9, 1.15, .55, M.redBox, x, .6, z, parent); for (let i = 0; i < 5; i++) box(.8, .02, .02, M.black, x, .2 + i * .2, z + .285, parent, false); }
+  function cone(M, x, z, parent) { cyl(.02, .17, .5, M.orange, x, .27, z, parent, 12); box(.38, .04, .38, M.orange, x, .02, z, parent, false); cyl(.09, .12, .08, M.white, x, .32, z, parent, 12); }
+  function tambor(M, x, z, parent) { cyl(.28, .28, .85, M.drum, x, .43, z, parent, 18); cyl(.285, .285, .03, M.black, x, .3, z, parent, 18); cyl(.285, .285, .03, M.black, x, .58, z, parent, 18); }
+  function pneus(M, x, z, parent, n) { for (let i = 0; i < n; i++) { const t = cyl(.42, .42, .28, M.tire, x, .15 + i * .29, z, parent, 20); void t; cyl(.22, .22, .3, M.black, x, .15 + i * .29, z, parent, 14); } }
+  // gaiola com cilindros de GNV em pé (estoque)
+  function gaiola(M, x, z, parent, n) {
+    const w = .62 * n + .2; box(w, .06, .8, M.steel, x, .04, z, parent);
+    [-1, 1].forEach((sx) => [-1, 1].forEach((sz) => box(.05, 1.5, .05, M.yellow, x + sx * w / 2, .75, z + sz * .4, parent, false)));
+    box(w, .05, .05, M.yellow, x, 1.0, z + .4, parent, false); box(w, .05, .05, M.yellow, x, 1.48, z + .4, parent, false);
+    for (let i = 0; i < n; i++) { const cx = x - w / 2 + .41 + i * .62; cyl(.26, .26, 1.25, M.gnv, cx, .7, z, parent, 16); const cap = new (T().Mesh)(new (T().SphereGeometry)(.26, 14, 8, 0, Math.PI * 2, 0, Math.PI / 2), M.gnvCap); cap.position.set(cx, 1.32, z); parent.add(cap); cyl(.05, .05, .15, M.gnvCap, cx, 1.62, z, parent, 8); }
+  }
+  function compressor(M, x, z, parent) { const t = cyl(.33, .33, 1.3, M.redBox, x, .48, z, parent, 18); t.rotation.z = Math.PI / 2; box(.5, .4, .4, M.black, x + .2, .98, z, parent); cyl(.12, .12, .1, M.steel, x - .3, .98, z, parent, 12); }
 
   /* ---------- A* numa grade ---------- */
   function astar(grid, a, b) {
@@ -288,7 +363,9 @@
     const tip = document.createElement('div'); tip.className = 'c3-tip'; overlay.appendChild(tip);
 
     /* layout */
-    const secs = data.sectors; const N = secs.length;
+    const fold = (x) => String(x || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+    const ofi = data.sectors.find((s) => /^produc|oficina|fabrica/.test(fold(s.nome))) || null;   // Produção = oficina
+    const secs = data.sectors.filter((s) => s !== ofi); const N = secs.length;
     const maxP = Math.max(4, ...secs.map((s) => s.people.length));
     const perRow = 3, deskRows = Math.ceil(maxP / perRow);
     const RW = 8.6, RD = 2.8 + deskRows * 2.35, GAP = 2.6;
@@ -298,12 +375,16 @@
     for (let c = 2; c <= 6; c++) { const r = Math.ceil(cells / c); const sc = (r * c - cells) * 1.6 + Math.abs(c * RW - r * RD * 1.25) / 8; if (sc < best) { best = sc; cols = c; } }
     const rows = Math.ceil(cells / cols);
     const lobbyIdx = Math.min(cells - 1, Math.floor(rows / 2) * cols + Math.floor((cols - 1) / 2));
-    const W = cols * RW + (cols - 1) * GAP, D = rows * RD + (rows - 1) * GAP;
+    const OW0 = 2 * RW + GAP;   // a oficina ocupa pelo menos a largura de duas salas
+    const W = Math.max(cols * RW + (cols - 1) * GAP, ofi ? OW0 : 0);
+    const OD = ofi ? Math.max(10.5, 8 + Math.ceil(ofi.people.length / 6) * 1.2) : 0;   // fundo da oficina
+    const D = rows * RD + (rows - 1) * GAP + (ofi ? OD + GAP : 0);
     const MARGIN = 2.2, FRONT = 2.2;
     const SW = W + MARGIN * 2, SD = D + MARGIN * 2 + FRONT;
-    const ox = -W / 2, oz = -D / 2 - FRONT / 2;
+    const ox = -W / 2, oz0 = -D / 2 - FRONT / 2, oz = oz0 + (ofi ? OD + GAP : 0);
+    const gW = cols * RW + (cols - 1) * GAP, gx = -gW / 2;   // salas centralizadas
     const lastN = cells - (rows - 1) * cols; const lastOff = ((cols - lastN) * (RW + GAP)) / 2; // última fileira centralizada
-    const cellXY = (i) => { const r = Math.floor(i / cols); return [ox + (i % cols) * (RW + GAP) + (r === rows - 1 ? lastOff : 0), oz + r * (RD + GAP)]; };
+    const cellXY = (i) => { const r = Math.floor(i / cols); return [gx + (i % cols) * (RW + GAP) + (r === rows - 1 ? lastOff : 0), oz + r * (RD + GAP)]; };
 
     /* base */
     const slab = new G.Mesh(new G.ExtrudeGeometry(rrectShape(SW, SD, 2.2), { depth: .7, bevelEnabled: true, bevelThickness: .08, bevelSize: .08, bevelSegments: 3 }), [M.slabTop, M.slabSide]);
@@ -316,6 +397,16 @@
 
     const floorTex = tileTex(light ? '#F1F4F8' : '#E6ECF3', light ? '#D3DCE6' : '#C7D2DE');
     const rooms = []; const people = []; const hits = []; const roomFloors = []; const plaques = [];
+    // placa presa na parede do fundo, no esquadro da sala (de frente para quem olha)
+    function placa(s, cx, z, topo, floor) {
+      const pl = new G.Group(); pl.position.set(cx, topo + .92 - 1.6 * 2.7, z); pl.scale.setScalar(2.7); scene.add(pl);
+      box(2.34, .66, .08, M.dark, 0, 1.6, -.02, pl);
+      const accentP = new G.MeshStandardMaterial({ color: s.cor, emissive: s.cor, emissiveIntensity: 1.4 }); box(2.34, .04, .1, accentP, 0, 1.25, -.02, pl, false);
+      const face = new G.Mesh(new G.PlaneGeometry(2.3, 2.3 * 300 / 1024), new G.MeshBasicMaterial({ map: plaqueTex(s.nome, s.cor, s.people.length), transparent: true, toneMapped: false }));
+      face.position.set(0, 1.6, .025); face.userData.room = s.nome; pl.add(face);
+      const pHit = new G.Mesh(new G.BoxGeometry(2.5, 1.0, .3), M.hit); pHit.position.set(0, 1.55, 0); pHit.userData.room = s.nome; pl.add(pHit);
+      plaques.push({ nome: s.nome, g: pl, hit: pHit, floor });
+    }
 
     secs.forEach((s, i) => {
       const ci = i >= lobbyIdx ? i + 1 : i; const [x0, z0] = cellXY(ci);
@@ -350,16 +441,65 @@
       plant(M, x0 + RW - .55, z0 + .55, g, 1); grid.block(x0 + RW - 1, z0, x0 + RW, z0 + 1);
       box(1.2, .9, .45, M.cabinet, x0 + .55 + .6 + 4.2, .55, z0 + .38, g); grid.block(x0 + 4.6, z0, x0 + 6.1, z0 + .9);
       rooms.push({ nome: s.nome, floor, x0, z0 });
-      // placa presa na parede do fundo, no esquadro da sala (de frente para quem olha)
-      const pl = new G.Group(); pl.position.set(x0 + RW / 2, WH + .1 + .92 - 1.6 * 2.7, z0 + WT / 2); pl.scale.setScalar(2.7); scene.add(pl);
-      box(2.34, .66, .08, M.dark, 0, 1.6, -.02, pl);
-      const accentP = new G.MeshStandardMaterial({ color: s.cor, emissive: s.cor, emissiveIntensity: 1.4 }); box(2.34, .04, .1, accentP, 0, 1.25, -.02, pl, false);
-      const face = new G.Mesh(new G.PlaneGeometry(2.3, 2.3 * 300 / 1024), new G.MeshBasicMaterial({ map: plaqueTex(s.nome, s.cor, s.people.length), transparent: true, toneMapped: false }));
-      face.position.set(0, 1.6, .025); face.userData.room = s.nome; pl.add(face);
-      const pHit = new G.Mesh(new G.BoxGeometry(2.5, 1.0, .3), M.hit); pHit.position.set(0, 1.55, 0); pHit.userData.room = s.nome; pl.add(pHit);
-      plaques.push({ nome: s.nome, g: pl, hit: pHit, floor });
+      placa(s, x0 + RW / 2, z0 + WT / 2, WH + .1, floor);
       s.people.forEach((p) => people.push({ p, grid, lead: s.lead === p.id }));
     });
+
+    /* oficina (Produção): galpão no fundo, com caminhões de GNV, elevador e bancadas */
+    if (ofi) {
+      const x0 = ox, z0 = oz0, OW = W; const g = new G.Group(); scene.add(g);
+      const fmat = new G.MeshStandardMaterial({ color: M.concrete.color.clone(), roughness: .9, emissive: new G.Color(ofi.cor), emissiveIntensity: 0 });
+      const floor = new G.Mesh(new G.BoxGeometry(OW, .1, OD), fmat); floor.position.set(x0 + OW / 2, .05, z0 + OD / 2); floor.receiveShadow = true; floor.userData.room = ofi.nome; g.add(floor); roomFloors.push(floor);
+      M._ofiFloor = fmat;
+      const WH = 2.1, WT = .2;
+      box(OW, WH, WT, M.wall, x0 + OW / 2, WH / 2 + .1, z0 + WT / 2, g); box(WT, WH, OD, M.wall, x0 + WT / 2, WH / 2 + .1, z0 + OD / 2, g);
+      const accent = new G.MeshStandardMaterial({ color: ofi.cor, emissive: ofi.cor, emissiveIntensity: 1.2 });
+      box(OW - .4, .08, .03, accent, x0 + OW / 2, WH - .1, z0 + WT + .02, g, false); box(.03, .08, OD - .4, accent, x0 + WT + .02, WH - .1, z0 + OD / 2, g, false);
+      // portões de enrolar na parede do fundo
+      const nT = OW > 26 ? 2 : 1;
+      const baias = []; for (let i = 0; i < nT; i++) baias.push(x0 + OW * (i + .5) / nT + (nT === 1 ? -.6 : 0));
+      baias.forEach((bx) => { box(4.2, 1.75, .06, M.door, bx, .98, z0 + WT + .04, g); for (let k = 0; k < 8; k++) box(4.2, .025, .03, M.black, bx, .2 + k * .21, z0 + WT + .08, g, false); box(4.4, .14, .14, M.yellow, bx, 1.92, z0 + WT + .06, g, false); });
+      // faixas amarelas no piso: contorno das baias e corredor
+      const linha = (w, d, x, z) => box(w, .012, d, M.yellow, x, .108, z, g, false);
+      const bz = z0 + 1.2, bd = 5.2;   // baia: começa perto do portão
+      baias.forEach((bx) => { linha(8.2, .08, bx, bz); linha(8.2, .08, bx, bz + bd); linha(.08, bd, bx - 4.1, bz + bd / 2); linha(.08, bd, bx + 4.1, bz + bd / 2); });
+      linha(OW - 1.4, .1, x0 + OW / 2, z0 + OD - 1.4);
+      // corrimão amarelo e preto na frente e à direita, com passagem
+      const porta = 2.4;
+      const trilho = (x1, z1, x2, z2) => { const len = Math.hypot(x2 - x1, z2 - z1), mx = (x1 + x2) / 2, mz = (z1 + z2) / 2, hz = Math.abs(z2 - z1) > Math.abs(x2 - x1);
+        box(hz ? .07 : len, .07, hz ? len : .07, M.yellow, mx, .95, mz, g, false); box(hz ? .05 : len, .05, hz ? len : .05, M.black, mx, .55, mz, g, false);
+        for (let k = 0; k <= Math.ceil(len / 1.6); k++) { const f = k / Math.ceil(len / 1.6); box(.08, .9, .08, k % 2 ? M.black : M.yellow, x1 + (x2 - x1) * f, .5, z1 + (z2 - z1) * f, g, false); } };
+      trilho(x0 + .2, z0 + OD - .05, x0 + OW / 2 - porta / 2, z0 + OD - .05); trilho(x0 + OW / 2 + porta / 2, z0 + OD - .05, x0 + OW - .05, z0 + OD - .05);
+      trilho(x0 + OW - .05, z0 + .2, x0 + OW - .05, z0 + OD - .05);
+      const grid = makeGrid(x0 + .5, z0 + .5, OW - 1, OD - 1, .4);
+      // caminhões (o primeiro no elevador) — trabalham em volta deles
+      const alvos = [];
+      baias.forEach((bx, i) => {
+        const tz = bz + bd / 2, noElev = i === 0;
+        if (noElev) lift(M, bx - .4, tz, g, 4.2);
+        truck(M, bx, tz, g, { y: noElev ? .55 : 0, carga: !noElev, cor: i % 2 ? M.cab : M.white });
+        grid.block(bx - 3.75, tz - 1.85, bx + 3.65, tz + 1.85);
+        alvos.push({ x: bx, z: tz, x1: bx - 3.75, x2: bx + 3.65, z1: tz - 1.85, z2: tz + 1.85 });
+        cone(M, bx + 3.9, tz + 2.3, g); cone(M, bx - 3.9, tz + 2.3, g);
+      });
+      // equipamentos encostados nas paredes
+      const xe = x0 + .9;
+      bancada(M, xe + .2, z0 + OD * .62, g, Math.PI / 2); grid.block(x0, z0 + OD * .62 - 1.3, x0 + 1.6, z0 + OD * .62 + 1.3);
+      gaveteiro(M, xe, z0 + OD * .62 + 1.75, g); grid.block(x0, z0 + OD * .62 + 1.3, x0 + 1.5, z0 + OD * .62 + 2.2);
+      gaiola(M, x0 + 1.4, z0 + .7, g, 3); grid.block(x0, z0, x0 + 2.8, z0 + 1.3);
+      const gapX = baias.length > 1 ? (baias[0] + baias[1]) / 2 : x0 + OW - 3;
+      if (baias.length > 1) { bancada(M, gapX, z0 + .62, g, 0); grid.block(gapX - 1.4, z0, gapX + 1.4, z0 + 1.25); }
+      compressor(M, x0 + OW - 1.3, z0 + .75, g); grid.block(x0 + OW - 2.2, z0, x0 + OW, z0 + 1.4);
+      tambor(M, x0 + OW - .7, z0 + 2.0, g); tambor(M, x0 + OW - .7, z0 + 2.65, g); grid.block(x0 + OW - 1.2, z0 + 1.5, x0 + OW, z0 + 3.1);
+      pneus(M, x0 + OW - .8, z0 + OD - 2.4, g, 3); grid.block(x0 + OW - 1.4, z0 + OD - 3.0, x0 + OW, z0 + OD - 1.8);
+      gaiola(M, x0 + OW - 2.2, z0 + OD - 2.4, g, 2); grid.block(x0 + OW - 3.2, z0 + OD - 3.0, x0 + OW - 1.4, z0 + OD - 1.8);
+      // lugares "em volta do caminhão": células livres coladas no caminhão
+      grid.hot = []; grid.alvos = alvos;
+      grid.free().forEach(([c, r]) => { const [px, pz] = grid.pos(c, r); const a = alvos.find((t) => px > t.x1 - .9 && px < t.x2 + .9 && pz > t.z1 - .9 && pz < t.z2 + .9); if (a) grid.hot.push([c, r]); });
+      rooms.push({ nome: ofi.nome, floor, x0, z0 });
+      placa(ofi, x0 + OW / 2, z0 + WT / 2, WH + .1, floor);
+      ofi.people.forEach((p) => people.push({ p, grid, lead: ofi.lead === p.id, ofi: true }));
+    }
 
     /* recepção */
     const [lx, lz] = cellXY(lobbyIdx); const lg = new G.Group(); scene.add(lg);
@@ -383,7 +523,7 @@
     data.lobby.forEach((p) => people.push({ p, grid: lgrid }));
 
     /* exterior: árvores, postes, cerca viva, faixa */
-    const ex = SW / 2 - 1.2, ez = SD / 2 - 1.2, fz = oz + D + FRONT / 2 + .4;
+    const ex = SW / 2 - 1.2, ez = SD / 2 - 1.2, fz = oz0 + D + FRONT / 2 + .4;
     [[-ex, -ez], [ex, -ez], [-ex, ez], [ex, ez]].forEach(([x, z], i) => { tree(M, x, z, scene, 1.15); if (i > 1) lamp(M, x + (x < 0 ? 1.6 : -1.6), z - .2, scene); });
     for (let i = 0; i < cols - 1; i++) { const x = ox + (i + 1) * (RW + GAP) - GAP / 2; tree(M, x, -ez, scene, .9); }
     for (let x = -SW / 2 + 2.6; x < SW / 2 - 2.6; x += 1.9) { if (Math.abs(x) < 2.2) continue; const hdg = new G.Mesh(new G.BoxGeometry(1.5, .55, .6), M.hedge); hdg.position.set(x, .28, fz + 1.1); hdg.castShadow = true; scene.add(hdg); }
@@ -400,15 +540,18 @@
     scene.add(sun); scene.add(sun.target);
     const fill = new G.DirectionalLight('#9CC7FF', light ? .4 : .55); fill.position.set(-SW, SD * .6, SD); scene.add(fill);
 
+    // caminhão mais próximo (se a pessoa está colada nele): para onde ela olha e trabalha
+    function perto(g, x, z) { const a = (g.alvos || []).find((t) => x > t.x1 - 1 && x < t.x2 + 1 && z > t.z1 - 1 && z < t.z2 + 1); if (!a) return null;
+      const cx = Math.max(a.x1, Math.min(a.x2, x)), cz = Math.max(a.z1, Math.min(a.z2, z)); return Math.atan2(cx - x, cz - z); }
     /* pessoas */
     const actors = people.map((it, i) => {
-      const m = makePerson(it.p, M, Gm); scene.add(m); hits.push(m.userData.hit);
+      const m = makePerson(it.p, M, Gm, it.ofi); scene.add(m); hits.push(m.userData.hit);
       const ja = people.slice(0, i).filter((o) => o.grid === it.grid && o.cel).map((o) => o.cel);
-      const free = it.grid.free().filter(([c, r]) => ja.every(([c2, r2]) => Math.abs(c - c2) > 2 || Math.abs(r - r2) > 2));
+      const free = (it.grid.hot && it.grid.hot.length ? it.grid.hot : it.grid.free()).filter(([c, r]) => ja.every(([c2, r2]) => Math.abs(c - c2) > 2 || Math.abs(r - r2) > 2));
       const lst = free.length ? free : it.grid.free(); const st = lst[(hash(it.p.id) + i * 7) % Math.max(1, lst.length)] || [0, 0]; it.cel = st;
       const [px, pz] = it.grid.pos(st[0], st[1]); m.position.set(px, .1, pz); m.rotation.y = (hash(it.p.id) % 628) / 100;
       if (it.lead) { const crown = new G.Mesh(new G.ConeGeometry(.12, .16, 5), new G.MeshStandardMaterial({ color: '#F5B840', emissive: '#F5B840', emissiveIntensity: .6, metalness: .5 })); crown.position.y = 2.0; m.add(crown); }
-      return { m, it, path: null, wait: 1 + Math.random() * 5, speed: .9 + Math.random() * .3 };
+      return { m, it, path: null, wait: 1 + Math.random() * 5, speed: .9 + Math.random() * .3, olha: it.ofi ? perto(it.grid, px, pz) : null };
     });
 
     /* câmera ortográfica que enquadra a empresa toda */
@@ -483,17 +626,22 @@
         else { a.m.position.x += (dx / dist) * sp; a.m.position.z += (dz / dist) * sp; const ang = Math.atan2(dx, dz); let dA = ang - a.m.rotation.y; dA = Math.atan2(Math.sin(dA), Math.cos(dA)); a.m.rotation.y += dA * Math.min(1, dt * 8); }
         const s = Math.sin(t * 7.5 * a.speed + ud.phase);
         ud.legs[0].rotation.x = s * .38; ud.legs[1].rotation.x = -s * .38; ud.arms[0].rotation.x = -s * .42; ud.arms[1].rotation.x = s * .42; ud.body.position.y = Math.abs(s) * .03;
-        if (!a.path.length) { a.path = null; a.wait = 2 + Math.random() * 6; }
+        if (!a.path.length) { a.path = null; a.wait = 2 + Math.random() * 6; a.olha = a.it.ofi ? perto(g, a.m.position.x, a.m.position.z) : null; if (a.olha != null) a.wait += 4 + Math.random() * 6; }
       } else {
-        ud.legs.forEach((l) => (l.rotation.x *= .85)); ud.arms.forEach((l) => (l.rotation.x *= .85)); ud.body.position.y *= .85;
-        ud.body.scale.y = 1 + Math.sin(t * 2 + ud.phase) * .008; ud.head.rotation.y = Math.sin(t * .6 + ud.phase) * .35;
+        ud.legs.forEach((l) => (l.rotation.x *= .85)); ud.body.position.y *= .85;
+        ud.body.scale.y = 1 + Math.sin(t * 2 + ud.phase) * .008;
+        if (a.olha != null) {   // mexendo no caminhão: vira para ele e trabalha com as mãos
+          let dA = a.olha - a.m.rotation.y; dA = Math.atan2(Math.sin(dA), Math.cos(dA)); a.m.rotation.y += dA * Math.min(1, dt * 5);
+          const w = Math.sin(t * 6 + ud.phase); ud.arms[0].rotation.x = -1.1 + w * .25; ud.arms[1].rotation.x = -1.0 - w * .3; ud.head.rotation.y *= .9; ud.head.rotation.x = .25;
+        } else { ud.arms.forEach((l) => (l.rotation.x *= .85)); ud.head.rotation.x *= .9; ud.head.rotation.y = Math.sin(t * .6 + ud.phase) * .35; }
         a.wait -= dt;
         if (a.wait <= 0 && !reduce()) {
           const from = g.cellOf(a.m.position.x, a.m.position.z);
           const ocup = actors.filter((o) => o !== a && o.it.grid === g).map((o) => o.goal || g.cellOf(o.m.position.x, o.m.position.z));
-          const livre = g.free().filter(([c, r]) => ocup.every((o) => Math.abs(o.c - c) > 2 || Math.abs(o.r - r) > 2));
+          const base = a.it.ofi && g.hot && g.hot.length && Math.random() < .75 ? g.hot : g.free();   // operador volta para perto do caminhão
+          const livre = base.filter(([c, r]) => ocup.every((o) => Math.abs(o.c - c) > 2 || Math.abs(o.r - r) > 2));
           const to = livre[Math.floor(Math.random() * livre.length)];
-          const p = to && astar(g, from, { c: to[0], r: to[1] }); a.path = p && p.length > 1 ? p.slice(1) : null;
+          const p = to && astar(g, from, { c: to[0], r: to[1] }); a.path = p && p.length > 1 ? p.slice(1) : null; if (a.path) { a.olha = null; ud.head.rotation.x = 0; }
           a.goal = a.path ? { c: to[0], r: to[1] } : null; if (!a.path) a.wait = 1 + Math.random() * 2;
         }
       }
@@ -513,7 +661,7 @@
     return {
       // troca de tema sem reconstruir a cena: só cores e luzes (antes a planta era montada do zero e travava a tela)
       tema(lt) {
-        M.wall.color.set(lt ? '#FFFFFF' : '#E9EFF6'); M.slabTop.color.set(lt ? '#D9E3EE' : '#2A3B55'); M.slabSide.color.set(lt ? '#AFC0D4' : '#132036'); M.road.color.set(lt ? '#C7D3E1' : '#1C2A40');
+        M.wall.color.set(lt ? '#FFFFFF' : '#E9EFF6'); if (M._ofiFloor) M._ofiFloor.color.set(lt ? '#C9D0D8' : '#9AA4B0'); M.door.color.set(lt ? '#AEB8C4' : '#8592A1'); M.slabTop.color.set(lt ? '#D9E3EE' : '#2A3B55'); M.slabSide.color.set(lt ? '#AFC0D4' : '#132036'); M.road.color.set(lt ? '#C7D3E1' : '#1C2A40');
         hemi.color.set(lt ? '#FFFFFF' : '#D4E3FF'); hemi.groundColor.set(lt ? '#B8C6D8' : '#1A2A44'); hemi.intensity = lt ? 1.05 : .85;
         sun.intensity = lt ? 2.2 : 2.1; fill.intensity = lt ? .4 : .55; renderer.toneMappingExposure = lt ? 1.0 : 1.08;
       },
