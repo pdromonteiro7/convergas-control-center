@@ -3130,7 +3130,7 @@
   },
   {
    "nome": "Diretor comercial",
-   "setor": "Comercial",
+   "setor": "Diretoria",
    "minimo": 2,
    "ordem": 16,
    "fonte": [
@@ -3671,7 +3671,7 @@
    "nome": "André Bermudo",
    "funcao": "Diretor (planilha: Diretor comercial)",
    "cargo": "Diretor comercial",
-   "setor": "Comercial"
+   "setor": "Diretoria"
   },
   {
    "pj": "TONY BERMUDO",
