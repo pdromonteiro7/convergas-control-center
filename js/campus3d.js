@@ -133,7 +133,7 @@
       black: M({ color: '#1C2026', roughness: .6 }),
       tire: M({ color: '#1A1D22', roughness: .9 }),
       rim: M({ color: '#C9D1DA', roughness: .3, metalness: .8 }),
-      cab: M({ color: '#F4F7FA', roughness: .35, metalness: .1 }),
+      cab: new (T().MeshPhysicalMaterial)({ color: '#F6F8FA', roughness: .28, metalness: .05, clearcoat: .6, clearcoatRoughness: .2 }),
       cab2: M({ color: '#2E86D6', roughness: .35, metalness: .1 }),
       winGlass: M({ color: '#1E3A55', roughness: .1, metalness: .4 }),
       headL: M({ color: '#FFF6D8', emissive: '#FFE9A8', emissiveIntensity: 1.2 }),
@@ -263,44 +263,85 @@
 
   /* ---------- oficina: caminhão GNV, elevador e equipamentos ---------- */
   // cavalo mecânico com cabine leito alta, rack de cilindros de GNV atrás da cabine e cilindros na lateral; frente para +x
+  let zebraTex = null;
   function truck(M, x, z, parent, opt) {
     opt = opt || {}; const G = T(); const g = new G.Group(); g.position.set(x, opt.y || 0, z); if (opt.rot) g.rotation.y = opt.rot; parent.add(g);
-    const wheel = (wx, wz) => { const w = cyl(.5, .5, .36, M.tire, wx, .5, wz, g, 22); w.rotation.x = Math.PI / 2; const r = cyl(.27, .27, .38, M.rim, wx, .5, wz, g, 14); r.rotation.x = Math.PI / 2; };
-    [2.05, -1.55, -2.55].forEach((wx) => [-.9, .9].forEach((wz) => wheel(wx, wz)));
-    box(6.0, .26, .86, M.black, -.1, .86, 0, g);                                  // chassi
-    // cabine leito (branca), saia e para-lamas verdes, para-choque zebrado
-    box(1.75, 1.45, 2.2, M.cab, 2.2, 1.72, 0, g);                                  // corpo
-    box(1.6, 1.0, 2.14, M.cab, 2.1, 2.9, 0, g);                                    // teto alto
-    box(1.3, .22, 2.0, M.cab, 2.05, 3.5, 0, g);                                    // topo arredondado
-    box(.06, .72, 1.9, M.winGlass, 3.08, 2.12, 0, g, false);                       // para-brisa
-    [-1, 1].forEach((sd) => {
-      box(.62, .58, .02, M.winGlass, 2.55, 2.12, sd * 1.11, g, false);            // janela
-      box(.02, .9, .02, M.black, 2.18, 1.6, sd * 1.11, g, false);                   // vão da porta
-      box(.1, .44, .05, M.black, 3.25, 2.1, sd * 1.2, g); box(.36, .03, .03, M.black, 3.1, 2.38, sd * 1.15, g, false);   // retrovisor
-      box(1.0, .42, .06, M.trim, 2.3, .92, sd * 1.1, g);                            // saia verde
-      box(1.2, .14, .5, M.trim, 2.05, 1.06, sd * .9, g);                            // para-lama dianteiro
-      box(.08, .1, .22, M.headL, 3.12, 1.05, sd * .8, g, false);                    // farol
-      box(1.6, .1, .5, M.black, -2.05, 1.08, sd * .9, g);                           // para-lamas traseiros
-    });
-    box(.16, .38, 2.2, M.trim, 3.15, .85, 0, g);                                   // para-choque
-    for (let k = 0; k < 7; k++) box(.02, .22, .14, k % 2 ? M.black : M.yellow, 3.24, .82, -.84 + k * .28, g, false);   // zebrado
-    box(.05, .42, 1.3, M.steel, 3.1, 1.48, 0, g, false);                           // grade
-    // rack de cilindros atrás da cabine (deitados de lado, tampas viradas para fora)
-    const cil = (cx, cy, cz, len, eixo, r) => {
-      const c = cyl(r, r, len, M.gnv, cx, cy, cz, g, 18); if (eixo === 'z') c.rotation.x = Math.PI / 2; else c.rotation.z = Math.PI / 2;
-      [-1, 1].forEach((sd) => { const cap = new G.Mesh(new G.SphereGeometry(r, 16, 10, 0, Math.PI * 2, 0, Math.PI / 2), M.gnv); cap.castShadow = true;
-        if (eixo === 'z') { cap.position.set(cx, cy, cz + sd * len / 2); cap.rotation.x = sd * Math.PI / 2; } else { cap.position.set(cx + sd * len / 2, cy, cz); cap.rotation.z = -sd * Math.PI / 2; } g.add(cap);
-        if (eixo === 'z') { const v = cyl(.04, .04, .12, M.gnvCap, cx, cy, cz + sd * (len / 2 + r * .9), g, 8); v.rotation.x = Math.PI / 2; } });
+    // perfil lateral extrudado na largura (com bisel, para cantos arredondados)
+    const ext = (pts, depth, mat, bev, zc) => {
+      const sh = new G.Shape(); pts.forEach(([px, py], i) => (i ? sh.lineTo(px, py) : sh.moveTo(px, py)));
+      const geo = new G.ExtrudeGeometry(sh, { depth, bevelEnabled: !!bev, bevelThickness: bev || 0, bevelSize: bev || 0, bevelSegments: 3, curveSegments: 6 }); geo.translate(0, 0, -depth / 2);
+      const m = new G.Mesh(geo, mat); m.position.z = zc || 0; m.castShadow = true; m.receiveShadow = true; g.add(m); return m;
     };
-    const rack = opt.rack == null ? 6 : opt.rack;
-    [[.55, 1.4], [1.15, 1.4], [.85, 1.98], [.55, 2.56], [1.15, 2.56], [.85, 3.1]].slice(0, rack).forEach(([cx, cy]) => cil(cx, cy, 0, 1.7, 'z', .29));
-    [.25, 1.45].forEach((fx) => [-1, 1].forEach((sd) => box(.07, 2.6, .07, M.black, fx, 2.05, sd * 1.0, g, false)));   // quadro do rack
-    [1.1, 1.7, 2.28, 2.86, 3.34].forEach((fy) => [-1, 1].forEach((sd) => box(1.27, .05, .05, M.black, .85, fy, sd * 1.0, g, false)));
-    // cilindros compridos na lateral do chassi, com cintas
-    if (opt.lateral !== false) [-1, 1].forEach((sd) => [.62, 1.08].forEach((cy) => { cil(-.15, cy, sd * .86, 1.9, 'x', .21); }));
-    if (opt.lateral !== false) [-1, 1].forEach((sd) => [-.7, .4].forEach((sx) => box(.1, .98, .5, M.black, sx, .85, sd * .86, g, false)));
+    const arco = (cx, cy, r, a0, a1, n) => { const o = []; for (let i = 0; i <= n; i++) { const a = a0 + (a1 - a0) * (i / n); o.push([cx + Math.cos(a) * r, cy + Math.sin(a) * r]); } return o; };
+    // rodas: pneu, aro, cubo e porcas
+    const wheel = (wx, wz) => {
+      const sd = Math.sign(wz);
+      const t = cyl(.5, .5, .36, M.tire, wx, .5, wz, g, 26); t.rotation.x = Math.PI / 2;
+      const r = cyl(.3, .3, .372, M.rim, wx, .5, wz, g, 20); r.rotation.x = Math.PI / 2;
+      const h = cyl(.12, .14, .1, M.steel, wx, .5, wz + sd * .2, g, 12); h.rotation.x = Math.PI / 2;
+      for (let k = 0; k < 8; k++) { const a = (k / 8) * Math.PI * 2; const n = cyl(.022, .022, .05, M.black, wx + Math.cos(a) * .2, .5 + Math.sin(a) * .2, wz + sd * .19, g, 6); n.rotation.x = Math.PI / 2; }
+    };
+    [2.05, -1.5, -2.55].forEach((wx) => [-.92, .92].forEach((wz) => wheel(wx, wz)));
+    // chassi: duas longarinas e travessas
+    [-.42, .42].forEach((lz) => box(6.1, .26, .12, M.black, -.15, .88, lz, g));
+    [-2.9, -2.0, -.9, .3, 1.3].forEach((tx) => box(.1, .16, .84, M.black, tx, .88, 0, g, false));
+    // cabine: corpo branco com para-brisa inclinado e teto alto arredondado
+    ext([[1.32, 1.22], [3.2, 1.22], [3.2, 1.86], [3.07, 2.66], [2.96, 2.86], [2.9, 3.3]].concat(arco(2.62, 3.32, .28, 0, Math.PI / 2, 5)).concat([[1.52, 3.6]]).concat(arco(1.52, 3.4, .2, Math.PI / 2, Math.PI, 4)).concat([[1.32, 1.22]]), 2.08, M.cab, .05);
+    // para-brisa, quebra-sol, janelas, porta
+    const wsA = Math.atan2(.13, .8); const ws = box(.03, .74, 1.86, M.winGlass, 3.17, 2.27, 0, g, false); ws.rotation.z = wsA;
+    box(.16, .07, 2.0, M.black, 3.03, 2.82, 0, g, false);
+    [-.6, -.3, 0, .3, .6].forEach((lz) => box(.06, .05, .12, M.orange, 2.88, 3.38, lz, g, false));   // luzes do teto
+    box(.02, .12, 1.6, M.cab2, 2.95, 3.05, 0, g, false);   // friso
+    [-1, 1].forEach((sd) => {
+      ext([[2.42, 1.98], [3.12, 1.98], [3.03, 2.6], [2.42, 2.6]], .02, M.winGlass, 0, sd * 1.1);          // janela da porta
+      ext([[1.62, 2.75], [2.25, 2.75], [2.25, 3.2], [1.62, 3.2]], .015, M.winGlass, 0, sd * 1.105);   // janela do leito
+      box(.66, .015, .01, M.black, 2.75, 1.3, sd * 1.115, g, false); box(.015, 1.32, .01, M.black, 2.4, 1.95, sd * 1.115, g, false); box(.015, 1.32, .01, M.black, 3.1, 1.95, sd * 1.115, g, false);
+      box(.16, .035, .03, M.steel, 2.55, 1.88, sd * 1.125, g, false);                                       // maçaneta
+      box(.08, .05, .02, M.orange, 3.15, 1.35, sd * 1.12, g, false);                                       // pisca lateral
+      // retrovisor com braço
+      box(.36, .035, .035, M.black, 3.08, 2.55, sd * 1.2, g, false); box(.08, .44, .16, M.black, 3.25, 2.42, sd * 1.36, g);
+      box(.02, .38, .12, M.winGlass, 3.2, 2.42, sd * 1.36, g, false);
+      // degraus
+      box(.5, .05, .22, M.steel, 2.45, .72, sd * 1.0, g, false); box(.5, .05, .22, M.steel, 2.45, .42, sd * 1.0, g, false);
+      // para-lamas traseiros e lameiro
+      [-1.5, -2.55].forEach((fx) => { box(.95, .045, .46, M.black, fx, 1.1, sd * .92, g); box(.06, .14, .46, M.black, fx + .5, 1.03, sd * .92, g, false); box(.06, .14, .46, M.black, fx - .5, 1.03, sd * .92, g, false); });
+      box(.03, .5, .46, M.black, -3.12, .62, sd * .92, g, false);   // lameiro
+      box(.1, .14, .1, M.tailL, -3.18, .92, sd * .5, g, false);
+    });
+    // saia verde com recorte da roda, grade e para-choque zebrado
+    const a0 = Math.asin((.74 - .5) / .64);
+    ext([[1.3, 1.26], [3.24, 1.26], [3.24, .72], [2.05 + Math.cos(a0) * .64, .72]].concat(arco(2.05, .5, .64, a0, Math.PI - a0, 12)).concat([[1.3, .72], [1.3, 1.26]]), 2.14, M.trim, .04);
+    box(.04, .5, 1.3, M.black, 3.23, 1.56, 0, g, false);
+    for (let k = 0; k < 4; k++) box(.03, .04, 1.24, M.steel, 3.26, 1.38 + k * .12, 0, g, false);
+    [-1, 1].forEach((sd) => { box(.05, .16, .42, M.black, 3.25, 1.0, sd * .72, g, false); box(.03, .1, .32, M.headL, 3.28, 1.0, sd * .72, g, false); });
+    if (!zebraTex) zebraTex = canvasTex(256, 64, (c, w, h) => { c.fillStyle = '#F2B51C'; c.fillRect(0, 0, w, h); c.fillStyle = '#16191E'; for (let i = -2; i < 12; i++) { c.beginPath(); c.moveTo(i * 32, h); c.lineTo(i * 32 + 16, h); c.lineTo(i * 32 + 16 + h * .6, 0); c.lineTo(i * 32 + h * .6, 0); c.fill(); } });
+    const zb = new G.Mesh(new G.PlaneGeometry(2.1, .24), new G.MeshStandardMaterial({ map: zebraTex, roughness: .5 })); zb.rotation.y = Math.PI / 2; zb.position.set(3.29, .84, 0); g.add(zb);
+    // rack de cilindros atrás da cabine
+    const cil = (cx, cy, cz, len, eixo, r, cintas, valvula) => {
+      const c = cyl(r, r, len, M.gnv, cx, cy, cz, g, 22); if (eixo === 'z') c.rotation.x = Math.PI / 2; else c.rotation.z = Math.PI / 2;
+      [-1, 1].forEach((sd) => { const cap = new G.Mesh(new G.SphereGeometry(r, 20, 10, 0, Math.PI * 2, 0, Math.PI / 2), M.gnv); cap.castShadow = true; cap.scale.y = .7;
+        if (eixo === 'z') { cap.position.set(cx, cy, cz + sd * len / 2); cap.rotation.x = sd * Math.PI / 2; } else { cap.position.set(cx + sd * len / 2, cy, cz); cap.rotation.z = -sd * Math.PI / 2; } g.add(cap); });
+      (cintas || []).forEach((f) => { const t = new G.Mesh(new G.TorusGeometry(r + .012, .022, 6, 22), M.black); if (eixo === 'z') t.position.set(cx, cy, cz + f * len); else { t.position.set(cx + f * len, cy, cz); t.rotation.y = Math.PI / 2; } g.add(t); });
+      if (valvula) [-1, 1].forEach((sd) => { if (eixo !== 'z') return; const ez = cz + sd * (len / 2 + r * .7);
+        const v = cyl(.045, .045, .14, M.gnvCap, cx, cy, ez + sd * .04, g, 8); v.rotation.x = Math.PI / 2;
+        box(.18, .03, .03, M.gnvCap, cx, cy, ez + sd * .1, g, false); box(.03, .03, .1, M.gnvCap, cx + .08, cy, ez + sd * .12, g, false); });
+    };
+    const rk = opt.rack == null ? 6 : opt.rack;
+    const slots = [[.6, 1.5], [1.2, 1.5], [.6, 2.12], [1.2, 2.12], [.6, 2.74], [1.2, 2.74]];
+    slots.slice(0, rk).forEach(([cx, cy]) => cil(cx, cy, 0, 1.72, 'z', .29, [-.3, .3], true));
+    // quadro do rack: colunas, travessas por fileira e tubulação das válvulas
+    [.25, 1.55].forEach((fx) => [-1, 1].forEach((sd) => box(.08, 2.3, .08, M.black, fx, 2.1, sd * .98, g)));
+    [1.16, 1.81, 2.43, 3.06].forEach((fy) => [-1, 1].forEach((sd) => box(1.38, .06, .06, M.black, .9, fy, sd * .98, g, false)));
+    box(.08, .08, 2.04, M.black, .25, 3.06, 0, g, false); box(.08, .08, 2.04, M.black, 1.55, 3.06, 0, g, false);
+    [-1, 1].forEach((sd) => { box(.03, 1.32, .03, M.gnvCap, .9, 2.12, sd * 1.21, g, false); slots.slice(0, rk).forEach(([cx, cy]) => box(Math.abs(cx - .9) + .02, .025, .025, M.gnvCap, (cx + .9) / 2, cy + .1, sd * 1.21, g, false)); });
+    // cilindros compridos na lateral do chassi, com cintas e suportes
+    if (opt.lateral !== false) [-1, 1].forEach((sd) => {
+      [.6, 1.06].forEach((cy) => cil(-.3, cy, sd * .82, 2.0, 'x', .21, [-.33, 0, .33]));
+      [-.96, -.3, .36].forEach((sx) => box(.07, .78, .08, M.black, sx, .83, sd * .58, g, false));
+      box(.05, .05, .2, M.gnvCap, .85, 1.06, sd * .72, g, false);
+    });
     // quinta roda
-    cyl(.5, .5, .1, M.black, -2.1, 1.04, 0, g, 20);
+    cyl(.52, .52, .1, M.black, -2.15, 1.06, 0, g, 24); box(.5, .03, .14, M.steel, -2.35, 1.12, 0, g, false);
     return g;
   }
   // elevador de 2 colunas
