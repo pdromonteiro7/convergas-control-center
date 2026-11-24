@@ -1,0 +1,6101 @@
+{
+ "versao": 1,
+ "fonte": "FRM-051-02 Mapa de Flexibilidade + PJ Convergas 2026",
+ "setores": [
+  "Produção",
+  "Qualidade",
+  "Processos",
+  "T.I",
+  "Supply Chain (PCP)",
+  "Comercial",
+  "Engenharia",
+  "Administrativo"
+ ],
+ "atividades": [
+  {
+   "setor": "Produção",
+   "etapa": "Pré montagem",
+   "nome": "Instruções de colagem",
+   "ordem": 0
+  },
+  {
+   "setor": "Produção",
+   "etapa": "Pré montagem",
+   "nome": "Instrução de corte",
+   "ordem": 1
+  },
+  {
+   "setor": "Produção",
+   "etapa": "Pré montagem",
+   "nome": "Instrução de limpeza das peças",
+   "ordem": 2
+  },
+  {
+   "setor": "Produção",
+   "etapa": "Pré montagem",
+   "nome": "Dimensionamento / tolerância geométrica (GD&T)",
+   "ordem": 3
+  },
+  {
+   "setor": "Produção",
+   "etapa": "Pré montagem",
+   "nome": "POP",
+   "ordem": 4
+  },
+  {
+   "setor": "Produção",
+   "etapa": "Pré montagem",
+   "nome": "Ferramentas / gabaritos",
+   "ordem": 5
+  },
+  {
+   "setor": "Produção",
+   "etapa": "Envalvulamento",
+   "nome": "Instrução de valvulamento",
+   "ordem": 6
+  },
+  {
+   "setor": "Produção",
+   "etapa": "Envalvulamento",
+   "nome": "Metrologia",
+   "ordem": 7
+  },
+  {
+   "setor": "Produção",
+   "etapa": "Envalvulamento",
+   "nome": "CEP/sistema",
+   "ordem": 8
+  },
+  {
+   "setor": "Produção",
+   "etapa": "Envalvulamento",
+   "nome": "POP",
+   "ordem": 9
+  },
+  {
+   "setor": "Produção",
+   "etapa": "Envalvulamento",
+   "nome": "Ferramentas / gabaritos",
+   "ordem": 10
+  },
+  {
+   "setor": "Produção",
+   "etapa": "Montagem",
+   "nome": "Instruções de montagem",
+   "ordem": 11
+  },
+  {
+   "setor": "Produção",
+   "etapa": "Montagem",
+   "nome": "POP",
+   "ordem": 12
+  },
+  {
+   "setor": "Produção",
+   "etapa": "Montagem",
+   "nome": "Metrologia",
+   "ordem": 13
+  },
+  {
+   "setor": "Produção",
+   "etapa": "Montagem",
+   "nome": "CEP/sistema",
+   "ordem": 14
+  },
+  {
+   "setor": "Produção",
+   "etapa": "Montagem",
+   "nome": "Ferramentas / gabaritos",
+   "ordem": 15
+  },
+  {
+   "setor": "Produção",
+   "etapa": "Montagem",
+   "nome": "Instrução de manutenção (limpeza e lubrificação)",
+   "ordem": 16
+  },
+  {
+   "setor": "Produção",
+   "etapa": "Conformação da tubulação",
+   "nome": "Corte e dobra",
+   "ordem": 17
+  },
+  {
+   "setor": "Produção",
+   "etapa": "Conformação da tubulação",
+   "nome": "Anilhamento",
+   "ordem": 18
+  },
+  {
+   "setor": "Produção",
+   "etapa": "Conformação da tubulação",
+   "nome": "Instrução de manutenção (limpeza e lubrificação)",
+   "ordem": 19
+  },
+  {
+   "setor": "Produção",
+   "etapa": "Conformação da tubulação",
+   "nome": "POP",
+   "ordem": 20
+  },
+  {
+   "setor": "Produção",
+   "etapa": "Conformação da tubulação",
+   "nome": "Metrologia",
+   "ordem": 21
+  },
+  {
+   "setor": "Produção",
+   "etapa": "Conformação da tubulação",
+   "nome": "CEP/sistema",
+   "ordem": 22
+  },
+  {
+   "setor": "Produção",
+   "etapa": "Estanqueidade",
+   "nome": "Instrução de manutenção (limpeza e lubrificação)",
+   "ordem": 23
+  },
+  {
+   "setor": "Produção",
+   "etapa": "Estanqueidade",
+   "nome": "POP",
+   "ordem": 24
+  },
+  {
+   "setor": "Produção",
+   "etapa": "Estanqueidade",
+   "nome": "Metrologia",
+   "ordem": 25
+  },
+  {
+   "setor": "Produção",
+   "etapa": "Estanqueidade",
+   "nome": "CEP/sistema",
+   "ordem": 26
+  },
+  {
+   "setor": "Produção",
+   "etapa": "Estanqueidade",
+   "nome": "Instrução de estanqueidade",
+   "ordem": 27
+  },
+  {
+   "setor": "Produção",
+   "etapa": "Gerais",
+   "nome": "EPI'S",
+   "ordem": 28
+  },
+  {
+   "setor": "Produção",
+   "etapa": "Gerais",
+   "nome": "5S",
+   "ordem": 29
+  },
+  {
+   "setor": "Produção",
+   "etapa": "Gerais",
+   "nome": "Certificação GNV",
+   "ordem": 30
+  },
+  {
+   "setor": "Produção",
+   "etapa": "Gerais",
+   "nome": "Sistema de gestão (integração)",
+   "ordem": 31
+  },
+  {
+   "setor": "Produção",
+   "etapa": "Gerais",
+   "nome": "Dimensionamento / tolerância geométrica (GD&T)",
+   "ordem": 32
+  },
+  {
+   "setor": "Produção",
+   "etapa": "Gerais",
+   "nome": "MSA",
+   "ordem": 33
+  },
+  {
+   "setor": "Produção",
+   "etapa": "Gerais",
+   "nome": "CEP",
+   "ordem": 34
+  },
+  {
+   "setor": "Produção",
+   "etapa": "Gerais",
+   "nome": "NR10/NR11/NR12",
+   "ordem": 35
+  },
+  {
+   "setor": "Produção",
+   "etapa": "Gerais",
+   "nome": "NR33",
+   "ordem": 36
+  },
+  {
+   "setor": "Produção",
+   "etapa": "Gerais",
+   "nome": "NR35",
+   "ordem": 37
+  },
+  {
+   "setor": "T.I",
+   "etapa": "T.I",
+   "nome": "Suporte nível 1 (help desk)",
+   "ordem": 38
+  },
+  {
+   "setor": "T.I",
+   "etapa": "T.I",
+   "nome": "Manutenção de hardware",
+   "ordem": 39
+  },
+  {
+   "setor": "T.I",
+   "etapa": "T.I",
+   "nome": "Administração de redes e infraestrutura",
+   "ordem": 40
+  },
+  {
+   "setor": "T.I",
+   "etapa": "T.I",
+   "nome": "Gestão do ERP (sistema integrado)",
+   "ordem": 41
+  },
+  {
+   "setor": "T.I",
+   "etapa": "T.I",
+   "nome": "Segurança da informação",
+   "ordem": 42
+  },
+  {
+   "setor": "T.I",
+   "etapa": "T.I",
+   "nome": "Inventário de ativos",
+   "ordem": 43
+  },
+  {
+   "setor": "T.I",
+   "etapa": "Gerais",
+   "nome": "EPI'S",
+   "ordem": 62
+  },
+  {
+   "setor": "T.I",
+   "etapa": "Gerais",
+   "nome": "5S",
+   "ordem": 65
+  },
+  {
+   "setor": "T.I",
+   "etapa": "Gerais",
+   "nome": "Certificação GNV",
+   "ordem": 68
+  },
+  {
+   "setor": "T.I",
+   "etapa": "Gerais",
+   "nome": "Sistema de gestão (integração)",
+   "ordem": 71
+  },
+  {
+   "setor": "T.I",
+   "etapa": "Gerais",
+   "nome": "Dimensionamento / tolerância geométrica (GD&T)",
+   "ordem": 73
+  },
+  {
+   "setor": "T.I",
+   "etapa": "Gerais",
+   "nome": "MSA",
+   "ordem": 76
+  },
+  {
+   "setor": "T.I",
+   "etapa": "Gerais",
+   "nome": "CEP",
+   "ordem": 79
+  },
+  {
+   "setor": "Processos",
+   "etapa": "Processo",
+   "nome": "Mapeamento e otimização de fluxos",
+   "ordem": 44
+  },
+  {
+   "setor": "Processos",
+   "etapa": "Processo",
+   "nome": "Gestão da documentação e padronização",
+   "ordem": 45
+  },
+  {
+   "setor": "Processos",
+   "etapa": "Processo",
+   "nome": "Aplicação de ferramentas da qualidade",
+   "ordem": 46
+  },
+  {
+   "setor": "Processos",
+   "etapa": "Processo",
+   "nome": "Cronoanálise (tempos e métodos)",
+   "ordem": 47
+  },
+  {
+   "setor": "Processos",
+   "etapa": "Processo",
+   "nome": "Análise de modos de falha (FMEA)",
+   "ordem": 48
+  },
+  {
+   "setor": "Processos",
+   "etapa": "Processo",
+   "nome": "Gestão de layout industrial",
+   "ordem": 49
+  },
+  {
+   "setor": "Processos",
+   "etapa": "Processo",
+   "nome": "Gestão de projetos de melhoria",
+   "ordem": 50
+  },
+  {
+   "setor": "Processos",
+   "etapa": "Processo",
+   "nome": "MSA",
+   "ordem": 51
+  },
+  {
+   "setor": "Processos",
+   "etapa": "Gerais",
+   "nome": "EPI'S",
+   "ordem": 61
+  },
+  {
+   "setor": "Processos",
+   "etapa": "Gerais",
+   "nome": "5S",
+   "ordem": 64
+  },
+  {
+   "setor": "Processos",
+   "etapa": "Gerais",
+   "nome": "Certificação GNV",
+   "ordem": 67
+  },
+  {
+   "setor": "Processos",
+   "etapa": "Gerais",
+   "nome": "Sistema de gestão (integração)",
+   "ordem": 70
+  },
+  {
+   "setor": "Processos",
+   "etapa": "Gerais",
+   "nome": "MSA",
+   "ordem": 75
+  },
+  {
+   "setor": "Processos",
+   "etapa": "Gerais",
+   "nome": "CEP",
+   "ordem": 78
+  },
+  {
+   "setor": "Processos",
+   "etapa": "Gerais",
+   "nome": "NR10/NR11/NR12",
+   "ordem": 81
+  },
+  {
+   "setor": "Processos",
+   "etapa": "Gerais",
+   "nome": "NR33",
+   "ordem": 83
+  },
+  {
+   "setor": "Qualidade",
+   "etapa": "Qualidade",
+   "nome": "Inspeção de recebimento",
+   "ordem": 52
+  },
+  {
+   "setor": "Qualidade",
+   "etapa": "Qualidade",
+   "nome": "Controle dimensional e visual",
+   "ordem": 53
+  },
+  {
+   "setor": "Qualidade",
+   "etapa": "Qualidade",
+   "nome": "Gestão de não conformidades (RNC)",
+   "ordem": 54
+  },
+  {
+   "setor": "Qualidade",
+   "etapa": "Qualidade",
+   "nome": "Auditoria interna de sistemas",
+   "ordem": 55
+  },
+  {
+   "setor": "Qualidade",
+   "etapa": "Qualidade",
+   "nome": "Controle de calibração",
+   "ordem": 56
+  },
+  {
+   "setor": "Qualidade",
+   "etapa": "Qualidade",
+   "nome": "Elaboração de documentação",
+   "ordem": 57
+  },
+  {
+   "setor": "Qualidade",
+   "etapa": "Qualidade",
+   "nome": "Inspeção de estanqueidade",
+   "ordem": 58
+  },
+  {
+   "setor": "Qualidade",
+   "etapa": "Qualidade",
+   "nome": "CEP",
+   "ordem": 59
+  },
+  {
+   "setor": "Qualidade",
+   "etapa": "Gerais",
+   "nome": "EPI'S",
+   "ordem": 60
+  },
+  {
+   "setor": "Qualidade",
+   "etapa": "Gerais",
+   "nome": "5S",
+   "ordem": 63
+  },
+  {
+   "setor": "Qualidade",
+   "etapa": "Gerais",
+   "nome": "Certificação GNV",
+   "ordem": 66
+  },
+  {
+   "setor": "Qualidade",
+   "etapa": "Gerais",
+   "nome": "Sistema de gestão (integração)",
+   "ordem": 69
+  },
+  {
+   "setor": "Qualidade",
+   "etapa": "Gerais",
+   "nome": "Dimensionamento / tolerância geométrica (GD&T)",
+   "ordem": 72
+  },
+  {
+   "setor": "Qualidade",
+   "etapa": "Gerais",
+   "nome": "MSA",
+   "ordem": 74
+  },
+  {
+   "setor": "Qualidade",
+   "etapa": "Gerais",
+   "nome": "CEP",
+   "ordem": 77
+  },
+  {
+   "setor": "Qualidade",
+   "etapa": "Gerais",
+   "nome": "NR10/NR11/NR12",
+   "ordem": 80
+  },
+  {
+   "setor": "Qualidade",
+   "etapa": "Gerais",
+   "nome": "NR33",
+   "ordem": 82
+  },
+  {
+   "setor": "Supply Chain (PCP)",
+   "etapa": "PCP",
+   "nome": "Análise de MRP",
+   "ordem": 84
+  },
+  {
+   "setor": "Supply Chain (PCP)",
+   "etapa": "PCP",
+   "nome": "Programação de linha",
+   "ordem": 85
+  },
+  {
+   "setor": "Supply Chain (PCP)",
+   "etapa": "PCP",
+   "nome": "Análise de capacidade",
+   "ordem": 86
+  },
+  {
+   "setor": "Supply Chain (PCP)",
+   "etapa": "PCP",
+   "nome": "Controle de apontamentos",
+   "ordem": 87
+  },
+  {
+   "setor": "Supply Chain (PCP)",
+   "etapa": "PCP",
+   "nome": "Gestão de terceirização",
+   "ordem": 88
+  },
+  {
+   "setor": "Supply Chain (PCP)",
+   "etapa": "PCP",
+   "nome": "Controle de orçamento de insumos (opex/capex)",
+   "ordem": 89
+  },
+  {
+   "setor": "Supply Chain (PCP)",
+   "etapa": "Compras",
+   "nome": "Prospecção e homologação de fornecedores",
+   "ordem": 90
+  },
+  {
+   "setor": "Supply Chain (PCP)",
+   "etapa": "Compras",
+   "nome": "Gestão de cotações",
+   "ordem": 91
+  },
+  {
+   "setor": "Supply Chain (PCP)",
+   "etapa": "Compras",
+   "nome": "Emissão de pedidos e follow-up",
+   "ordem": 92
+  },
+  {
+   "setor": "Supply Chain (PCP)",
+   "etapa": "Compras",
+   "nome": "Avaliação de desempenho (IDF)",
+   "ordem": 93
+  },
+  {
+   "setor": "Supply Chain (PCP)",
+   "etapa": "Compras",
+   "nome": "Desenvolvimento de contratos",
+   "ordem": 94
+  },
+  {
+   "setor": "Supply Chain (PCP)",
+   "etapa": "Compras",
+   "nome": "Alinhamento tático de abastecimento:",
+   "ordem": 95
+  },
+  {
+   "setor": "Supply Chain (PCP)",
+   "etapa": "Logistica",
+   "nome": "Recebimento físico e sistêmico",
+   "ordem": 96
+  },
+  {
+   "setor": "Supply Chain (PCP)",
+   "etapa": "Logistica",
+   "nome": "Armazenagem e endereçamento",
+   "ordem": 97
+  },
+  {
+   "setor": "Supply Chain (PCP)",
+   "etapa": "Logistica",
+   "nome": "Operação de equipamentos de movimentação",
+   "ordem": 98
+  },
+  {
+   "setor": "Supply Chain (PCP)",
+   "etapa": "Logistica",
+   "nome": "Abastecimento de linha (kitting / kanban)",
+   "ordem": 99
+  },
+  {
+   "setor": "Supply Chain (PCP)",
+   "etapa": "Logistica",
+   "nome": "Inventário ciclico e rotativo",
+   "ordem": 100
+  },
+  {
+   "setor": "Supply Chain (PCP)",
+   "etapa": "Expedição",
+   "nome": "Separação de pedidos (picking)",
+   "ordem": 101
+  },
+  {
+   "setor": "Supply Chain (PCP)",
+   "etapa": "Expedição",
+   "nome": "Embalagem e acondicionamento (packing)",
+   "ordem": 102
+  },
+  {
+   "setor": "Supply Chain (PCP)",
+   "etapa": "Expedição",
+   "nome": "Faturamento e emissão de documentos",
+   "ordem": 103
+  },
+  {
+   "setor": "Supply Chain (PCP)",
+   "etapa": "Expedição",
+   "nome": "Roteirização e agendamento de coletas",
+   "ordem": 104
+  },
+  {
+   "setor": "Supply Chain (PCP)",
+   "etapa": "Expedição",
+   "nome": "Carregamento e amarração de carga",
+   "ordem": 105
+  },
+  {
+   "setor": "Supply Chain (PCP)",
+   "etapa": "Supply TEAM",
+   "nome": "S&OP (planejamento de vendas e operações)",
+   "ordem": 106
+  },
+  {
+   "setor": "Supply Chain (PCP)",
+   "etapa": "Supply TEAM",
+   "nome": "Strategic sourcing (compras estratégicas)",
+   "ordem": 107
+  },
+  {
+   "setor": "Supply Chain (PCP)",
+   "etapa": "Supply TEAM",
+   "nome": "Gestão de riscos de fornecimento",
+   "ordem": 108
+  },
+  {
+   "setor": "Supply Chain (PCP)",
+   "etapa": "Supply TEAM",
+   "nome": "Monitoramento de indicadores (kpis)",
+   "ordem": 109
+  },
+  {
+   "setor": "Supply Chain (PCP)",
+   "etapa": "Supply TEAM",
+   "nome": "Gestão de contratos e slas",
+   "ordem": 110
+  },
+  {
+   "setor": "Supply Chain (PCP)",
+   "etapa": "Supply TEAM",
+   "nome": "Logística reversa e economia circular",
+   "ordem": 111
+  },
+  {
+   "setor": "Supply Chain (PCP)",
+   "etapa": "Supply TEAM",
+   "nome": "Gestão de MRO (manutenção, reparo e operações)",
+   "ordem": 112
+  },
+  {
+   "setor": "Supply Chain (PCP)",
+   "etapa": "Gerais",
+   "nome": "EPI'S",
+   "ordem": 113
+  },
+  {
+   "setor": "Supply Chain (PCP)",
+   "etapa": "Gerais",
+   "nome": "5S",
+   "ordem": 114
+  },
+  {
+   "setor": "Supply Chain (PCP)",
+   "etapa": "Gerais",
+   "nome": "Certificação GNV",
+   "ordem": 115
+  },
+  {
+   "setor": "Supply Chain (PCP)",
+   "etapa": "Gerais",
+   "nome": "Sistema de gestão (integração)",
+   "ordem": 116
+  },
+  {
+   "setor": "Supply Chain (PCP)",
+   "etapa": "Gerais",
+   "nome": "Dimensionamento / tolerância geométrica (GD&T)",
+   "ordem": 117
+  },
+  {
+   "setor": "Supply Chain (PCP)",
+   "etapa": "Gerais",
+   "nome": "MSA",
+   "ordem": 118
+  },
+  {
+   "setor": "Supply Chain (PCP)",
+   "etapa": "Gerais",
+   "nome": "CEP",
+   "ordem": 119
+  },
+  {
+   "setor": "Supply Chain (PCP)",
+   "etapa": "Gerais",
+   "nome": "NR10/NR11/NR12",
+   "ordem": 120
+  },
+  {
+   "setor": "Supply Chain (PCP)",
+   "etapa": "Gerais",
+   "nome": "NR33",
+   "ordem": 121
+  },
+  {
+   "setor": "Supply Chain (PCP)",
+   "etapa": "Gerais",
+   "nome": "NR35",
+   "ordem": 122
+  },
+  {
+   "setor": "Administrativo",
+   "etapa": "Finanças",
+   "nome": "Contas a pagar",
+   "ordem": 123
+  },
+  {
+   "setor": "Administrativo",
+   "etapa": "Finanças",
+   "nome": "Contas a receber e cobrança",
+   "ordem": 124
+  },
+  {
+   "setor": "Administrativo",
+   "etapa": "Finanças",
+   "nome": "Análise e concessão de crédito",
+   "ordem": 125
+  },
+  {
+   "setor": "Administrativo",
+   "etapa": "Finanças",
+   "nome": "Conciliação bancária diária",
+   "ordem": 126
+  },
+  {
+   "setor": "Administrativo",
+   "etapa": "Finanças",
+   "nome": "Gestão de fluxo de caixa (cash flow)",
+   "ordem": 127
+  },
+  {
+   "setor": "Administrativo",
+   "etapa": "Finanças",
+   "nome": "Operações estruturadas e câmbio",
+   "ordem": 128
+  },
+  {
+   "setor": "Administrativo",
+   "etapa": "Fiscal",
+   "nome": "Classificação fiscal (NCM e CFOP)",
+   "ordem": 129
+  },
+  {
+   "setor": "Administrativo",
+   "etapa": "Fiscal",
+   "nome": "Apuração de impostos indiretos (indústria)",
+   "ordem": 130
+  },
+  {
+   "setor": "Administrativo",
+   "etapa": "Fiscal",
+   "nome": "Gestão de retenções na fonte",
+   "ordem": 131
+  },
+  {
+   "setor": "Administrativo",
+   "etapa": "Fiscal",
+   "nome": "Obrigações acessórias (speds)",
+   "ordem": 132
+  },
+  {
+   "setor": "Administrativo",
+   "etapa": "Fiscal",
+   "nome": "Parametrização fiscal no ERP",
+   "ordem": 133
+  },
+  {
+   "setor": "Administrativo",
+   "etapa": "Controle financeiro",
+   "nome": "Apuração de custos industriais",
+   "ordem": 134
+  },
+  {
+   "setor": "Administrativo",
+   "etapa": "Controle financeiro",
+   "nome": "Gestão orçamentária (budget e forecast)",
+   "ordem": 135
+  },
+  {
+   "setor": "Administrativo",
+   "etapa": "Controle financeiro",
+   "nome": "Formação de preço de venda (pricing)",
+   "ordem": 136
+  },
+  {
+   "setor": "Administrativo",
+   "etapa": "Controle financeiro",
+   "nome": "Análise de DRE e indicadores de desempenho",
+   "ordem": 137
+  },
+  {
+   "setor": "Administrativo",
+   "etapa": "Controle financeiro",
+   "nome": "Controles internos e compliance",
+   "ordem": 138
+  },
+  {
+   "setor": "Administrativo",
+   "etapa": "Gerais",
+   "nome": "EPI'S",
+   "ordem": 139
+  },
+  {
+   "setor": "Administrativo",
+   "etapa": "Gerais",
+   "nome": "5S",
+   "ordem": 140
+  },
+  {
+   "setor": "Administrativo",
+   "etapa": "Gerais",
+   "nome": "Certificação GNV",
+   "ordem": 141
+  },
+  {
+   "setor": "Administrativo",
+   "etapa": "Gerais",
+   "nome": "Sistema de gestão (integração)",
+   "ordem": 142
+  },
+  {
+   "setor": "Administrativo",
+   "etapa": "Gerais",
+   "nome": "Dimensionamento / tolerância geométrica (GD&T)",
+   "ordem": 143
+  },
+  {
+   "setor": "Administrativo",
+   "etapa": "Gerais",
+   "nome": "MSA",
+   "ordem": 144
+  },
+  {
+   "setor": "Administrativo",
+   "etapa": "Gerais",
+   "nome": "CEP",
+   "ordem": 145
+  },
+  {
+   "setor": "Administrativo",
+   "etapa": "Gerais",
+   "nome": "NR10/NR11/NR12",
+   "ordem": 146
+  },
+  {
+   "setor": "Administrativo",
+   "etapa": "Gerais",
+   "nome": "NR33",
+   "ordem": 147
+  },
+  {
+   "setor": "Administrativo",
+   "etapa": "Gerais",
+   "nome": "NR35",
+   "ordem": 148
+  },
+  {
+   "setor": "Administrativo",
+   "etapa": "RH",
+   "nome": "• realizar processos de recrutamento e seleção",
+   "ordem": 196
+  },
+  {
+   "setor": "Administrativo",
+   "etapa": "RH",
+   "nome": "• conduzir entrevistas",
+   "ordem": 197
+  },
+  {
+   "setor": "Administrativo",
+   "etapa": "RH",
+   "nome": "Apoiar gestores na escolha de candidatos",
+   "ordem": 198
+  },
+  {
+   "setor": "Administrativo",
+   "etapa": "RH",
+   "nome": "• elaborar contratos de prestação de serviços (PJ).",
+   "ordem": 199
+  },
+  {
+   "setor": "Administrativo",
+   "etapa": "RH",
+   "nome": "• administrar a documentação dos colaboradores.",
+   "ordem": 200
+  },
+  {
+   "setor": "Administrativo",
+   "etapa": "RH",
+   "nome": "• controle de treinamentos",
+   "ordem": 201
+  },
+  {
+   "setor": "Administrativo",
+   "etapa": "RH",
+   "nome": "• controle de certificados e documentos.",
+   "ordem": 202
+  },
+  {
+   "setor": "Administrativo",
+   "etapa": "RH",
+   "nome": "• realizar integração de novos colaboradores.",
+   "ordem": 203
+  },
+  {
+   "setor": "Administrativo",
+   "etapa": "Gestão",
+   "nome": "• manter atualizados os cadastros dos profissionais.",
+   "ordem": 204
+  },
+  {
+   "setor": "Administrativo",
+   "etapa": "Gestão",
+   "nome": "• controlar a documentação exigida pelos clientes para acesso às plantas industriais.",
+   "ordem": 205
+  },
+  {
+   "setor": "Administrativo",
+   "etapa": "Gestão",
+   "nome": "• atuar como ponto de contato entre a empresa e o escritório de contabilidade responsável pelo departamento Pessoal.",
+   "ordem": 206
+  },
+  {
+   "setor": "Administrativo",
+   "etapa": "Gestão",
+   "nome": "Folha de pagamento",
+   "ordem": 207
+  },
+  {
+   "setor": "Administrativo",
+   "etapa": "Gestão",
+   "nome": "• conferir documentos, folhas, recibos e guias emitidos pelo escritório de contabilidade antes da liberação para pagamento ou assinatura.",
+   "ordem": 208
+  },
+  {
+   "setor": "Administrativo",
+   "etapa": "Gestão",
+   "nome": "Gestão de pessoas",
+   "ordem": 209
+  },
+  {
+   "setor": "Administrativo",
+   "etapa": "Gestão",
+   "nome": "• elaborar comunicados internos.",
+   "ordem": 210
+  },
+  {
+   "setor": "Comercial",
+   "etapa": "Vendas",
+   "nome": "Análise de requisitos específicos do cliente (csrs)",
+   "ordem": 149
+  },
+  {
+   "setor": "Comercial",
+   "etapa": "Vendas",
+   "nome": "Análise de viabilidade de manufatura (feasibility study)",
+   "ordem": 150
+  },
+  {
+   "setor": "Comercial",
+   "etapa": "Vendas",
+   "nome": "Análise de risco comercial (RFQ)",
+   "ordem": 151
+  },
+  {
+   "setor": "Comercial",
+   "etapa": "Vendas",
+   "nome": "Integração com a fase 1 do APQP",
+   "ordem": 152
+  },
+  {
+   "setor": "Comercial",
+   "etapa": "Vendas",
+   "nome": "Operação de portais de montadoras e scorecards",
+   "ordem": 153
+  },
+  {
+   "setor": "Comercial",
+   "etapa": "Vendas",
+   "nome": "Gestão comercial de alterações de engenharia",
+   "ordem": 154
+  },
+  {
+   "setor": "Comercial",
+   "etapa": "Vendas",
+   "nome": "Comunicação de contingência e escalonamento",
+   "ordem": 155
+  },
+  {
+   "setor": "Comercial",
+   "etapa": "Pós-venda",
+   "nome": "Suporte e orientação técnica",
+   "ordem": 156
+  },
+  {
+   "setor": "Comercial",
+   "etapa": "Pós-venda",
+   "nome": "Gestão de garantias e laudos técnicos",
+   "ordem": 157
+  },
+  {
+   "setor": "Comercial",
+   "etapa": "Pós-venda",
+   "nome": "Tratativa de reclamações (SAC B2B)",
+   "ordem": 158
+  },
+  {
+   "setor": "Comercial",
+   "etapa": "Pós-venda",
+   "nome": "Acompanhamento de testes em campo",
+   "ordem": 159
+  },
+  {
+   "setor": "Comercial",
+   "etapa": "Pós-venda",
+   "nome": "Gestão de peças de reposição (spare parts)",
+   "ordem": 160
+  },
+  {
+   "setor": "Comercial",
+   "etapa": "Pós-venda",
+   "nome": "Pesquisa de satisfação (NPS e CSAT)",
+   "ordem": 161
+  },
+  {
+   "setor": "Comercial",
+   "etapa": "Pós-venda",
+   "nome": "Onboarding de clientes",
+   "ordem": 162
+  },
+  {
+   "setor": "Comercial",
+   "etapa": "Gerais",
+   "nome": "EPI'S",
+   "ordem": 163
+  },
+  {
+   "setor": "Comercial",
+   "etapa": "Gerais",
+   "nome": "5S",
+   "ordem": 164
+  },
+  {
+   "setor": "Comercial",
+   "etapa": "Gerais",
+   "nome": "Certificação GNV",
+   "ordem": 165
+  },
+  {
+   "setor": "Comercial",
+   "etapa": "Gerais",
+   "nome": "Sistema de gestão (integração)",
+   "ordem": 166
+  },
+  {
+   "setor": "Comercial",
+   "etapa": "Gerais",
+   "nome": "Dimensionamento / tolerância geométrica (GD&T)",
+   "ordem": 167
+  },
+  {
+   "setor": "Comercial",
+   "etapa": "Gerais",
+   "nome": "MSA",
+   "ordem": 168
+  },
+  {
+   "setor": "Comercial",
+   "etapa": "Gerais",
+   "nome": "CEP",
+   "ordem": 169
+  },
+  {
+   "setor": "Comercial",
+   "etapa": "Gerais",
+   "nome": "NR10/NR11/NR12",
+   "ordem": 170
+  },
+  {
+   "setor": "Comercial",
+   "etapa": "Gerais",
+   "nome": "NR33",
+   "ordem": 171
+  },
+  {
+   "setor": "Comercial",
+   "etapa": "Gerais",
+   "nome": "NR35",
+   "ordem": 172
+  },
+  {
+   "setor": "Engenharia",
+   "etapa": "ENG.PRODUTO",
+   "nome": "Modelagem 3D e detalhamento CAD",
+   "ordem": 173
+  },
+  {
+   "setor": "Engenharia",
+   "etapa": "ENG.PRODUTO",
+   "nome": "Gestão da estrutura de produto (BOM)",
+   "ordem": 174
+  },
+  {
+   "setor": "Engenharia",
+   "etapa": "ENG.PRODUTO",
+   "nome": "Prototipagem e testes de validação",
+   "ordem": 175
+  },
+  {
+   "setor": "Engenharia",
+   "etapa": "ENG.PRODUTO",
+   "nome": "Gestão de normas e padronização técnica",
+   "ordem": 176
+  },
+  {
+   "setor": "Engenharia",
+   "etapa": "ENG.PRODUTO",
+   "nome": "Análise de viabilidade técnica e customização",
+   "ordem": 177
+  },
+  {
+   "setor": "Engenharia",
+   "etapa": "ENG.PRODUTO",
+   "nome": "Suporte técnico avançado",
+   "ordem": 178
+  },
+  {
+   "setor": "Engenharia",
+   "etapa": "Gestão",
+   "nome": "Estratégia de novos produtos",
+   "ordem": 179
+  },
+  {
+   "setor": "Engenharia",
+   "etapa": "Gestão",
+   "nome": "Gestão de orçamento da área",
+   "ordem": 180
+  },
+  {
+   "setor": "Engenharia",
+   "etapa": "Gestão",
+   "nome": "Responsabilidade técnica final",
+   "ordem": 181
+  },
+  {
+   "setor": "Engenharia",
+   "etapa": "Gestão",
+   "nome": "Alinhamento de viabilidade",
+   "ordem": 182
+  },
+  {
+   "setor": "Engenharia",
+   "etapa": "Gestão",
+   "nome": "Apoio técnico a grandes clientes",
+   "ordem": 183
+  },
+  {
+   "setor": "Engenharia",
+   "etapa": "Gestão",
+   "nome": "Gestão da equipe técnica",
+   "ordem": 184
+  },
+  {
+   "setor": "Engenharia",
+   "etapa": "Gestão",
+   "nome": "Aprovação de alterações críticas",
+   "ordem": 185
+  },
+  {
+   "setor": "Engenharia",
+   "etapa": "Gerais",
+   "nome": "EPI'S",
+   "ordem": 186
+  },
+  {
+   "setor": "Engenharia",
+   "etapa": "Gerais",
+   "nome": "5S",
+   "ordem": 187
+  },
+  {
+   "setor": "Engenharia",
+   "etapa": "Gerais",
+   "nome": "Certificação GNV",
+   "ordem": 188
+  },
+  {
+   "setor": "Engenharia",
+   "etapa": "Gerais",
+   "nome": "Sistema de gestão (integração)",
+   "ordem": 189
+  },
+  {
+   "setor": "Engenharia",
+   "etapa": "Gerais",
+   "nome": "Dimensionamento / tolerância geométrica (GD&T)",
+   "ordem": 190
+  },
+  {
+   "setor": "Engenharia",
+   "etapa": "Gerais",
+   "nome": "MSA",
+   "ordem": 191
+  },
+  {
+   "setor": "Engenharia",
+   "etapa": "Gerais",
+   "nome": "CEP",
+   "ordem": 192
+  },
+  {
+   "setor": "Engenharia",
+   "etapa": "Gerais",
+   "nome": "NR10/NR11/NR12",
+   "ordem": 193
+  },
+  {
+   "setor": "Engenharia",
+   "etapa": "Gerais",
+   "nome": "NR33",
+   "ordem": 194
+  },
+  {
+   "setor": "Engenharia",
+   "etapa": "Gerais",
+   "nome": "NR35",
+   "ordem": 195
+  }
+ ],
+ "cargos": [
+  {
+   "nome": "Montador GNV I",
+   "setor": "Produção",
+   "minimo": 2,
+   "ordem": 0,
+   "fonte": [
+    "OP: MONTADOR GNV I"
+   ],
+   "atividades": [
+    {
+     "setor": "Produção",
+     "etapa": "Pré montagem",
+     "nome": "Instruções de colagem"
+    },
+    {
+     "setor": "Produção",
+     "etapa": "Pré montagem",
+     "nome": "Instrução de corte"
+    },
+    {
+     "setor": "Produção",
+     "etapa": "Pré montagem",
+     "nome": "Instrução de limpeza das peças"
+    },
+    {
+     "setor": "Produção",
+     "etapa": "Pré montagem",
+     "nome": "Dimensionamento / tolerância geométrica (GD&T)"
+    },
+    {
+     "setor": "Produção",
+     "etapa": "Pré montagem",
+     "nome": "POP"
+    },
+    {
+     "setor": "Produção",
+     "etapa": "Pré montagem",
+     "nome": "Ferramentas / gabaritos"
+    },
+    {
+     "setor": "Produção",
+     "etapa": "Montagem",
+     "nome": "Instruções de montagem"
+    },
+    {
+     "setor": "Produção",
+     "etapa": "Montagem",
+     "nome": "POP"
+    },
+    {
+     "setor": "Produção",
+     "etapa": "Montagem",
+     "nome": "Metrologia"
+    },
+    {
+     "setor": "Produção",
+     "etapa": "Montagem",
+     "nome": "CEP/sistema"
+    },
+    {
+     "setor": "Produção",
+     "etapa": "Montagem",
+     "nome": "Ferramentas / gabaritos"
+    },
+    {
+     "setor": "Produção",
+     "etapa": "Montagem",
+     "nome": "Instrução de manutenção (limpeza e lubrificação)"
+    },
+    {
+     "setor": "Produção",
+     "etapa": "Gerais",
+     "nome": "EPI'S"
+    },
+    {
+     "setor": "Produção",
+     "etapa": "Gerais",
+     "nome": "5S"
+    },
+    {
+     "setor": "Produção",
+     "etapa": "Gerais",
+     "nome": "Certificação GNV"
+    },
+    {
+     "setor": "Produção",
+     "etapa": "Gerais",
+     "nome": "Sistema de gestão (integração)"
+    },
+    {
+     "setor": "Produção",
+     "etapa": "Gerais",
+     "nome": "Dimensionamento / tolerância geométrica (GD&T)"
+    }
+   ]
+  },
+  {
+   "nome": "Montador GNV II",
+   "setor": "Produção",
+   "minimo": 2,
+   "ordem": 1,
+   "fonte": [
+    "OP: MONTADOR GNV 2"
+   ],
+   "atividades": [
+    {
+     "setor": "Produção",
+     "etapa": "Pré montagem",
+     "nome": "Instruções de colagem"
+    },
+    {
+     "setor": "Produção",
+     "etapa": "Pré montagem",
+     "nome": "Instrução de corte"
+    },
+    {
+     "setor": "Produção",
+     "etapa": "Pré montagem",
+     "nome": "Instrução de limpeza das peças"
+    },
+    {
+     "setor": "Produção",
+     "etapa": "Pré montagem",
+     "nome": "Dimensionamento / tolerância geométrica (GD&T)"
+    },
+    {
+     "setor": "Produção",
+     "etapa": "Pré montagem",
+     "nome": "POP"
+    },
+    {
+     "setor": "Produção",
+     "etapa": "Pré montagem",
+     "nome": "Ferramentas / gabaritos"
+    },
+    {
+     "setor": "Produção",
+     "etapa": "Envalvulamento",
+     "nome": "Instrução de valvulamento"
+    },
+    {
+     "setor": "Produção",
+     "etapa": "Envalvulamento",
+     "nome": "Metrologia"
+    },
+    {
+     "setor": "Produção",
+     "etapa": "Envalvulamento",
+     "nome": "CEP/sistema"
+    },
+    {
+     "setor": "Produção",
+     "etapa": "Envalvulamento",
+     "nome": "POP"
+    },
+    {
+     "setor": "Produção",
+     "etapa": "Envalvulamento",
+     "nome": "Ferramentas / gabaritos"
+    },
+    {
+     "setor": "Produção",
+     "etapa": "Montagem",
+     "nome": "Instruções de montagem"
+    },
+    {
+     "setor": "Produção",
+     "etapa": "Montagem",
+     "nome": "POP"
+    },
+    {
+     "setor": "Produção",
+     "etapa": "Montagem",
+     "nome": "Metrologia"
+    },
+    {
+     "setor": "Produção",
+     "etapa": "Montagem",
+     "nome": "CEP/sistema"
+    },
+    {
+     "setor": "Produção",
+     "etapa": "Montagem",
+     "nome": "Ferramentas / gabaritos"
+    },
+    {
+     "setor": "Produção",
+     "etapa": "Montagem",
+     "nome": "Instrução de manutenção (limpeza e lubrificação)"
+    },
+    {
+     "setor": "Produção",
+     "etapa": "Estanqueidade",
+     "nome": "Instrução de manutenção (limpeza e lubrificação)"
+    },
+    {
+     "setor": "Produção",
+     "etapa": "Estanqueidade",
+     "nome": "POP"
+    },
+    {
+     "setor": "Produção",
+     "etapa": "Estanqueidade",
+     "nome": "Metrologia"
+    },
+    {
+     "setor": "Produção",
+     "etapa": "Estanqueidade",
+     "nome": "CEP/sistema"
+    },
+    {
+     "setor": "Produção",
+     "etapa": "Estanqueidade",
+     "nome": "Instrução de estanqueidade"
+    },
+    {
+     "setor": "Produção",
+     "etapa": "Gerais",
+     "nome": "EPI'S"
+    },
+    {
+     "setor": "Produção",
+     "etapa": "Gerais",
+     "nome": "5S"
+    },
+    {
+     "setor": "Produção",
+     "etapa": "Gerais",
+     "nome": "Certificação GNV"
+    },
+    {
+     "setor": "Produção",
+     "etapa": "Gerais",
+     "nome": "Sistema de gestão (integração)"
+    },
+    {
+     "setor": "Produção",
+     "etapa": "Gerais",
+     "nome": "Dimensionamento / tolerância geométrica (GD&T)"
+    }
+   ]
+  },
+  {
+   "nome": "Montador GNV III",
+   "setor": "Produção",
+   "minimo": 2,
+   "ordem": 2,
+   "fonte": [
+    "OP: MONTADOR GNV 3"
+   ],
+   "atividades": [
+    {
+     "setor": "Produção",
+     "etapa": "Pré montagem",
+     "nome": "Instruções de colagem"
+    },
+    {
+     "setor": "Produção",
+     "etapa": "Pré montagem",
+     "nome": "Instrução de corte"
+    },
+    {
+     "setor": "Produção",
+     "etapa": "Pré montagem",
+     "nome": "Instrução de limpeza das peças"
+    },
+    {
+     "setor": "Produção",
+     "etapa": "Pré montagem",
+     "nome": "Dimensionamento / tolerância geométrica (GD&T)"
+    },
+    {
+     "setor": "Produção",
+     "etapa": "Pré montagem",
+     "nome": "POP"
+    },
+    {
+     "setor": "Produção",
+     "etapa": "Pré montagem",
+     "nome": "Ferramentas / gabaritos"
+    },
+    {
+     "setor": "Produção",
+     "etapa": "Envalvulamento",
+     "nome": "Instrução de valvulamento"
+    },
+    {
+     "setor": "Produção",
+     "etapa": "Envalvulamento",
+     "nome": "Metrologia"
+    },
+    {
+     "setor": "Produção",
+     "etapa": "Envalvulamento",
+     "nome": "CEP/sistema"
+    },
+    {
+     "setor": "Produção",
+     "etapa": "Envalvulamento",
+     "nome": "POP"
+    },
+    {
+     "setor": "Produção",
+     "etapa": "Envalvulamento",
+     "nome": "Ferramentas / gabaritos"
+    },
+    {
+     "setor": "Produção",
+     "etapa": "Montagem",
+     "nome": "Instruções de montagem"
+    },
+    {
+     "setor": "Produção",
+     "etapa": "Montagem",
+     "nome": "POP"
+    },
+    {
+     "setor": "Produção",
+     "etapa": "Montagem",
+     "nome": "Metrologia"
+    },
+    {
+     "setor": "Produção",
+     "etapa": "Montagem",
+     "nome": "CEP/sistema"
+    },
+    {
+     "setor": "Produção",
+     "etapa": "Montagem",
+     "nome": "Ferramentas / gabaritos"
+    },
+    {
+     "setor": "Produção",
+     "etapa": "Montagem",
+     "nome": "Instrução de manutenção (limpeza e lubrificação)"
+    },
+    {
+     "setor": "Produção",
+     "etapa": "Conformação da tubulação",
+     "nome": "Corte e dobra"
+    },
+    {
+     "setor": "Produção",
+     "etapa": "Conformação da tubulação",
+     "nome": "Anilhamento"
+    },
+    {
+     "setor": "Produção",
+     "etapa": "Conformação da tubulação",
+     "nome": "Instrução de manutenção (limpeza e lubrificação)"
+    },
+    {
+     "setor": "Produção",
+     "etapa": "Conformação da tubulação",
+     "nome": "POP"
+    },
+    {
+     "setor": "Produção",
+     "etapa": "Conformação da tubulação",
+     "nome": "Metrologia"
+    },
+    {
+     "setor": "Produção",
+     "etapa": "Conformação da tubulação",
+     "nome": "CEP/sistema"
+    },
+    {
+     "setor": "Produção",
+     "etapa": "Estanqueidade",
+     "nome": "Instrução de manutenção (limpeza e lubrificação)"
+    },
+    {
+     "setor": "Produção",
+     "etapa": "Estanqueidade",
+     "nome": "POP"
+    },
+    {
+     "setor": "Produção",
+     "etapa": "Estanqueidade",
+     "nome": "Metrologia"
+    },
+    {
+     "setor": "Produção",
+     "etapa": "Estanqueidade",
+     "nome": "CEP/sistema"
+    },
+    {
+     "setor": "Produção",
+     "etapa": "Estanqueidade",
+     "nome": "Instrução de estanqueidade"
+    },
+    {
+     "setor": "Produção",
+     "etapa": "Gerais",
+     "nome": "EPI'S"
+    },
+    {
+     "setor": "Produção",
+     "etapa": "Gerais",
+     "nome": "5S"
+    },
+    {
+     "setor": "Produção",
+     "etapa": "Gerais",
+     "nome": "Certificação GNV"
+    },
+    {
+     "setor": "Produção",
+     "etapa": "Gerais",
+     "nome": "Sistema de gestão (integração)"
+    },
+    {
+     "setor": "Produção",
+     "etapa": "Gerais",
+     "nome": "Dimensionamento / tolerância geométrica (GD&T)"
+    }
+   ]
+  },
+  {
+   "nome": "Coordenador de produção",
+   "setor": "Produção",
+   "minimo": 2,
+   "ordem": 3,
+   "fonte": [
+    "OP: ENCARREGADO DE PRODUÇÃO"
+   ],
+   "atividades": [
+    {
+     "setor": "Produção",
+     "etapa": "Pré montagem",
+     "nome": "Instruções de colagem"
+    },
+    {
+     "setor": "Produção",
+     "etapa": "Pré montagem",
+     "nome": "Instrução de corte"
+    },
+    {
+     "setor": "Produção",
+     "etapa": "Pré montagem",
+     "nome": "Instrução de limpeza das peças"
+    },
+    {
+     "setor": "Produção",
+     "etapa": "Pré montagem",
+     "nome": "Dimensionamento / tolerância geométrica (GD&T)"
+    },
+    {
+     "setor": "Produção",
+     "etapa": "Pré montagem",
+     "nome": "POP"
+    },
+    {
+     "setor": "Produção",
+     "etapa": "Pré montagem",
+     "nome": "Ferramentas / gabaritos"
+    },
+    {
+     "setor": "Produção",
+     "etapa": "Envalvulamento",
+     "nome": "Instrução de valvulamento"
+    },
+    {
+     "setor": "Produção",
+     "etapa": "Envalvulamento",
+     "nome": "Metrologia"
+    },
+    {
+     "setor": "Produção",
+     "etapa": "Envalvulamento",
+     "nome": "CEP/sistema"
+    },
+    {
+     "setor": "Produção",
+     "etapa": "Envalvulamento",
+     "nome": "POP"
+    },
+    {
+     "setor": "Produção",
+     "etapa": "Envalvulamento",
+     "nome": "Ferramentas / gabaritos"
+    },
+    {
+     "setor": "Produção",
+     "etapa": "Montagem",
+     "nome": "Instruções de montagem"
+    },
+    {
+     "setor": "Produção",
+     "etapa": "Montagem",
+     "nome": "POP"
+    },
+    {
+     "setor": "Produção",
+     "etapa": "Montagem",
+     "nome": "Metrologia"
+    },
+    {
+     "setor": "Produção",
+     "etapa": "Montagem",
+     "nome": "CEP/sistema"
+    },
+    {
+     "setor": "Produção",
+     "etapa": "Montagem",
+     "nome": "Ferramentas / gabaritos"
+    },
+    {
+     "setor": "Produção",
+     "etapa": "Montagem",
+     "nome": "Instrução de manutenção (limpeza e lubrificação)"
+    },
+    {
+     "setor": "Produção",
+     "etapa": "Conformação da tubulação",
+     "nome": "Corte e dobra"
+    },
+    {
+     "setor": "Produção",
+     "etapa": "Conformação da tubulação",
+     "nome": "Anilhamento"
+    },
+    {
+     "setor": "Produção",
+     "etapa": "Conformação da tubulação",
+     "nome": "Instrução de manutenção (limpeza e lubrificação)"
+    },
+    {
+     "setor": "Produção",
+     "etapa": "Conformação da tubulação",
+     "nome": "POP"
+    },
+    {
+     "setor": "Produção",
+     "etapa": "Conformação da tubulação",
+     "nome": "Metrologia"
+    },
+    {
+     "setor": "Produção",
+     "etapa": "Conformação da tubulação",
+     "nome": "CEP/sistema"
+    },
+    {
+     "setor": "Produção",
+     "etapa": "Estanqueidade",
+     "nome": "Instrução de manutenção (limpeza e lubrificação)"
+    },
+    {
+     "setor": "Produção",
+     "etapa": "Estanqueidade",
+     "nome": "POP"
+    },
+    {
+     "setor": "Produção",
+     "etapa": "Estanqueidade",
+     "nome": "Metrologia"
+    },
+    {
+     "setor": "Produção",
+     "etapa": "Estanqueidade",
+     "nome": "CEP/sistema"
+    },
+    {
+     "setor": "Produção",
+     "etapa": "Estanqueidade",
+     "nome": "Instrução de estanqueidade"
+    },
+    {
+     "setor": "Produção",
+     "etapa": "Gerais",
+     "nome": "EPI'S"
+    },
+    {
+     "setor": "Produção",
+     "etapa": "Gerais",
+     "nome": "5S"
+    },
+    {
+     "setor": "Produção",
+     "etapa": "Gerais",
+     "nome": "Certificação GNV"
+    },
+    {
+     "setor": "Produção",
+     "etapa": "Gerais",
+     "nome": "Sistema de gestão (integração)"
+    },
+    {
+     "setor": "Produção",
+     "etapa": "Gerais",
+     "nome": "Dimensionamento / tolerância geométrica (GD&T)"
+    },
+    {
+     "setor": "Produção",
+     "etapa": "Gerais",
+     "nome": "MSA"
+    },
+    {
+     "setor": "Produção",
+     "etapa": "Gerais",
+     "nome": "CEP"
+    },
+    {
+     "setor": "Produção",
+     "etapa": "Gerais",
+     "nome": "NR10/NR11/NR12"
+    },
+    {
+     "setor": "Produção",
+     "etapa": "Gerais",
+     "nome": "NR33"
+    }
+   ]
+  },
+  {
+   "nome": "Analista de qualidade",
+   "setor": "Qualidade",
+   "minimo": 2,
+   "ordem": 4,
+   "fonte": [
+    "GQ: ANALISTA  DE QUALIDADE"
+   ],
+   "atividades": [
+    {
+     "setor": "T.I",
+     "etapa": "T.I",
+     "nome": "Inventário de ativos"
+    },
+    {
+     "setor": "Processos",
+     "etapa": "Processo",
+     "nome": "Mapeamento e otimização de fluxos"
+    },
+    {
+     "setor": "Processos",
+     "etapa": "Processo",
+     "nome": "Aplicação de ferramentas da qualidade"
+    },
+    {
+     "setor": "Processos",
+     "etapa": "Processo",
+     "nome": "Cronoanálise (tempos e métodos)"
+    },
+    {
+     "setor": "Processos",
+     "etapa": "Processo",
+     "nome": "Gestão de projetos de melhoria"
+    },
+    {
+     "setor": "Processos",
+     "etapa": "Processo",
+     "nome": "MSA"
+    },
+    {
+     "setor": "Qualidade",
+     "etapa": "Qualidade",
+     "nome": "Inspeção de recebimento"
+    },
+    {
+     "setor": "Qualidade",
+     "etapa": "Qualidade",
+     "nome": "Controle dimensional e visual"
+    },
+    {
+     "setor": "Qualidade",
+     "etapa": "Qualidade",
+     "nome": "Gestão de não conformidades (RNC)"
+    },
+    {
+     "setor": "Qualidade",
+     "etapa": "Qualidade",
+     "nome": "Controle de calibração"
+    },
+    {
+     "setor": "Qualidade",
+     "etapa": "Qualidade",
+     "nome": "Elaboração de documentação"
+    },
+    {
+     "setor": "Qualidade",
+     "etapa": "Qualidade",
+     "nome": "Inspeção de estanqueidade"
+    },
+    {
+     "setor": "Qualidade",
+     "etapa": "Qualidade",
+     "nome": "CEP"
+    },
+    {
+     "setor": "Qualidade",
+     "etapa": "Gerais",
+     "nome": "EPI'S"
+    },
+    {
+     "setor": "Qualidade",
+     "etapa": "Gerais",
+     "nome": "5S"
+    },
+    {
+     "setor": "Qualidade",
+     "etapa": "Gerais",
+     "nome": "Certificação GNV"
+    },
+    {
+     "setor": "Qualidade",
+     "etapa": "Gerais",
+     "nome": "Sistema de gestão (integração)"
+    },
+    {
+     "setor": "Qualidade",
+     "etapa": "Gerais",
+     "nome": "Dimensionamento / tolerância geométrica (GD&T)"
+    },
+    {
+     "setor": "Qualidade",
+     "etapa": "Gerais",
+     "nome": "MSA"
+    },
+    {
+     "setor": "Qualidade",
+     "etapa": "Gerais",
+     "nome": "CEP"
+    },
+    {
+     "setor": "Qualidade",
+     "etapa": "Gerais",
+     "nome": "NR10/NR11/NR12"
+    },
+    {
+     "setor": "Qualidade",
+     "etapa": "Gerais",
+     "nome": "NR33"
+    }
+   ]
+  },
+  {
+   "nome": "Analista de processos",
+   "setor": "Processos",
+   "minimo": 2,
+   "ordem": 5,
+   "fonte": [
+    "GQ: ANALISTA DE PROCESSOS"
+   ],
+   "atividades": [
+    {
+     "setor": "Processos",
+     "etapa": "Processo",
+     "nome": "Mapeamento e otimização de fluxos"
+    },
+    {
+     "setor": "Processos",
+     "etapa": "Processo",
+     "nome": "Gestão da documentação e padronização"
+    },
+    {
+     "setor": "Processos",
+     "etapa": "Processo",
+     "nome": "Aplicação de ferramentas da qualidade"
+    },
+    {
+     "setor": "Processos",
+     "etapa": "Processo",
+     "nome": "Cronoanálise (tempos e métodos)"
+    },
+    {
+     "setor": "Processos",
+     "etapa": "Processo",
+     "nome": "Análise de modos de falha (FMEA)"
+    },
+    {
+     "setor": "Processos",
+     "etapa": "Processo",
+     "nome": "Gestão de layout industrial"
+    },
+    {
+     "setor": "Processos",
+     "etapa": "Processo",
+     "nome": "Gestão de projetos de melhoria"
+    },
+    {
+     "setor": "Processos",
+     "etapa": "Processo",
+     "nome": "MSA"
+    },
+    {
+     "setor": "Qualidade",
+     "etapa": "Qualidade",
+     "nome": "Inspeção de recebimento"
+    },
+    {
+     "setor": "Qualidade",
+     "etapa": "Qualidade",
+     "nome": "Controle dimensional e visual"
+    },
+    {
+     "setor": "Qualidade",
+     "etapa": "Qualidade",
+     "nome": "Gestão de não conformidades (RNC)"
+    },
+    {
+     "setor": "Qualidade",
+     "etapa": "Qualidade",
+     "nome": "Controle de calibração"
+    },
+    {
+     "setor": "Qualidade",
+     "etapa": "Qualidade",
+     "nome": "Elaboração de documentação"
+    },
+    {
+     "setor": "Qualidade",
+     "etapa": "Qualidade",
+     "nome": "CEP"
+    },
+    {
+     "setor": "Processos",
+     "etapa": "Gerais",
+     "nome": "EPI'S"
+    },
+    {
+     "setor": "Processos",
+     "etapa": "Gerais",
+     "nome": "5S"
+    },
+    {
+     "setor": "Processos",
+     "etapa": "Gerais",
+     "nome": "Certificação GNV"
+    },
+    {
+     "setor": "Processos",
+     "etapa": "Gerais",
+     "nome": "Sistema de gestão (integração)"
+    },
+    {
+     "setor": "Processos",
+     "etapa": "Gerais",
+     "nome": "MSA"
+    },
+    {
+     "setor": "Processos",
+     "etapa": "Gerais",
+     "nome": "CEP"
+    },
+    {
+     "setor": "Processos",
+     "etapa": "Gerais",
+     "nome": "NR10/NR11/NR12"
+    },
+    {
+     "setor": "Processos",
+     "etapa": "Gerais",
+     "nome": "NR33"
+    }
+   ]
+  },
+  {
+   "nome": "Analista de TI",
+   "setor": "T.I",
+   "minimo": 2,
+   "ordem": 6,
+   "fonte": [
+    "GQ: ANALISTA DE TI"
+   ],
+   "atividades": [
+    {
+     "setor": "T.I",
+     "etapa": "T.I",
+     "nome": "Suporte nível 1 (help desk)"
+    },
+    {
+     "setor": "T.I",
+     "etapa": "T.I",
+     "nome": "Manutenção de hardware"
+    },
+    {
+     "setor": "T.I",
+     "etapa": "T.I",
+     "nome": "Administração de redes e infraestrutura"
+    },
+    {
+     "setor": "T.I",
+     "etapa": "T.I",
+     "nome": "Gestão do ERP (sistema integrado)"
+    },
+    {
+     "setor": "T.I",
+     "etapa": "T.I",
+     "nome": "Segurança da informação"
+    },
+    {
+     "setor": "T.I",
+     "etapa": "T.I",
+     "nome": "Inventário de ativos"
+    },
+    {
+     "setor": "T.I",
+     "etapa": "Gerais",
+     "nome": "EPI'S"
+    },
+    {
+     "setor": "T.I",
+     "etapa": "Gerais",
+     "nome": "5S"
+    },
+    {
+     "setor": "T.I",
+     "etapa": "Gerais",
+     "nome": "Certificação GNV"
+    },
+    {
+     "setor": "T.I",
+     "etapa": "Gerais",
+     "nome": "Sistema de gestão (integração)"
+    },
+    {
+     "setor": "T.I",
+     "etapa": "Gerais",
+     "nome": "Dimensionamento / tolerância geométrica (GD&T)"
+    },
+    {
+     "setor": "T.I",
+     "etapa": "Gerais",
+     "nome": "MSA"
+    },
+    {
+     "setor": "T.I",
+     "etapa": "Gerais",
+     "nome": "CEP"
+    }
+   ]
+  },
+  {
+   "nome": "Gestor da qualidade",
+   "setor": "Qualidade",
+   "minimo": 2,
+   "ordem": 7,
+   "fonte": [
+    "GQ: GESTOR DA QUALIDADE"
+   ],
+   "atividades": [
+    {
+     "setor": "T.I",
+     "etapa": "T.I",
+     "nome": "Gestão do ERP (sistema integrado)"
+    },
+    {
+     "setor": "T.I",
+     "etapa": "T.I",
+     "nome": "Inventário de ativos"
+    },
+    {
+     "setor": "Processos",
+     "etapa": "Processo",
+     "nome": "Mapeamento e otimização de fluxos"
+    },
+    {
+     "setor": "Processos",
+     "etapa": "Processo",
+     "nome": "Gestão da documentação e padronização"
+    },
+    {
+     "setor": "Processos",
+     "etapa": "Processo",
+     "nome": "Aplicação de ferramentas da qualidade"
+    },
+    {
+     "setor": "Processos",
+     "etapa": "Processo",
+     "nome": "Cronoanálise (tempos e métodos)"
+    },
+    {
+     "setor": "Processos",
+     "etapa": "Processo",
+     "nome": "Análise de modos de falha (FMEA)"
+    },
+    {
+     "setor": "Processos",
+     "etapa": "Processo",
+     "nome": "Gestão de layout industrial"
+    },
+    {
+     "setor": "Processos",
+     "etapa": "Processo",
+     "nome": "Gestão de projetos de melhoria"
+    },
+    {
+     "setor": "Processos",
+     "etapa": "Processo",
+     "nome": "MSA"
+    },
+    {
+     "setor": "Qualidade",
+     "etapa": "Qualidade",
+     "nome": "Inspeção de recebimento"
+    },
+    {
+     "setor": "Qualidade",
+     "etapa": "Qualidade",
+     "nome": "Controle dimensional e visual"
+    },
+    {
+     "setor": "Qualidade",
+     "etapa": "Qualidade",
+     "nome": "Gestão de não conformidades (RNC)"
+    },
+    {
+     "setor": "Qualidade",
+     "etapa": "Qualidade",
+     "nome": "Auditoria interna de sistemas"
+    },
+    {
+     "setor": "Qualidade",
+     "etapa": "Qualidade",
+     "nome": "Controle de calibração"
+    },
+    {
+     "setor": "Qualidade",
+     "etapa": "Qualidade",
+     "nome": "Elaboração de documentação"
+    },
+    {
+     "setor": "Qualidade",
+     "etapa": "Qualidade",
+     "nome": "Inspeção de estanqueidade"
+    },
+    {
+     "setor": "Qualidade",
+     "etapa": "Qualidade",
+     "nome": "CEP"
+    },
+    {
+     "setor": "Qualidade",
+     "etapa": "Gerais",
+     "nome": "EPI'S"
+    },
+    {
+     "setor": "Qualidade",
+     "etapa": "Gerais",
+     "nome": "5S"
+    },
+    {
+     "setor": "Qualidade",
+     "etapa": "Gerais",
+     "nome": "Certificação GNV"
+    },
+    {
+     "setor": "Qualidade",
+     "etapa": "Gerais",
+     "nome": "Sistema de gestão (integração)"
+    },
+    {
+     "setor": "Qualidade",
+     "etapa": "Gerais",
+     "nome": "Dimensionamento / tolerância geométrica (GD&T)"
+    },
+    {
+     "setor": "Qualidade",
+     "etapa": "Gerais",
+     "nome": "MSA"
+    },
+    {
+     "setor": "Qualidade",
+     "etapa": "Gerais",
+     "nome": "CEP"
+    }
+   ]
+  },
+  {
+   "nome": "Analista de PCP",
+   "setor": "Supply Chain (PCP)",
+   "minimo": 2,
+   "ordem": 8,
+   "fonte": [
+    "PCP: Analista de PCP"
+   ],
+   "atividades": [
+    {
+     "setor": "Supply Chain (PCP)",
+     "etapa": "PCP",
+     "nome": "Análise de MRP"
+    },
+    {
+     "setor": "Supply Chain (PCP)",
+     "etapa": "PCP",
+     "nome": "Programação de linha"
+    },
+    {
+     "setor": "Supply Chain (PCP)",
+     "etapa": "PCP",
+     "nome": "Análise de capacidade"
+    },
+    {
+     "setor": "Supply Chain (PCP)",
+     "etapa": "PCP",
+     "nome": "Controle de apontamentos"
+    },
+    {
+     "setor": "Supply Chain (PCP)",
+     "etapa": "PCP",
+     "nome": "Gestão de terceirização"
+    },
+    {
+     "setor": "Supply Chain (PCP)",
+     "etapa": "PCP",
+     "nome": "Controle de orçamento de insumos (opex/capex)"
+    },
+    {
+     "setor": "Supply Chain (PCP)",
+     "etapa": "Compras",
+     "nome": "Prospecção e homologação de fornecedores"
+    },
+    {
+     "setor": "Supply Chain (PCP)",
+     "etapa": "Compras",
+     "nome": "Gestão de cotações"
+    },
+    {
+     "setor": "Supply Chain (PCP)",
+     "etapa": "Compras",
+     "nome": "Emissão de pedidos e follow-up"
+    },
+    {
+     "setor": "Supply Chain (PCP)",
+     "etapa": "Compras",
+     "nome": "Avaliação de desempenho (IDF)"
+    },
+    {
+     "setor": "Supply Chain (PCP)",
+     "etapa": "Compras",
+     "nome": "Desenvolvimento de contratos"
+    },
+    {
+     "setor": "Supply Chain (PCP)",
+     "etapa": "Expedição",
+     "nome": "Separação de pedidos (picking)"
+    },
+    {
+     "setor": "Supply Chain (PCP)",
+     "etapa": "Expedição",
+     "nome": "Embalagem e acondicionamento (packing)"
+    },
+    {
+     "setor": "Supply Chain (PCP)",
+     "etapa": "Expedição",
+     "nome": "Faturamento e emissão de documentos"
+    },
+    {
+     "setor": "Supply Chain (PCP)",
+     "etapa": "Expedição",
+     "nome": "Roteirização e agendamento de coletas"
+    },
+    {
+     "setor": "Supply Chain (PCP)",
+     "etapa": "Expedição",
+     "nome": "Carregamento e amarração de carga"
+    },
+    {
+     "setor": "Supply Chain (PCP)",
+     "etapa": "Supply TEAM",
+     "nome": "Gestão de riscos de fornecimento"
+    },
+    {
+     "setor": "Supply Chain (PCP)",
+     "etapa": "Supply TEAM",
+     "nome": "Monitoramento de indicadores (kpis)"
+    },
+    {
+     "setor": "Supply Chain (PCP)",
+     "etapa": "Supply TEAM",
+     "nome": "Logística reversa e economia circular"
+    },
+    {
+     "setor": "Supply Chain (PCP)",
+     "etapa": "Supply TEAM",
+     "nome": "Gestão de MRO (manutenção, reparo e operações)"
+    },
+    {
+     "setor": "Supply Chain (PCP)",
+     "etapa": "Gerais",
+     "nome": "EPI'S"
+    },
+    {
+     "setor": "Supply Chain (PCP)",
+     "etapa": "Gerais",
+     "nome": "5S"
+    },
+    {
+     "setor": "Supply Chain (PCP)",
+     "etapa": "Gerais",
+     "nome": "Dimensionamento / tolerância geométrica (GD&T)"
+    }
+   ]
+  },
+  {
+   "nome": "Almoxarifado / logística",
+   "setor": "Supply Chain (PCP)",
+   "minimo": 2,
+   "ordem": 9,
+   "fonte": [
+    "PCP: Lider de Expedição"
+   ],
+   "atividades": [
+    {
+     "setor": "Supply Chain (PCP)",
+     "etapa": "Logistica",
+     "nome": "Recebimento físico e sistêmico"
+    },
+    {
+     "setor": "Supply Chain (PCP)",
+     "etapa": "Logistica",
+     "nome": "Armazenagem e endereçamento"
+    },
+    {
+     "setor": "Supply Chain (PCP)",
+     "etapa": "Logistica",
+     "nome": "Operação de equipamentos de movimentação"
+    },
+    {
+     "setor": "Supply Chain (PCP)",
+     "etapa": "Logistica",
+     "nome": "Abastecimento de linha (kitting / kanban)"
+    },
+    {
+     "setor": "Supply Chain (PCP)",
+     "etapa": "Logistica",
+     "nome": "Inventário ciclico e rotativo"
+    },
+    {
+     "setor": "Supply Chain (PCP)",
+     "etapa": "Expedição",
+     "nome": "Separação de pedidos (picking)"
+    },
+    {
+     "setor": "Supply Chain (PCP)",
+     "etapa": "Expedição",
+     "nome": "Embalagem e acondicionamento (packing)"
+    },
+    {
+     "setor": "Supply Chain (PCP)",
+     "etapa": "Expedição",
+     "nome": "Faturamento e emissão de documentos"
+    },
+    {
+     "setor": "Supply Chain (PCP)",
+     "etapa": "Expedição",
+     "nome": "Roteirização e agendamento de coletas"
+    },
+    {
+     "setor": "Supply Chain (PCP)",
+     "etapa": "Expedição",
+     "nome": "Carregamento e amarração de carga"
+    },
+    {
+     "setor": "Supply Chain (PCP)",
+     "etapa": "Gerais",
+     "nome": "Certificação GNV"
+    },
+    {
+     "setor": "Supply Chain (PCP)",
+     "etapa": "Gerais",
+     "nome": "Dimensionamento / tolerância geométrica (GD&T)"
+    }
+   ]
+  },
+  {
+   "nome": "Gerente de supply chain",
+   "setor": "Supply Chain (PCP)",
+   "minimo": 2,
+   "ordem": 10,
+   "fonte": [
+    "PCP: Gerende de PCP"
+   ],
+   "atividades": [
+    {
+     "setor": "Supply Chain (PCP)",
+     "etapa": "PCP",
+     "nome": "Análise de MRP"
+    },
+    {
+     "setor": "Supply Chain (PCP)",
+     "etapa": "PCP",
+     "nome": "Programação de linha"
+    },
+    {
+     "setor": "Supply Chain (PCP)",
+     "etapa": "PCP",
+     "nome": "Análise de capacidade"
+    },
+    {
+     "setor": "Supply Chain (PCP)",
+     "etapa": "PCP",
+     "nome": "Controle de apontamentos"
+    },
+    {
+     "setor": "Supply Chain (PCP)",
+     "etapa": "PCP",
+     "nome": "Gestão de terceirização"
+    },
+    {
+     "setor": "Supply Chain (PCP)",
+     "etapa": "PCP",
+     "nome": "Controle de orçamento de insumos (opex/capex)"
+    },
+    {
+     "setor": "Supply Chain (PCP)",
+     "etapa": "Compras",
+     "nome": "Prospecção e homologação de fornecedores"
+    },
+    {
+     "setor": "Supply Chain (PCP)",
+     "etapa": "Compras",
+     "nome": "Gestão de cotações"
+    },
+    {
+     "setor": "Supply Chain (PCP)",
+     "etapa": "Compras",
+     "nome": "Emissão de pedidos e follow-up"
+    },
+    {
+     "setor": "Supply Chain (PCP)",
+     "etapa": "Compras",
+     "nome": "Avaliação de desempenho (IDF)"
+    },
+    {
+     "setor": "Supply Chain (PCP)",
+     "etapa": "Compras",
+     "nome": "Desenvolvimento de contratos"
+    },
+    {
+     "setor": "Supply Chain (PCP)",
+     "etapa": "Compras",
+     "nome": "Alinhamento tático de abastecimento:"
+    },
+    {
+     "setor": "Supply Chain (PCP)",
+     "etapa": "Logistica",
+     "nome": "Recebimento físico e sistêmico"
+    },
+    {
+     "setor": "Supply Chain (PCP)",
+     "etapa": "Logistica",
+     "nome": "Armazenagem e endereçamento"
+    },
+    {
+     "setor": "Supply Chain (PCP)",
+     "etapa": "Logistica",
+     "nome": "Operação de equipamentos de movimentação"
+    },
+    {
+     "setor": "Supply Chain (PCP)",
+     "etapa": "Logistica",
+     "nome": "Abastecimento de linha (kitting / kanban)"
+    },
+    {
+     "setor": "Supply Chain (PCP)",
+     "etapa": "Logistica",
+     "nome": "Inventário ciclico e rotativo"
+    },
+    {
+     "setor": "Supply Chain (PCP)",
+     "etapa": "Expedição",
+     "nome": "Separação de pedidos (picking)"
+    },
+    {
+     "setor": "Supply Chain (PCP)",
+     "etapa": "Expedição",
+     "nome": "Embalagem e acondicionamento (packing)"
+    },
+    {
+     "setor": "Supply Chain (PCP)",
+     "etapa": "Expedição",
+     "nome": "Roteirização e agendamento de coletas"
+    },
+    {
+     "setor": "Supply Chain (PCP)",
+     "etapa": "Expedição",
+     "nome": "Carregamento e amarração de carga"
+    },
+    {
+     "setor": "Supply Chain (PCP)",
+     "etapa": "Supply TEAM",
+     "nome": "Strategic sourcing (compras estratégicas)"
+    },
+    {
+     "setor": "Supply Chain (PCP)",
+     "etapa": "Supply TEAM",
+     "nome": "Gestão de riscos de fornecimento"
+    },
+    {
+     "setor": "Supply Chain (PCP)",
+     "etapa": "Supply TEAM",
+     "nome": "Monitoramento de indicadores (kpis)"
+    },
+    {
+     "setor": "Supply Chain (PCP)",
+     "etapa": "Supply TEAM",
+     "nome": "Gestão de contratos e slas"
+    },
+    {
+     "setor": "Supply Chain (PCP)",
+     "etapa": "Supply TEAM",
+     "nome": "Logística reversa e economia circular"
+    },
+    {
+     "setor": "Supply Chain (PCP)",
+     "etapa": "Supply TEAM",
+     "nome": "Gestão de MRO (manutenção, reparo e operações)"
+    },
+    {
+     "setor": "Supply Chain (PCP)",
+     "etapa": "Gerais",
+     "nome": "EPI'S"
+    },
+    {
+     "setor": "Supply Chain (PCP)",
+     "etapa": "Gerais",
+     "nome": "5S"
+    },
+    {
+     "setor": "Supply Chain (PCP)",
+     "etapa": "Gerais",
+     "nome": "Sistema de gestão (integração)"
+    },
+    {
+     "setor": "Supply Chain (PCP)",
+     "etapa": "Gerais",
+     "nome": "Dimensionamento / tolerância geométrica (GD&T)"
+    },
+    {
+     "setor": "Supply Chain (PCP)",
+     "etapa": "Gerais",
+     "nome": "MSA"
+    },
+    {
+     "setor": "Supply Chain (PCP)",
+     "etapa": "Gerais",
+     "nome": "CEP"
+    },
+    {
+     "setor": "Supply Chain (PCP)",
+     "etapa": "Gerais",
+     "nome": "NR10/NR11/NR12"
+    },
+    {
+     "setor": "Supply Chain (PCP)",
+     "etapa": "Gerais",
+     "nome": "NR33"
+    }
+   ]
+  },
+  {
+   "nome": "Coordenador administrativo",
+   "setor": "Administrativo",
+   "minimo": 2,
+   "ordem": 11,
+   "fonte": [
+    "Finanças: Analista Financeiro",
+    "RH: Analista de RH"
+   ],
+   "atividades": [
+    {
+     "setor": "Administrativo",
+     "etapa": "Finanças",
+     "nome": "Contas a pagar"
+    },
+    {
+     "setor": "Administrativo",
+     "etapa": "Finanças",
+     "nome": "Contas a receber e cobrança"
+    },
+    {
+     "setor": "Administrativo",
+     "etapa": "Finanças",
+     "nome": "Análise e concessão de crédito"
+    },
+    {
+     "setor": "Administrativo",
+     "etapa": "Finanças",
+     "nome": "Conciliação bancária diária"
+    },
+    {
+     "setor": "Administrativo",
+     "etapa": "Finanças",
+     "nome": "Operações estruturadas e câmbio"
+    },
+    {
+     "setor": "Administrativo",
+     "etapa": "Fiscal",
+     "nome": "Classificação fiscal (NCM e CFOP)"
+    },
+    {
+     "setor": "Administrativo",
+     "etapa": "Fiscal",
+     "nome": "Obrigações acessórias (speds)"
+    },
+    {
+     "setor": "Administrativo",
+     "etapa": "Gerais",
+     "nome": "EPI'S"
+    },
+    {
+     "setor": "Administrativo",
+     "etapa": "Gerais",
+     "nome": "5S"
+    },
+    {
+     "setor": "Administrativo",
+     "etapa": "Gerais",
+     "nome": "Certificação GNV"
+    },
+    {
+     "setor": "Administrativo",
+     "etapa": "Gerais",
+     "nome": "Sistema de gestão (integração)"
+    },
+    {
+     "setor": "Administrativo",
+     "etapa": "RH",
+     "nome": "• realizar processos de recrutamento e seleção"
+    },
+    {
+     "setor": "Administrativo",
+     "etapa": "RH",
+     "nome": "• conduzir entrevistas"
+    },
+    {
+     "setor": "Administrativo",
+     "etapa": "RH",
+     "nome": "Apoiar gestores na escolha de candidatos"
+    },
+    {
+     "setor": "Administrativo",
+     "etapa": "RH",
+     "nome": "• elaborar contratos de prestação de serviços (PJ)."
+    },
+    {
+     "setor": "Administrativo",
+     "etapa": "RH",
+     "nome": "• administrar a documentação dos colaboradores."
+    },
+    {
+     "setor": "Administrativo",
+     "etapa": "RH",
+     "nome": "• controle de treinamentos"
+    },
+    {
+     "setor": "Administrativo",
+     "etapa": "RH",
+     "nome": "• controle de certificados e documentos."
+    },
+    {
+     "setor": "Administrativo",
+     "etapa": "RH",
+     "nome": "• realizar integração de novos colaboradores."
+    },
+    {
+     "setor": "Administrativo",
+     "etapa": "Gestão",
+     "nome": "• manter atualizados os cadastros dos profissionais."
+    },
+    {
+     "setor": "Administrativo",
+     "etapa": "Gestão",
+     "nome": "• controlar a documentação exigida pelos clientes para acesso às plantas industriais."
+    },
+    {
+     "setor": "Administrativo",
+     "etapa": "Gestão",
+     "nome": "• atuar como ponto de contato entre a empresa e o escritório de contabilidade responsável pelo departamento Pessoal."
+    },
+    {
+     "setor": "Administrativo",
+     "etapa": "Gestão",
+     "nome": "Folha de pagamento"
+    },
+    {
+     "setor": "Administrativo",
+     "etapa": "Gestão",
+     "nome": "• conferir documentos, folhas, recibos e guias emitidos pelo escritório de contabilidade antes da liberação para pagamento ou assinatura."
+    },
+    {
+     "setor": "Administrativo",
+     "etapa": "Gestão",
+     "nome": "Gestão de pessoas"
+    },
+    {
+     "setor": "Administrativo",
+     "etapa": "Gestão",
+     "nome": "• elaborar comunicados internos."
+    }
+   ]
+  },
+  {
+   "nome": "Faturamento",
+   "setor": "Administrativo",
+   "minimo": 2,
+   "ordem": 12,
+   "fonte": [
+    "Finanças: Analista Fiscal"
+   ],
+   "atividades": [
+    {
+     "setor": "Administrativo",
+     "etapa": "Fiscal",
+     "nome": "Classificação fiscal (NCM e CFOP)"
+    },
+    {
+     "setor": "Administrativo",
+     "etapa": "Fiscal",
+     "nome": "Parametrização fiscal no ERP"
+    },
+    {
+     "setor": "Administrativo",
+     "etapa": "Controle financeiro",
+     "nome": "Apuração de custos industriais"
+    }
+   ]
+  },
+  {
+   "nome": "Controller",
+   "setor": "Administrativo",
+   "minimo": 2,
+   "ordem": 13,
+   "fonte": [
+    "Finanças: Gerente Financeiro"
+   ],
+   "atividades": [
+    {
+     "setor": "Administrativo",
+     "etapa": "Controle financeiro",
+     "nome": "Apuração de custos industriais"
+    },
+    {
+     "setor": "Administrativo",
+     "etapa": "Controle financeiro",
+     "nome": "Gestão orçamentária (budget e forecast)"
+    },
+    {
+     "setor": "Administrativo",
+     "etapa": "Controle financeiro",
+     "nome": "Formação de preço de venda (pricing)"
+    },
+    {
+     "setor": "Administrativo",
+     "etapa": "Controle financeiro",
+     "nome": "Análise de DRE e indicadores de desempenho"
+    },
+    {
+     "setor": "Administrativo",
+     "etapa": "Controle financeiro",
+     "nome": "Controles internos e compliance"
+    }
+   ]
+  },
+  {
+   "nome": "Vendedor",
+   "setor": "Comercial",
+   "minimo": 2,
+   "ordem": 14,
+   "fonte": [
+    "Comercial: Vendedor"
+   ],
+   "atividades": [
+    {
+     "setor": "Comercial",
+     "etapa": "Vendas",
+     "nome": "Análise de requisitos específicos do cliente (csrs)"
+    },
+    {
+     "setor": "Comercial",
+     "etapa": "Vendas",
+     "nome": "Análise de viabilidade de manufatura (feasibility study)"
+    },
+    {
+     "setor": "Comercial",
+     "etapa": "Vendas",
+     "nome": "Análise de risco comercial (RFQ)"
+    },
+    {
+     "setor": "Comercial",
+     "etapa": "Vendas",
+     "nome": "Integração com a fase 1 do APQP"
+    },
+    {
+     "setor": "Comercial",
+     "etapa": "Vendas",
+     "nome": "Operação de portais de montadoras e scorecards"
+    },
+    {
+     "setor": "Comercial",
+     "etapa": "Vendas",
+     "nome": "Gestão comercial de alterações de engenharia"
+    },
+    {
+     "setor": "Comercial",
+     "etapa": "Vendas",
+     "nome": "Comunicação de contingência e escalonamento"
+    },
+    {
+     "setor": "Comercial",
+     "etapa": "Gerais",
+     "nome": "EPI'S"
+    },
+    {
+     "setor": "Comercial",
+     "etapa": "Gerais",
+     "nome": "5S"
+    },
+    {
+     "setor": "Comercial",
+     "etapa": "Gerais",
+     "nome": "Certificação GNV"
+    },
+    {
+     "setor": "Comercial",
+     "etapa": "Gerais",
+     "nome": "Sistema de gestão (integração)"
+    },
+    {
+     "setor": "Comercial",
+     "etapa": "Gerais",
+     "nome": "Dimensionamento / tolerância geométrica (GD&T)"
+    },
+    {
+     "setor": "Comercial",
+     "etapa": "Gerais",
+     "nome": "MSA"
+    },
+    {
+     "setor": "Comercial",
+     "etapa": "Gerais",
+     "nome": "CEP"
+    },
+    {
+     "setor": "Comercial",
+     "etapa": "Gerais",
+     "nome": "NR10/NR11/NR12"
+    },
+    {
+     "setor": "Comercial",
+     "etapa": "Gerais",
+     "nome": "NR33"
+    },
+    {
+     "setor": "Comercial",
+     "etapa": "Gerais",
+     "nome": "NR35"
+    }
+   ]
+  },
+  {
+   "nome": "Pós-venda",
+   "setor": "Comercial",
+   "minimo": 2,
+   "ordem": 15,
+   "fonte": [
+    "Comercial: Pós-Venda"
+   ],
+   "atividades": [
+    {
+     "setor": "Comercial",
+     "etapa": "Pós-venda",
+     "nome": "Suporte e orientação técnica"
+    },
+    {
+     "setor": "Comercial",
+     "etapa": "Pós-venda",
+     "nome": "Gestão de garantias e laudos técnicos"
+    },
+    {
+     "setor": "Comercial",
+     "etapa": "Pós-venda",
+     "nome": "Tratativa de reclamações (SAC B2B)"
+    },
+    {
+     "setor": "Comercial",
+     "etapa": "Pós-venda",
+     "nome": "Acompanhamento de testes em campo"
+    },
+    {
+     "setor": "Comercial",
+     "etapa": "Pós-venda",
+     "nome": "Gestão de peças de reposição (spare parts)"
+    },
+    {
+     "setor": "Comercial",
+     "etapa": "Pós-venda",
+     "nome": "Pesquisa de satisfação (NPS e CSAT)"
+    },
+    {
+     "setor": "Comercial",
+     "etapa": "Pós-venda",
+     "nome": "Onboarding de clientes"
+    },
+    {
+     "setor": "Comercial",
+     "etapa": "Gerais",
+     "nome": "EPI'S"
+    },
+    {
+     "setor": "Comercial",
+     "etapa": "Gerais",
+     "nome": "5S"
+    },
+    {
+     "setor": "Comercial",
+     "etapa": "Gerais",
+     "nome": "Certificação GNV"
+    },
+    {
+     "setor": "Comercial",
+     "etapa": "Gerais",
+     "nome": "Sistema de gestão (integração)"
+    },
+    {
+     "setor": "Comercial",
+     "etapa": "Gerais",
+     "nome": "Dimensionamento / tolerância geométrica (GD&T)"
+    },
+    {
+     "setor": "Comercial",
+     "etapa": "Gerais",
+     "nome": "MSA"
+    },
+    {
+     "setor": "Comercial",
+     "etapa": "Gerais",
+     "nome": "CEP"
+    },
+    {
+     "setor": "Comercial",
+     "etapa": "Gerais",
+     "nome": "NR10/NR11/NR12"
+    },
+    {
+     "setor": "Comercial",
+     "etapa": "Gerais",
+     "nome": "NR33"
+    },
+    {
+     "setor": "Comercial",
+     "etapa": "Gerais",
+     "nome": "NR35"
+    }
+   ]
+  },
+  {
+   "nome": "Diretor comercial",
+   "setor": "Comercial",
+   "minimo": 2,
+   "ordem": 16,
+   "fonte": [
+    "Comercial: Diretor Comercial"
+   ],
+   "atividades": [
+    {
+     "setor": "Comercial",
+     "etapa": "Vendas",
+     "nome": "Análise de requisitos específicos do cliente (csrs)"
+    },
+    {
+     "setor": "Comercial",
+     "etapa": "Vendas",
+     "nome": "Análise de viabilidade de manufatura (feasibility study)"
+    },
+    {
+     "setor": "Comercial",
+     "etapa": "Vendas",
+     "nome": "Análise de risco comercial (RFQ)"
+    },
+    {
+     "setor": "Comercial",
+     "etapa": "Vendas",
+     "nome": "Integração com a fase 1 do APQP"
+    },
+    {
+     "setor": "Comercial",
+     "etapa": "Vendas",
+     "nome": "Operação de portais de montadoras e scorecards"
+    },
+    {
+     "setor": "Comercial",
+     "etapa": "Vendas",
+     "nome": "Gestão comercial de alterações de engenharia"
+    },
+    {
+     "setor": "Comercial",
+     "etapa": "Vendas",
+     "nome": "Comunicação de contingência e escalonamento"
+    },
+    {
+     "setor": "Comercial",
+     "etapa": "Pós-venda",
+     "nome": "Suporte e orientação técnica"
+    },
+    {
+     "setor": "Comercial",
+     "etapa": "Pós-venda",
+     "nome": "Gestão de garantias e laudos técnicos"
+    },
+    {
+     "setor": "Comercial",
+     "etapa": "Pós-venda",
+     "nome": "Tratativa de reclamações (SAC B2B)"
+    },
+    {
+     "setor": "Comercial",
+     "etapa": "Pós-venda",
+     "nome": "Acompanhamento de testes em campo"
+    },
+    {
+     "setor": "Comercial",
+     "etapa": "Pós-venda",
+     "nome": "Gestão de peças de reposição (spare parts)"
+    },
+    {
+     "setor": "Comercial",
+     "etapa": "Pós-venda",
+     "nome": "Pesquisa de satisfação (NPS e CSAT)"
+    },
+    {
+     "setor": "Comercial",
+     "etapa": "Pós-venda",
+     "nome": "Onboarding de clientes"
+    },
+    {
+     "setor": "Comercial",
+     "etapa": "Gerais",
+     "nome": "EPI'S"
+    },
+    {
+     "setor": "Comercial",
+     "etapa": "Gerais",
+     "nome": "5S"
+    },
+    {
+     "setor": "Comercial",
+     "etapa": "Gerais",
+     "nome": "Certificação GNV"
+    },
+    {
+     "setor": "Comercial",
+     "etapa": "Gerais",
+     "nome": "Sistema de gestão (integração)"
+    },
+    {
+     "setor": "Comercial",
+     "etapa": "Gerais",
+     "nome": "Dimensionamento / tolerância geométrica (GD&T)"
+    },
+    {
+     "setor": "Comercial",
+     "etapa": "Gerais",
+     "nome": "MSA"
+    },
+    {
+     "setor": "Comercial",
+     "etapa": "Gerais",
+     "nome": "CEP"
+    },
+    {
+     "setor": "Comercial",
+     "etapa": "Gerais",
+     "nome": "NR10/NR11/NR12"
+    },
+    {
+     "setor": "Comercial",
+     "etapa": "Gerais",
+     "nome": "NR33"
+    },
+    {
+     "setor": "Comercial",
+     "etapa": "Gerais",
+     "nome": "NR35"
+    }
+   ]
+  },
+  {
+   "nome": "Projetista técnico",
+   "setor": "Engenharia",
+   "minimo": 2,
+   "ordem": 17,
+   "fonte": [
+    "ENG: Projetisa"
+   ],
+   "atividades": [
+    {
+     "setor": "Engenharia",
+     "etapa": "ENG.PRODUTO",
+     "nome": "Modelagem 3D e detalhamento CAD"
+    },
+    {
+     "setor": "Engenharia",
+     "etapa": "ENG.PRODUTO",
+     "nome": "Gestão da estrutura de produto (BOM)"
+    },
+    {
+     "setor": "Engenharia",
+     "etapa": "ENG.PRODUTO",
+     "nome": "Prototipagem e testes de validação"
+    },
+    {
+     "setor": "Engenharia",
+     "etapa": "ENG.PRODUTO",
+     "nome": "Gestão de normas e padronização técnica"
+    },
+    {
+     "setor": "Engenharia",
+     "etapa": "ENG.PRODUTO",
+     "nome": "Análise de viabilidade técnica e customização"
+    },
+    {
+     "setor": "Engenharia",
+     "etapa": "ENG.PRODUTO",
+     "nome": "Suporte técnico avançado"
+    },
+    {
+     "setor": "Engenharia",
+     "etapa": "Gerais",
+     "nome": "EPI'S"
+    },
+    {
+     "setor": "Engenharia",
+     "etapa": "Gerais",
+     "nome": "5S"
+    },
+    {
+     "setor": "Engenharia",
+     "etapa": "Gerais",
+     "nome": "Certificação GNV"
+    },
+    {
+     "setor": "Engenharia",
+     "etapa": "Gerais",
+     "nome": "Sistema de gestão (integração)"
+    },
+    {
+     "setor": "Engenharia",
+     "etapa": "Gerais",
+     "nome": "Dimensionamento / tolerância geométrica (GD&T)"
+    },
+    {
+     "setor": "Engenharia",
+     "etapa": "Gerais",
+     "nome": "MSA"
+    },
+    {
+     "setor": "Engenharia",
+     "etapa": "Gerais",
+     "nome": "CEP"
+    },
+    {
+     "setor": "Engenharia",
+     "etapa": "Gerais",
+     "nome": "NR10/NR11/NR12"
+    },
+    {
+     "setor": "Engenharia",
+     "etapa": "Gerais",
+     "nome": "NR33"
+    },
+    {
+     "setor": "Engenharia",
+     "etapa": "Gerais",
+     "nome": "NR35"
+    }
+   ]
+  },
+  {
+   "nome": "Engenheiro",
+   "setor": "Engenharia",
+   "minimo": 2,
+   "ordem": 18,
+   "fonte": [
+    "ENG: Engenheiro"
+   ],
+   "atividades": [
+    {
+     "setor": "Engenharia",
+     "etapa": "ENG.PRODUTO",
+     "nome": "Modelagem 3D e detalhamento CAD"
+    },
+    {
+     "setor": "Engenharia",
+     "etapa": "ENG.PRODUTO",
+     "nome": "Gestão da estrutura de produto (BOM)"
+    },
+    {
+     "setor": "Engenharia",
+     "etapa": "ENG.PRODUTO",
+     "nome": "Prototipagem e testes de validação"
+    },
+    {
+     "setor": "Engenharia",
+     "etapa": "ENG.PRODUTO",
+     "nome": "Gestão de normas e padronização técnica"
+    },
+    {
+     "setor": "Engenharia",
+     "etapa": "ENG.PRODUTO",
+     "nome": "Análise de viabilidade técnica e customização"
+    },
+    {
+     "setor": "Engenharia",
+     "etapa": "ENG.PRODUTO",
+     "nome": "Suporte técnico avançado"
+    },
+    {
+     "setor": "Engenharia",
+     "etapa": "Gestão",
+     "nome": "Estratégia de novos produtos"
+    },
+    {
+     "setor": "Engenharia",
+     "etapa": "Gestão",
+     "nome": "Gestão de orçamento da área"
+    },
+    {
+     "setor": "Engenharia",
+     "etapa": "Gestão",
+     "nome": "Responsabilidade técnica final"
+    },
+    {
+     "setor": "Engenharia",
+     "etapa": "Gestão",
+     "nome": "Alinhamento de viabilidade"
+    },
+    {
+     "setor": "Engenharia",
+     "etapa": "Gestão",
+     "nome": "Apoio técnico a grandes clientes"
+    },
+    {
+     "setor": "Engenharia",
+     "etapa": "Gestão",
+     "nome": "Gestão da equipe técnica"
+    },
+    {
+     "setor": "Engenharia",
+     "etapa": "Gestão",
+     "nome": "Aprovação de alterações críticas"
+    },
+    {
+     "setor": "Engenharia",
+     "etapa": "Gerais",
+     "nome": "EPI'S"
+    },
+    {
+     "setor": "Engenharia",
+     "etapa": "Gerais",
+     "nome": "5S"
+    },
+    {
+     "setor": "Engenharia",
+     "etapa": "Gerais",
+     "nome": "Certificação GNV"
+    },
+    {
+     "setor": "Engenharia",
+     "etapa": "Gerais",
+     "nome": "Sistema de gestão (integração)"
+    },
+    {
+     "setor": "Engenharia",
+     "etapa": "Gerais",
+     "nome": "Dimensionamento / tolerância geométrica (GD&T)"
+    },
+    {
+     "setor": "Engenharia",
+     "etapa": "Gerais",
+     "nome": "MSA"
+    },
+    {
+     "setor": "Engenharia",
+     "etapa": "Gerais",
+     "nome": "CEP"
+    },
+    {
+     "setor": "Engenharia",
+     "etapa": "Gerais",
+     "nome": "NR10/NR11/NR12"
+    },
+    {
+     "setor": "Engenharia",
+     "etapa": "Gerais",
+     "nome": "NR33"
+    },
+    {
+     "setor": "Engenharia",
+     "etapa": "Gerais",
+     "nome": "NR35"
+    }
+   ]
+  },
+  {
+   "nome": "Serviços gerais",
+   "setor": "Administrativo",
+   "minimo": 2,
+   "ordem": 19,
+   "fonte": [
+    "lista PJ"
+   ],
+   "atividades": []
+  }
+ ],
+ "pessoas": [
+  {
+   "pj": "LUIS HENRIQUE VERGINELLI",
+   "nome": "Luis Henrique Verginelli",
+   "funcao": "Engenheiro",
+   "cargo": "Engenheiro",
+   "setor": "Engenharia"
+  },
+  {
+   "pj": "RAFAEL REZENDE FERREIRA",
+   "nome": "Rafael Rezende Ferreira",
+   "funcao": "Projetista Técnico",
+   "cargo": "Projetista técnico",
+   "setor": "Engenharia"
+  },
+  {
+   "pj": "ANDERSON NATAL GOLLO",
+   "nome": "Anderson Natal Gollo",
+   "funcao": "Montador",
+   "cargo": "Montador GNV III",
+   "setor": "Produção"
+  },
+  {
+   "pj": "CLAUDINEI RODRIGUES DE SOUZA",
+   "nome": "Claudinei Rodrigues de Souza",
+   "funcao": "Montador",
+   "cargo": "Montador GNV I",
+   "setor": "Produção"
+  },
+  {
+   "pj": "NILSON GONÇALVES DE SIQUEIRA",
+   "nome": "Nilson Gonçalves de Siqueira",
+   "funcao": "Montador",
+   "cargo": "Montador GNV I",
+   "setor": "Produção"
+  },
+  {
+   "pj": "ULISSES JOSE TABOADA",
+   "nome": "Ulisses Jose Taboada",
+   "funcao": "Montador",
+   "cargo": "Montador GNV I",
+   "setor": "Produção"
+  },
+  {
+   "pj": "RICARDO ELIAS DA SILVA",
+   "nome": "Ricardo Elias da Silva",
+   "funcao": "Almoxarifado/Logistica",
+   "cargo": "Almoxarifado / logística",
+   "setor": "Supply Chain (PCP)"
+  },
+  {
+   "pj": "JANIFER PONDIAN",
+   "nome": "Janifer Pondian",
+   "funcao": "Cood Adm/Financeiro/RH/Juridico",
+   "cargo": "Coordenador administrativo",
+   "setor": "Administrativo"
+  },
+  {
+   "pj": "JONAS OLIVEIRA LIMA JUNIOR",
+   "nome": "Jonas Oliveira Lima Junior",
+   "funcao": "Coordenador de Produção",
+   "cargo": "Coordenador de produção",
+   "setor": "Produção"
+  },
+  {
+   "pj": "CARLOS EDUARDO RUZZA",
+   "nome": "Carlos Eduardo Ruzza",
+   "funcao": "Montador",
+   "cargo": "Montador GNV I",
+   "setor": "Produção"
+  },
+  {
+   "pj": "MAURO KATSUMI MATSUDO",
+   "nome": "Mauro Katsumi Matsudo",
+   "funcao": "Montador",
+   "cargo": "Montador GNV I",
+   "setor": "Produção"
+  },
+  {
+   "pj": "BRUNO CESAR DE SOUZA",
+   "nome": "Bruno Cesar de Souza",
+   "funcao": "Montador",
+   "cargo": "Montador GNV I",
+   "setor": "Produção"
+  },
+  {
+   "pj": "MARCOS MARTINS",
+   "nome": "Marcos Martins",
+   "funcao": "Montador",
+   "cargo": "Montador GNV II",
+   "setor": "Produção"
+  },
+  {
+   "pj": "LINCOLN RIBEIRO ZAMAI",
+   "nome": "Lincoln Ribeiro Zamai",
+   "funcao": "Comercial",
+   "cargo": "Pós-venda",
+   "setor": "Comercial"
+  },
+  {
+   "pj": "ANTONIO EUSTAQUIO SIROLLI FERREIRA",
+   "nome": "Antonio Eustaquio Sirolli Ferreira",
+   "funcao": "Comercial",
+   "cargo": "Vendedor",
+   "setor": "Comercial"
+  },
+  {
+   "pj": "ALEX GIULIANO RAMOS",
+   "nome": "Alex Giuliano Ramos",
+   "funcao": "Faturamento",
+   "cargo": "Faturamento",
+   "setor": "Administrativo"
+  },
+  {
+   "pj": "BRAULIO ENEAS GONCALVES",
+   "nome": "Braulio Eneas Goncalves",
+   "funcao": "Supply Chain",
+   "cargo": "Gerente de supply chain",
+   "setor": "Supply Chain (PCP)"
+  },
+  {
+   "pj": "JOAO GUILHERME DE LIMA",
+   "nome": "Joao Guilherme de Lima",
+   "funcao": "Analista de PCP",
+   "cargo": "Analista de PCP",
+   "setor": "Supply Chain (PCP)"
+  },
+  {
+   "pj": "JOSIAS PALMA DE OLIVEIRA",
+   "nome": "Josias Palma de Oliveira",
+   "funcao": "Analista de Qualidade",
+   "cargo": "Analista de qualidade",
+   "setor": "Qualidade"
+  },
+  {
+   "pj": "VOTORANTINI MOURA VIEIRA DOS SANTOS",
+   "nome": "Votorantini Moura Vieira dos Santos",
+   "funcao": "Analista de Processo Qualidade",
+   "cargo": "Analista de processos",
+   "setor": "Processos"
+  },
+  {
+   "pj": "MATHEUS HENRIQUE DE SOUSA LIMA MONTEIRO",
+   "nome": "Matheus Henrique de Sousa Lima Monteiro",
+   "funcao": "Gestor da Qualiddae",
+   "cargo": "Gestor da qualidade",
+   "setor": "Qualidade"
+  },
+  {
+   "pj": "ALEXANDRE DE MARCOS SANTOS",
+   "nome": "Alexandre de Marcos Santos",
+   "funcao": "Controller",
+   "cargo": "Controller",
+   "setor": "Administrativo"
+  },
+  {
+   "pj": "PEDRO AUGUSTO DE SOUSA MONTEIRO",
+   "nome": "Pedro Augusto de Sousa Monteiro",
+   "funcao": "TI",
+   "cargo": "Analista de TI",
+   "setor": "T.I"
+  },
+  {
+   "pj": "PATRICIA GISLAINE DA MOTTA",
+   "nome": "Patricia Gislaine da Motta",
+   "funcao": "Serviços Gerais",
+   "cargo": "Serviços gerais",
+   "setor": "Administrativo"
+  },
+  {
+   "pj": "ANDRE BERMUDO",
+   "nome": "Andre Bermudo",
+   "funcao": "(planilha FRM-051-02)",
+   "cargo": "Diretor comercial",
+   "setor": "Comercial",
+   "soVincular": true
+  }
+ ],
+ "niveis": [
+  {
+   "pessoa": "BRUNO CESAR DE SOUZA",
+   "setor": "Produção",
+   "etapa": "Pré montagem",
+   "atividade": "Instruções de colagem",
+   "nivel": 3,
+   "planejado": ""
+  },
+  {
+   "pessoa": "MARCOS MARTINS",
+   "setor": "Produção",
+   "etapa": "Pré montagem",
+   "atividade": "Instruções de colagem",
+   "nivel": 3,
+   "planejado": ""
+  },
+  {
+   "pessoa": "ANDERSON NATAL GOLLO",
+   "setor": "Produção",
+   "etapa": "Pré montagem",
+   "atividade": "Instruções de colagem",
+   "nivel": 3,
+   "planejado": ""
+  },
+  {
+   "pessoa": "JONAS OLIVEIRA LIMA JUNIOR",
+   "setor": "Produção",
+   "etapa": "Pré montagem",
+   "atividade": "Instruções de colagem",
+   "nivel": 3,
+   "planejado": ""
+  },
+  {
+   "pessoa": "BRUNO CESAR DE SOUZA",
+   "setor": "Produção",
+   "etapa": "Pré montagem",
+   "atividade": "Instrução de corte",
+   "nivel": 3,
+   "planejado": ""
+  },
+  {
+   "pessoa": "MARCOS MARTINS",
+   "setor": "Produção",
+   "etapa": "Pré montagem",
+   "atividade": "Instrução de corte",
+   "nivel": 3,
+   "planejado": ""
+  },
+  {
+   "pessoa": "ANDERSON NATAL GOLLO",
+   "setor": "Produção",
+   "etapa": "Pré montagem",
+   "atividade": "Instrução de corte",
+   "nivel": 3,
+   "planejado": ""
+  },
+  {
+   "pessoa": "JONAS OLIVEIRA LIMA JUNIOR",
+   "setor": "Produção",
+   "etapa": "Pré montagem",
+   "atividade": "Instrução de corte",
+   "nivel": 3,
+   "planejado": ""
+  },
+  {
+   "pessoa": "BRUNO CESAR DE SOUZA",
+   "setor": "Produção",
+   "etapa": "Pré montagem",
+   "atividade": "Instrução de limpeza das peças",
+   "nivel": 3,
+   "planejado": ""
+  },
+  {
+   "pessoa": "MARCOS MARTINS",
+   "setor": "Produção",
+   "etapa": "Pré montagem",
+   "atividade": "Instrução de limpeza das peças",
+   "nivel": 3,
+   "planejado": ""
+  },
+  {
+   "pessoa": "ANDERSON NATAL GOLLO",
+   "setor": "Produção",
+   "etapa": "Pré montagem",
+   "atividade": "Instrução de limpeza das peças",
+   "nivel": 3,
+   "planejado": ""
+  },
+  {
+   "pessoa": "JONAS OLIVEIRA LIMA JUNIOR",
+   "setor": "Produção",
+   "etapa": "Pré montagem",
+   "atividade": "Instrução de limpeza das peças",
+   "nivel": 3,
+   "planejado": ""
+  },
+  {
+   "pessoa": "BRUNO CESAR DE SOUZA",
+   "setor": "Produção",
+   "etapa": "Pré montagem",
+   "atividade": "Dimensionamento / tolerância geométrica (GD&T)",
+   "nivel": 3,
+   "planejado": ""
+  },
+  {
+   "pessoa": "MARCOS MARTINS",
+   "setor": "Produção",
+   "etapa": "Pré montagem",
+   "atividade": "Dimensionamento / tolerância geométrica (GD&T)",
+   "nivel": 3,
+   "planejado": ""
+  },
+  {
+   "pessoa": "ANDERSON NATAL GOLLO",
+   "setor": "Produção",
+   "etapa": "Pré montagem",
+   "atividade": "Dimensionamento / tolerância geométrica (GD&T)",
+   "nivel": 3,
+   "planejado": ""
+  },
+  {
+   "pessoa": "JONAS OLIVEIRA LIMA JUNIOR",
+   "setor": "Produção",
+   "etapa": "Pré montagem",
+   "atividade": "Dimensionamento / tolerância geométrica (GD&T)",
+   "nivel": 3,
+   "planejado": ""
+  },
+  {
+   "pessoa": "BRUNO CESAR DE SOUZA",
+   "setor": "Produção",
+   "etapa": "Pré montagem",
+   "atividade": "POP",
+   "nivel": 3,
+   "planejado": ""
+  },
+  {
+   "pessoa": "MARCOS MARTINS",
+   "setor": "Produção",
+   "etapa": "Pré montagem",
+   "atividade": "POP",
+   "nivel": 3,
+   "planejado": ""
+  },
+  {
+   "pessoa": "ANDERSON NATAL GOLLO",
+   "setor": "Produção",
+   "etapa": "Pré montagem",
+   "atividade": "POP",
+   "nivel": 3,
+   "planejado": ""
+  },
+  {
+   "pessoa": "JONAS OLIVEIRA LIMA JUNIOR",
+   "setor": "Produção",
+   "etapa": "Pré montagem",
+   "atividade": "POP",
+   "nivel": 3,
+   "planejado": ""
+  },
+  {
+   "pessoa": "BRUNO CESAR DE SOUZA",
+   "setor": "Produção",
+   "etapa": "Pré montagem",
+   "atividade": "Ferramentas / gabaritos",
+   "nivel": 3,
+   "planejado": ""
+  },
+  {
+   "pessoa": "MARCOS MARTINS",
+   "setor": "Produção",
+   "etapa": "Pré montagem",
+   "atividade": "Ferramentas / gabaritos",
+   "nivel": 3,
+   "planejado": ""
+  },
+  {
+   "pessoa": "ANDERSON NATAL GOLLO",
+   "setor": "Produção",
+   "etapa": "Pré montagem",
+   "atividade": "Ferramentas / gabaritos",
+   "nivel": 3,
+   "planejado": ""
+  },
+  {
+   "pessoa": "JONAS OLIVEIRA LIMA JUNIOR",
+   "setor": "Produção",
+   "etapa": "Pré montagem",
+   "atividade": "Ferramentas / gabaritos",
+   "nivel": 3,
+   "planejado": ""
+  },
+  {
+   "pessoa": "MARCOS MARTINS",
+   "setor": "Produção",
+   "etapa": "Envalvulamento",
+   "atividade": "Instrução de valvulamento",
+   "nivel": 4,
+   "planejado": ""
+  },
+  {
+   "pessoa": "ANDERSON NATAL GOLLO",
+   "setor": "Produção",
+   "etapa": "Envalvulamento",
+   "atividade": "Instrução de valvulamento",
+   "nivel": 4,
+   "planejado": ""
+  },
+  {
+   "pessoa": "JONAS OLIVEIRA LIMA JUNIOR",
+   "setor": "Produção",
+   "etapa": "Envalvulamento",
+   "atividade": "Instrução de valvulamento",
+   "nivel": 3,
+   "planejado": ""
+  },
+  {
+   "pessoa": "MARCOS MARTINS",
+   "setor": "Produção",
+   "etapa": "Envalvulamento",
+   "atividade": "Metrologia",
+   "nivel": 4,
+   "planejado": ""
+  },
+  {
+   "pessoa": "ANDERSON NATAL GOLLO",
+   "setor": "Produção",
+   "etapa": "Envalvulamento",
+   "atividade": "Metrologia",
+   "nivel": 4,
+   "planejado": ""
+  },
+  {
+   "pessoa": "JONAS OLIVEIRA LIMA JUNIOR",
+   "setor": "Produção",
+   "etapa": "Envalvulamento",
+   "atividade": "Metrologia",
+   "nivel": 3,
+   "planejado": ""
+  },
+  {
+   "pessoa": "MARCOS MARTINS",
+   "setor": "Produção",
+   "etapa": "Envalvulamento",
+   "atividade": "CEP/sistema",
+   "nivel": 4,
+   "planejado": ""
+  },
+  {
+   "pessoa": "ANDERSON NATAL GOLLO",
+   "setor": "Produção",
+   "etapa": "Envalvulamento",
+   "atividade": "CEP/sistema",
+   "nivel": 4,
+   "planejado": ""
+  },
+  {
+   "pessoa": "JONAS OLIVEIRA LIMA JUNIOR",
+   "setor": "Produção",
+   "etapa": "Envalvulamento",
+   "atividade": "CEP/sistema",
+   "nivel": 3,
+   "planejado": ""
+  },
+  {
+   "pessoa": "MARCOS MARTINS",
+   "setor": "Produção",
+   "etapa": "Envalvulamento",
+   "atividade": "POP",
+   "nivel": 4,
+   "planejado": ""
+  },
+  {
+   "pessoa": "ANDERSON NATAL GOLLO",
+   "setor": "Produção",
+   "etapa": "Envalvulamento",
+   "atividade": "POP",
+   "nivel": 4,
+   "planejado": ""
+  },
+  {
+   "pessoa": "JONAS OLIVEIRA LIMA JUNIOR",
+   "setor": "Produção",
+   "etapa": "Envalvulamento",
+   "atividade": "POP",
+   "nivel": 3,
+   "planejado": ""
+  },
+  {
+   "pessoa": "MARCOS MARTINS",
+   "setor": "Produção",
+   "etapa": "Envalvulamento",
+   "atividade": "Ferramentas / gabaritos",
+   "nivel": 4,
+   "planejado": ""
+  },
+  {
+   "pessoa": "ANDERSON NATAL GOLLO",
+   "setor": "Produção",
+   "etapa": "Envalvulamento",
+   "atividade": "Ferramentas / gabaritos",
+   "nivel": 4,
+   "planejado": ""
+  },
+  {
+   "pessoa": "JONAS OLIVEIRA LIMA JUNIOR",
+   "setor": "Produção",
+   "etapa": "Envalvulamento",
+   "atividade": "Ferramentas / gabaritos",
+   "nivel": 3,
+   "planejado": ""
+  },
+  {
+   "pessoa": "BRUNO CESAR DE SOUZA",
+   "setor": "Produção",
+   "etapa": "Montagem",
+   "atividade": "Instruções de montagem",
+   "nivel": 3,
+   "planejado": ""
+  },
+  {
+   "pessoa": "MARCOS MARTINS",
+   "setor": "Produção",
+   "etapa": "Montagem",
+   "atividade": "Instruções de montagem",
+   "nivel": 4,
+   "planejado": ""
+  },
+  {
+   "pessoa": "ANDERSON NATAL GOLLO",
+   "setor": "Produção",
+   "etapa": "Montagem",
+   "atividade": "Instruções de montagem",
+   "nivel": 3,
+   "planejado": ""
+  },
+  {
+   "pessoa": "JONAS OLIVEIRA LIMA JUNIOR",
+   "setor": "Produção",
+   "etapa": "Montagem",
+   "atividade": "Instruções de montagem",
+   "nivel": 3,
+   "planejado": ""
+  },
+  {
+   "pessoa": "BRUNO CESAR DE SOUZA",
+   "setor": "Produção",
+   "etapa": "Montagem",
+   "atividade": "POP",
+   "nivel": 4,
+   "planejado": ""
+  },
+  {
+   "pessoa": "MARCOS MARTINS",
+   "setor": "Produção",
+   "etapa": "Montagem",
+   "atividade": "POP",
+   "nivel": 3,
+   "planejado": ""
+  },
+  {
+   "pessoa": "ANDERSON NATAL GOLLO",
+   "setor": "Produção",
+   "etapa": "Montagem",
+   "atividade": "POP",
+   "nivel": 3,
+   "planejado": ""
+  },
+  {
+   "pessoa": "JONAS OLIVEIRA LIMA JUNIOR",
+   "setor": "Produção",
+   "etapa": "Montagem",
+   "atividade": "POP",
+   "nivel": 3,
+   "planejado": ""
+  },
+  {
+   "pessoa": "BRUNO CESAR DE SOUZA",
+   "setor": "Produção",
+   "etapa": "Montagem",
+   "atividade": "Metrologia",
+   "nivel": 4,
+   "planejado": ""
+  },
+  {
+   "pessoa": "MARCOS MARTINS",
+   "setor": "Produção",
+   "etapa": "Montagem",
+   "atividade": "Metrologia",
+   "nivel": 4,
+   "planejado": ""
+  },
+  {
+   "pessoa": "ANDERSON NATAL GOLLO",
+   "setor": "Produção",
+   "etapa": "Montagem",
+   "atividade": "Metrologia",
+   "nivel": 3,
+   "planejado": ""
+  },
+  {
+   "pessoa": "JONAS OLIVEIRA LIMA JUNIOR",
+   "setor": "Produção",
+   "etapa": "Montagem",
+   "atividade": "Metrologia",
+   "nivel": 3,
+   "planejado": ""
+  },
+  {
+   "pessoa": "BRUNO CESAR DE SOUZA",
+   "setor": "Produção",
+   "etapa": "Montagem",
+   "atividade": "CEP/sistema",
+   "nivel": 3,
+   "planejado": ""
+  },
+  {
+   "pessoa": "MARCOS MARTINS",
+   "setor": "Produção",
+   "etapa": "Montagem",
+   "atividade": "CEP/sistema",
+   "nivel": 4,
+   "planejado": ""
+  },
+  {
+   "pessoa": "ANDERSON NATAL GOLLO",
+   "setor": "Produção",
+   "etapa": "Montagem",
+   "atividade": "CEP/sistema",
+   "nivel": 3,
+   "planejado": ""
+  },
+  {
+   "pessoa": "JONAS OLIVEIRA LIMA JUNIOR",
+   "setor": "Produção",
+   "etapa": "Montagem",
+   "atividade": "CEP/sistema",
+   "nivel": 3,
+   "planejado": ""
+  },
+  {
+   "pessoa": "BRUNO CESAR DE SOUZA",
+   "setor": "Produção",
+   "etapa": "Montagem",
+   "atividade": "Ferramentas / gabaritos",
+   "nivel": 2,
+   "planejado": ""
+  },
+  {
+   "pessoa": "MARCOS MARTINS",
+   "setor": "Produção",
+   "etapa": "Montagem",
+   "atividade": "Ferramentas / gabaritos",
+   "nivel": 4,
+   "planejado": ""
+  },
+  {
+   "pessoa": "ANDERSON NATAL GOLLO",
+   "setor": "Produção",
+   "etapa": "Montagem",
+   "atividade": "Ferramentas / gabaritos",
+   "nivel": 3,
+   "planejado": ""
+  },
+  {
+   "pessoa": "JONAS OLIVEIRA LIMA JUNIOR",
+   "setor": "Produção",
+   "etapa": "Montagem",
+   "atividade": "Ferramentas / gabaritos",
+   "nivel": 3,
+   "planejado": ""
+  },
+  {
+   "pessoa": "BRUNO CESAR DE SOUZA",
+   "setor": "Produção",
+   "etapa": "Montagem",
+   "atividade": "Instrução de manutenção (limpeza e lubrificação)",
+   "nivel": 2,
+   "planejado": ""
+  },
+  {
+   "pessoa": "MARCOS MARTINS",
+   "setor": "Produção",
+   "etapa": "Montagem",
+   "atividade": "Instrução de manutenção (limpeza e lubrificação)",
+   "nivel": 3,
+   "planejado": ""
+  },
+  {
+   "pessoa": "ANDERSON NATAL GOLLO",
+   "setor": "Produção",
+   "etapa": "Montagem",
+   "atividade": "Instrução de manutenção (limpeza e lubrificação)",
+   "nivel": 3,
+   "planejado": ""
+  },
+  {
+   "pessoa": "JONAS OLIVEIRA LIMA JUNIOR",
+   "setor": "Produção",
+   "etapa": "Montagem",
+   "atividade": "Instrução de manutenção (limpeza e lubrificação)",
+   "nivel": 3,
+   "planejado": ""
+  },
+  {
+   "pessoa": "ANDERSON NATAL GOLLO",
+   "setor": "Produção",
+   "etapa": "Conformação da tubulação",
+   "atividade": "Corte e dobra",
+   "nivel": 4,
+   "planejado": ""
+  },
+  {
+   "pessoa": "JONAS OLIVEIRA LIMA JUNIOR",
+   "setor": "Produção",
+   "etapa": "Conformação da tubulação",
+   "atividade": "Corte e dobra",
+   "nivel": 1,
+   "planejado": "2027-03-01"
+  },
+  {
+   "pessoa": "ANDERSON NATAL GOLLO",
+   "setor": "Produção",
+   "etapa": "Conformação da tubulação",
+   "atividade": "Anilhamento",
+   "nivel": 4,
+   "planejado": ""
+  },
+  {
+   "pessoa": "JONAS OLIVEIRA LIMA JUNIOR",
+   "setor": "Produção",
+   "etapa": "Conformação da tubulação",
+   "atividade": "Anilhamento",
+   "nivel": 1,
+   "planejado": "2027-03-01"
+  },
+  {
+   "pessoa": "ANDERSON NATAL GOLLO",
+   "setor": "Produção",
+   "etapa": "Conformação da tubulação",
+   "atividade": "Instrução de manutenção (limpeza e lubrificação)",
+   "nivel": 3,
+   "planejado": ""
+  },
+  {
+   "pessoa": "JONAS OLIVEIRA LIMA JUNIOR",
+   "setor": "Produção",
+   "etapa": "Conformação da tubulação",
+   "atividade": "Instrução de manutenção (limpeza e lubrificação)",
+   "nivel": 3,
+   "planejado": ""
+  },
+  {
+   "pessoa": "ANDERSON NATAL GOLLO",
+   "setor": "Produção",
+   "etapa": "Conformação da tubulação",
+   "atividade": "POP",
+   "nivel": 3,
+   "planejado": ""
+  },
+  {
+   "pessoa": "JONAS OLIVEIRA LIMA JUNIOR",
+   "setor": "Produção",
+   "etapa": "Conformação da tubulação",
+   "atividade": "POP",
+   "nivel": 3,
+   "planejado": ""
+  },
+  {
+   "pessoa": "ANDERSON NATAL GOLLO",
+   "setor": "Produção",
+   "etapa": "Conformação da tubulação",
+   "atividade": "Metrologia",
+   "nivel": 4,
+   "planejado": ""
+  },
+  {
+   "pessoa": "JONAS OLIVEIRA LIMA JUNIOR",
+   "setor": "Produção",
+   "etapa": "Conformação da tubulação",
+   "atividade": "Metrologia",
+   "nivel": 3,
+   "planejado": ""
+  },
+  {
+   "pessoa": "ANDERSON NATAL GOLLO",
+   "setor": "Produção",
+   "etapa": "Conformação da tubulação",
+   "atividade": "CEP/sistema",
+   "nivel": 3,
+   "planejado": ""
+  },
+  {
+   "pessoa": "JONAS OLIVEIRA LIMA JUNIOR",
+   "setor": "Produção",
+   "etapa": "Conformação da tubulação",
+   "atividade": "CEP/sistema",
+   "nivel": 3,
+   "planejado": ""
+  },
+  {
+   "pessoa": "MARCOS MARTINS",
+   "setor": "Produção",
+   "etapa": "Estanqueidade",
+   "atividade": "Instrução de manutenção (limpeza e lubrificação)",
+   "nivel": 3,
+   "planejado": ""
+  },
+  {
+   "pessoa": "ANDERSON NATAL GOLLO",
+   "setor": "Produção",
+   "etapa": "Estanqueidade",
+   "atividade": "Instrução de manutenção (limpeza e lubrificação)",
+   "nivel": 3,
+   "planejado": ""
+  },
+  {
+   "pessoa": "JONAS OLIVEIRA LIMA JUNIOR",
+   "setor": "Produção",
+   "etapa": "Estanqueidade",
+   "atividade": "Instrução de manutenção (limpeza e lubrificação)",
+   "nivel": 3,
+   "planejado": ""
+  },
+  {
+   "pessoa": "MARCOS MARTINS",
+   "setor": "Produção",
+   "etapa": "Estanqueidade",
+   "atividade": "POP",
+   "nivel": 4,
+   "planejado": ""
+  },
+  {
+   "pessoa": "ANDERSON NATAL GOLLO",
+   "setor": "Produção",
+   "etapa": "Estanqueidade",
+   "atividade": "POP",
+   "nivel": 3,
+   "planejado": ""
+  },
+  {
+   "pessoa": "JONAS OLIVEIRA LIMA JUNIOR",
+   "setor": "Produção",
+   "etapa": "Estanqueidade",
+   "atividade": "POP",
+   "nivel": 3,
+   "planejado": ""
+  },
+  {
+   "pessoa": "MARCOS MARTINS",
+   "setor": "Produção",
+   "etapa": "Estanqueidade",
+   "atividade": "Metrologia",
+   "nivel": 4,
+   "planejado": ""
+  },
+  {
+   "pessoa": "ANDERSON NATAL GOLLO",
+   "setor": "Produção",
+   "etapa": "Estanqueidade",
+   "atividade": "Metrologia",
+   "nivel": 4,
+   "planejado": ""
+  },
+  {
+   "pessoa": "JONAS OLIVEIRA LIMA JUNIOR",
+   "setor": "Produção",
+   "etapa": "Estanqueidade",
+   "atividade": "Metrologia",
+   "nivel": 3,
+   "planejado": ""
+  },
+  {
+   "pessoa": "MARCOS MARTINS",
+   "setor": "Produção",
+   "etapa": "Estanqueidade",
+   "atividade": "CEP/sistema",
+   "nivel": 4,
+   "planejado": ""
+  },
+  {
+   "pessoa": "ANDERSON NATAL GOLLO",
+   "setor": "Produção",
+   "etapa": "Estanqueidade",
+   "atividade": "CEP/sistema",
+   "nivel": 3,
+   "planejado": ""
+  },
+  {
+   "pessoa": "JONAS OLIVEIRA LIMA JUNIOR",
+   "setor": "Produção",
+   "etapa": "Estanqueidade",
+   "atividade": "CEP/sistema",
+   "nivel": 3,
+   "planejado": ""
+  },
+  {
+   "pessoa": "MARCOS MARTINS",
+   "setor": "Produção",
+   "etapa": "Estanqueidade",
+   "atividade": "Instrução de estanqueidade",
+   "nivel": 4,
+   "planejado": ""
+  },
+  {
+   "pessoa": "ANDERSON NATAL GOLLO",
+   "setor": "Produção",
+   "etapa": "Estanqueidade",
+   "atividade": "Instrução de estanqueidade",
+   "nivel": 3,
+   "planejado": ""
+  },
+  {
+   "pessoa": "JONAS OLIVEIRA LIMA JUNIOR",
+   "setor": "Produção",
+   "etapa": "Estanqueidade",
+   "atividade": "Instrução de estanqueidade",
+   "nivel": 3,
+   "planejado": ""
+  },
+  {
+   "pessoa": "BRUNO CESAR DE SOUZA",
+   "setor": "Produção",
+   "etapa": "Gerais",
+   "atividade": "EPI'S",
+   "nivel": 3,
+   "planejado": ""
+  },
+  {
+   "pessoa": "MARCOS MARTINS",
+   "setor": "Produção",
+   "etapa": "Gerais",
+   "atividade": "EPI'S",
+   "nivel": 3,
+   "planejado": ""
+  },
+  {
+   "pessoa": "ANDERSON NATAL GOLLO",
+   "setor": "Produção",
+   "etapa": "Gerais",
+   "atividade": "EPI'S",
+   "nivel": 3,
+   "planejado": ""
+  },
+  {
+   "pessoa": "JONAS OLIVEIRA LIMA JUNIOR",
+   "setor": "Produção",
+   "etapa": "Gerais",
+   "atividade": "EPI'S",
+   "nivel": 3,
+   "planejado": ""
+  },
+  {
+   "pessoa": "BRUNO CESAR DE SOUZA",
+   "setor": "Produção",
+   "etapa": "Gerais",
+   "atividade": "5S",
+   "nivel": 3,
+   "planejado": ""
+  },
+  {
+   "pessoa": "MARCOS MARTINS",
+   "setor": "Produção",
+   "etapa": "Gerais",
+   "atividade": "5S",
+   "nivel": 3,
+   "planejado": ""
+  },
+  {
+   "pessoa": "ANDERSON NATAL GOLLO",
+   "setor": "Produção",
+   "etapa": "Gerais",
+   "atividade": "5S",
+   "nivel": 3,
+   "planejado": ""
+  },
+  {
+   "pessoa": "JONAS OLIVEIRA LIMA JUNIOR",
+   "setor": "Produção",
+   "etapa": "Gerais",
+   "atividade": "5S",
+   "nivel": 3,
+   "planejado": ""
+  },
+  {
+   "pessoa": "BRUNO CESAR DE SOUZA",
+   "setor": "Produção",
+   "etapa": "Gerais",
+   "atividade": "Certificação GNV",
+   "nivel": 3,
+   "planejado": ""
+  },
+  {
+   "pessoa": "MARCOS MARTINS",
+   "setor": "Produção",
+   "etapa": "Gerais",
+   "atividade": "Certificação GNV",
+   "nivel": 3,
+   "planejado": ""
+  },
+  {
+   "pessoa": "ANDERSON NATAL GOLLO",
+   "setor": "Produção",
+   "etapa": "Gerais",
+   "atividade": "Certificação GNV",
+   "nivel": 3,
+   "planejado": ""
+  },
+  {
+   "pessoa": "JONAS OLIVEIRA LIMA JUNIOR",
+   "setor": "Produção",
+   "etapa": "Gerais",
+   "atividade": "Certificação GNV",
+   "nivel": 3,
+   "planejado": ""
+  },
+  {
+   "pessoa": "BRUNO CESAR DE SOUZA",
+   "setor": "Produção",
+   "etapa": "Gerais",
+   "atividade": "Sistema de gestão (integração)",
+   "nivel": 3,
+   "planejado": ""
+  },
+  {
+   "pessoa": "MARCOS MARTINS",
+   "setor": "Produção",
+   "etapa": "Gerais",
+   "atividade": "Sistema de gestão (integração)",
+   "nivel": 3,
+   "planejado": ""
+  },
+  {
+   "pessoa": "ANDERSON NATAL GOLLO",
+   "setor": "Produção",
+   "etapa": "Gerais",
+   "atividade": "Sistema de gestão (integração)",
+   "nivel": 3,
+   "planejado": ""
+  },
+  {
+   "pessoa": "JONAS OLIVEIRA LIMA JUNIOR",
+   "setor": "Produção",
+   "etapa": "Gerais",
+   "atividade": "Sistema de gestão (integração)",
+   "nivel": 3,
+   "planejado": ""
+  },
+  {
+   "pessoa": "BRUNO CESAR DE SOUZA",
+   "setor": "Produção",
+   "etapa": "Gerais",
+   "atividade": "Dimensionamento / tolerância geométrica (GD&T)",
+   "nivel": 2,
+   "planejado": ""
+  },
+  {
+   "pessoa": "MARCOS MARTINS",
+   "setor": "Produção",
+   "etapa": "Gerais",
+   "atividade": "Dimensionamento / tolerância geométrica (GD&T)",
+   "nivel": 3,
+   "planejado": ""
+  },
+  {
+   "pessoa": "ANDERSON NATAL GOLLO",
+   "setor": "Produção",
+   "etapa": "Gerais",
+   "atividade": "Dimensionamento / tolerância geométrica (GD&T)",
+   "nivel": 3,
+   "planejado": ""
+  },
+  {
+   "pessoa": "JONAS OLIVEIRA LIMA JUNIOR",
+   "setor": "Produção",
+   "etapa": "Gerais",
+   "atividade": "Dimensionamento / tolerância geométrica (GD&T)",
+   "nivel": 3,
+   "planejado": ""
+  },
+  {
+   "pessoa": "JONAS OLIVEIRA LIMA JUNIOR",
+   "setor": "Produção",
+   "etapa": "Gerais",
+   "atividade": "MSA",
+   "nivel": 3,
+   "planejado": ""
+  },
+  {
+   "pessoa": "JONAS OLIVEIRA LIMA JUNIOR",
+   "setor": "Produção",
+   "etapa": "Gerais",
+   "atividade": "CEP",
+   "nivel": 3,
+   "planejado": ""
+  },
+  {
+   "pessoa": "JONAS OLIVEIRA LIMA JUNIOR",
+   "setor": "Produção",
+   "etapa": "Gerais",
+   "atividade": "NR10/NR11/NR12",
+   "nivel": 3,
+   "planejado": ""
+  },
+  {
+   "pessoa": "JONAS OLIVEIRA LIMA JUNIOR",
+   "setor": "Produção",
+   "etapa": "Gerais",
+   "atividade": "NR33",
+   "nivel": 3,
+   "planejado": ""
+  },
+  {
+   "pessoa": "PEDRO AUGUSTO DE SOUSA MONTEIRO",
+   "setor": "T.I",
+   "etapa": "T.I",
+   "atividade": "Suporte nível 1 (help desk)",
+   "nivel": 3,
+   "planejado": ""
+  },
+  {
+   "pessoa": "PEDRO AUGUSTO DE SOUSA MONTEIRO",
+   "setor": "T.I",
+   "etapa": "T.I",
+   "atividade": "Manutenção de hardware",
+   "nivel": 3,
+   "planejado": ""
+  },
+  {
+   "pessoa": "PEDRO AUGUSTO DE SOUSA MONTEIRO",
+   "setor": "T.I",
+   "etapa": "T.I",
+   "atividade": "Administração de redes e infraestrutura",
+   "nivel": 3,
+   "planejado": ""
+  },
+  {
+   "pessoa": "PEDRO AUGUSTO DE SOUSA MONTEIRO",
+   "setor": "T.I",
+   "etapa": "T.I",
+   "atividade": "Gestão do ERP (sistema integrado)",
+   "nivel": 3,
+   "planejado": ""
+  },
+  {
+   "pessoa": "MATHEUS HENRIQUE DE SOUSA LIMA MONTEIRO",
+   "setor": "T.I",
+   "etapa": "T.I",
+   "atividade": "Gestão do ERP (sistema integrado)",
+   "nivel": 3,
+   "planejado": ""
+  },
+  {
+   "pessoa": "PEDRO AUGUSTO DE SOUSA MONTEIRO",
+   "setor": "T.I",
+   "etapa": "T.I",
+   "atividade": "Segurança da informação",
+   "nivel": 3,
+   "planejado": ""
+  },
+  {
+   "pessoa": "JOSIAS PALMA DE OLIVEIRA",
+   "setor": "T.I",
+   "etapa": "T.I",
+   "atividade": "Inventário de ativos",
+   "nivel": 3,
+   "planejado": ""
+  },
+  {
+   "pessoa": "PEDRO AUGUSTO DE SOUSA MONTEIRO",
+   "setor": "T.I",
+   "etapa": "T.I",
+   "atividade": "Inventário de ativos",
+   "nivel": 3,
+   "planejado": ""
+  },
+  {
+   "pessoa": "MATHEUS HENRIQUE DE SOUSA LIMA MONTEIRO",
+   "setor": "T.I",
+   "etapa": "T.I",
+   "atividade": "Inventário de ativos",
+   "nivel": 4,
+   "planejado": ""
+  },
+  {
+   "pessoa": "JOSIAS PALMA DE OLIVEIRA",
+   "setor": "Processos",
+   "etapa": "Processo",
+   "atividade": "Mapeamento e otimização de fluxos",
+   "nivel": 3,
+   "planejado": ""
+  },
+  {
+   "pessoa": "VOTORANTINI MOURA VIEIRA DOS SANTOS",
+   "setor": "Processos",
+   "etapa": "Processo",
+   "atividade": "Mapeamento e otimização de fluxos",
+   "nivel": 4,
+   "planejado": ""
+  },
+  {
+   "pessoa": "MATHEUS HENRIQUE DE SOUSA LIMA MONTEIRO",
+   "setor": "Processos",
+   "etapa": "Processo",
+   "atividade": "Mapeamento e otimização de fluxos",
+   "nivel": 3,
+   "planejado": ""
+  },
+  {
+   "pessoa": "VOTORANTINI MOURA VIEIRA DOS SANTOS",
+   "setor": "Processos",
+   "etapa": "Processo",
+   "atividade": "Gestão da documentação e padronização",
+   "nivel": 4,
+   "planejado": ""
+  },
+  {
+   "pessoa": "MATHEUS HENRIQUE DE SOUSA LIMA MONTEIRO",
+   "setor": "Processos",
+   "etapa": "Processo",
+   "atividade": "Gestão da documentação e padronização",
+   "nivel": 3,
+   "planejado": ""
+  },
+  {
+   "pessoa": "JOSIAS PALMA DE OLIVEIRA",
+   "setor": "Processos",
+   "etapa": "Processo",
+   "atividade": "Aplicação de ferramentas da qualidade",
+   "nivel": 3,
+   "planejado": ""
+  },
+  {
+   "pessoa": "VOTORANTINI MOURA VIEIRA DOS SANTOS",
+   "setor": "Processos",
+   "etapa": "Processo",
+   "atividade": "Aplicação de ferramentas da qualidade",
+   "nivel": 3,
+   "planejado": ""
+  },
+  {
+   "pessoa": "MATHEUS HENRIQUE DE SOUSA LIMA MONTEIRO",
+   "setor": "Processos",
+   "etapa": "Processo",
+   "atividade": "Aplicação de ferramentas da qualidade",
+   "nivel": 4,
+   "planejado": ""
+  },
+  {
+   "pessoa": "JOSIAS PALMA DE OLIVEIRA",
+   "setor": "Processos",
+   "etapa": "Processo",
+   "atividade": "Cronoanálise (tempos e métodos)",
+   "nivel": 4,
+   "planejado": ""
+  },
+  {
+   "pessoa": "VOTORANTINI MOURA VIEIRA DOS SANTOS",
+   "setor": "Processos",
+   "etapa": "Processo",
+   "atividade": "Cronoanálise (tempos e métodos)",
+   "nivel": 3,
+   "planejado": ""
+  },
+  {
+   "pessoa": "MATHEUS HENRIQUE DE SOUSA LIMA MONTEIRO",
+   "setor": "Processos",
+   "etapa": "Processo",
+   "atividade": "Cronoanálise (tempos e métodos)",
+   "nivel": 3,
+   "planejado": ""
+  },
+  {
+   "pessoa": "VOTORANTINI MOURA VIEIRA DOS SANTOS",
+   "setor": "Processos",
+   "etapa": "Processo",
+   "atividade": "Análise de modos de falha (FMEA)",
+   "nivel": 3,
+   "planejado": ""
+  },
+  {
+   "pessoa": "MATHEUS HENRIQUE DE SOUSA LIMA MONTEIRO",
+   "setor": "Processos",
+   "etapa": "Processo",
+   "atividade": "Análise de modos de falha (FMEA)",
+   "nivel": 3,
+   "planejado": ""
+  },
+  {
+   "pessoa": "VOTORANTINI MOURA VIEIRA DOS SANTOS",
+   "setor": "Processos",
+   "etapa": "Processo",
+   "atividade": "Gestão de layout industrial",
+   "nivel": 4,
+   "planejado": ""
+  },
+  {
+   "pessoa": "MATHEUS HENRIQUE DE SOUSA LIMA MONTEIRO",
+   "setor": "Processos",
+   "etapa": "Processo",
+   "atividade": "Gestão de layout industrial",
+   "nivel": 4,
+   "planejado": ""
+  },
+  {
+   "pessoa": "JOSIAS PALMA DE OLIVEIRA",
+   "setor": "Processos",
+   "etapa": "Processo",
+   "atividade": "Gestão de projetos de melhoria",
+   "nivel": 3,
+   "planejado": ""
+  },
+  {
+   "pessoa": "VOTORANTINI MOURA VIEIRA DOS SANTOS",
+   "setor": "Processos",
+   "etapa": "Processo",
+   "atividade": "Gestão de projetos de melhoria",
+   "nivel": 4,
+   "planejado": ""
+  },
+  {
+   "pessoa": "MATHEUS HENRIQUE DE SOUSA LIMA MONTEIRO",
+   "setor": "Processos",
+   "etapa": "Processo",
+   "atividade": "Gestão de projetos de melhoria",
+   "nivel": 4,
+   "planejado": ""
+  },
+  {
+   "pessoa": "JOSIAS PALMA DE OLIVEIRA",
+   "setor": "Processos",
+   "etapa": "Processo",
+   "atividade": "MSA",
+   "nivel": 3,
+   "planejado": ""
+  },
+  {
+   "pessoa": "VOTORANTINI MOURA VIEIRA DOS SANTOS",
+   "setor": "Processos",
+   "etapa": "Processo",
+   "atividade": "MSA",
+   "nivel": 4,
+   "planejado": ""
+  },
+  {
+   "pessoa": "MATHEUS HENRIQUE DE SOUSA LIMA MONTEIRO",
+   "setor": "Processos",
+   "etapa": "Processo",
+   "atividade": "MSA",
+   "nivel": 4,
+   "planejado": ""
+  },
+  {
+   "pessoa": "JOSIAS PALMA DE OLIVEIRA",
+   "setor": "Qualidade",
+   "etapa": "Qualidade",
+   "atividade": "Inspeção de recebimento",
+   "nivel": 4,
+   "planejado": ""
+  },
+  {
+   "pessoa": "VOTORANTINI MOURA VIEIRA DOS SANTOS",
+   "setor": "Qualidade",
+   "etapa": "Qualidade",
+   "atividade": "Inspeção de recebimento",
+   "nivel": 3,
+   "planejado": ""
+  },
+  {
+   "pessoa": "MATHEUS HENRIQUE DE SOUSA LIMA MONTEIRO",
+   "setor": "Qualidade",
+   "etapa": "Qualidade",
+   "atividade": "Inspeção de recebimento",
+   "nivel": 4,
+   "planejado": ""
+  },
+  {
+   "pessoa": "JOSIAS PALMA DE OLIVEIRA",
+   "setor": "Qualidade",
+   "etapa": "Qualidade",
+   "atividade": "Controle dimensional e visual",
+   "nivel": 4,
+   "planejado": ""
+  },
+  {
+   "pessoa": "VOTORANTINI MOURA VIEIRA DOS SANTOS",
+   "setor": "Qualidade",
+   "etapa": "Qualidade",
+   "atividade": "Controle dimensional e visual",
+   "nivel": 3,
+   "planejado": ""
+  },
+  {
+   "pessoa": "MATHEUS HENRIQUE DE SOUSA LIMA MONTEIRO",
+   "setor": "Qualidade",
+   "etapa": "Qualidade",
+   "atividade": "Controle dimensional e visual",
+   "nivel": 4,
+   "planejado": ""
+  },
+  {
+   "pessoa": "JOSIAS PALMA DE OLIVEIRA",
+   "setor": "Qualidade",
+   "etapa": "Qualidade",
+   "atividade": "Gestão de não conformidades (RNC)",
+   "nivel": 4,
+   "planejado": ""
+  },
+  {
+   "pessoa": "VOTORANTINI MOURA VIEIRA DOS SANTOS",
+   "setor": "Qualidade",
+   "etapa": "Qualidade",
+   "atividade": "Gestão de não conformidades (RNC)",
+   "nivel": 3,
+   "planejado": ""
+  },
+  {
+   "pessoa": "MATHEUS HENRIQUE DE SOUSA LIMA MONTEIRO",
+   "setor": "Qualidade",
+   "etapa": "Qualidade",
+   "atividade": "Gestão de não conformidades (RNC)",
+   "nivel": 4,
+   "planejado": ""
+  },
+  {
+   "pessoa": "MATHEUS HENRIQUE DE SOUSA LIMA MONTEIRO",
+   "setor": "Qualidade",
+   "etapa": "Qualidade",
+   "atividade": "Auditoria interna de sistemas",
+   "nivel": 4,
+   "planejado": ""
+  },
+  {
+   "pessoa": "JOSIAS PALMA DE OLIVEIRA",
+   "setor": "Qualidade",
+   "etapa": "Qualidade",
+   "atividade": "Controle de calibração",
+   "nivel": 4,
+   "planejado": ""
+  },
+  {
+   "pessoa": "VOTORANTINI MOURA VIEIRA DOS SANTOS",
+   "setor": "Qualidade",
+   "etapa": "Qualidade",
+   "atividade": "Controle de calibração",
+   "nivel": 3,
+   "planejado": ""
+  },
+  {
+   "pessoa": "MATHEUS HENRIQUE DE SOUSA LIMA MONTEIRO",
+   "setor": "Qualidade",
+   "etapa": "Qualidade",
+   "atividade": "Controle de calibração",
+   "nivel": 4,
+   "planejado": ""
+  },
+  {
+   "pessoa": "JOSIAS PALMA DE OLIVEIRA",
+   "setor": "Qualidade",
+   "etapa": "Qualidade",
+   "atividade": "Elaboração de documentação",
+   "nivel": 3,
+   "planejado": ""
+  },
+  {
+   "pessoa": "VOTORANTINI MOURA VIEIRA DOS SANTOS",
+   "setor": "Qualidade",
+   "etapa": "Qualidade",
+   "atividade": "Elaboração de documentação",
+   "nivel": 4,
+   "planejado": ""
+  },
+  {
+   "pessoa": "MATHEUS HENRIQUE DE SOUSA LIMA MONTEIRO",
+   "setor": "Qualidade",
+   "etapa": "Qualidade",
+   "atividade": "Elaboração de documentação",
+   "nivel": 3,
+   "planejado": ""
+  },
+  {
+   "pessoa": "JOSIAS PALMA DE OLIVEIRA",
+   "setor": "Qualidade",
+   "etapa": "Qualidade",
+   "atividade": "Inspeção de estanqueidade",
+   "nivel": 4,
+   "planejado": ""
+  },
+  {
+   "pessoa": "MATHEUS HENRIQUE DE SOUSA LIMA MONTEIRO",
+   "setor": "Qualidade",
+   "etapa": "Qualidade",
+   "atividade": "Inspeção de estanqueidade",
+   "nivel": 4,
+   "planejado": ""
+  },
+  {
+   "pessoa": "JOSIAS PALMA DE OLIVEIRA",
+   "setor": "Qualidade",
+   "etapa": "Qualidade",
+   "atividade": "CEP",
+   "nivel": 3,
+   "planejado": ""
+  },
+  {
+   "pessoa": "VOTORANTINI MOURA VIEIRA DOS SANTOS",
+   "setor": "Qualidade",
+   "etapa": "Qualidade",
+   "atividade": "CEP",
+   "nivel": 4,
+   "planejado": ""
+  },
+  {
+   "pessoa": "MATHEUS HENRIQUE DE SOUSA LIMA MONTEIRO",
+   "setor": "Qualidade",
+   "etapa": "Qualidade",
+   "atividade": "CEP",
+   "nivel": 4,
+   "planejado": ""
+  },
+  {
+   "pessoa": "JOSIAS PALMA DE OLIVEIRA",
+   "setor": "Qualidade",
+   "etapa": "Gerais",
+   "atividade": "EPI'S",
+   "nivel": 3,
+   "planejado": ""
+  },
+  {
+   "pessoa": "VOTORANTINI MOURA VIEIRA DOS SANTOS",
+   "setor": "Processos",
+   "etapa": "Gerais",
+   "atividade": "EPI'S",
+   "nivel": 3,
+   "planejado": ""
+  },
+  {
+   "pessoa": "PEDRO AUGUSTO DE SOUSA MONTEIRO",
+   "setor": "T.I",
+   "etapa": "Gerais",
+   "atividade": "EPI'S",
+   "nivel": 3,
+   "planejado": ""
+  },
+  {
+   "pessoa": "MATHEUS HENRIQUE DE SOUSA LIMA MONTEIRO",
+   "setor": "Qualidade",
+   "etapa": "Gerais",
+   "atividade": "EPI'S",
+   "nivel": 3,
+   "planejado": ""
+  },
+  {
+   "pessoa": "JOSIAS PALMA DE OLIVEIRA",
+   "setor": "Qualidade",
+   "etapa": "Gerais",
+   "atividade": "5S",
+   "nivel": 3,
+   "planejado": ""
+  },
+  {
+   "pessoa": "VOTORANTINI MOURA VIEIRA DOS SANTOS",
+   "setor": "Processos",
+   "etapa": "Gerais",
+   "atividade": "5S",
+   "nivel": 3,
+   "planejado": ""
+  },
+  {
+   "pessoa": "PEDRO AUGUSTO DE SOUSA MONTEIRO",
+   "setor": "T.I",
+   "etapa": "Gerais",
+   "atividade": "5S",
+   "nivel": 3,
+   "planejado": ""
+  },
+  {
+   "pessoa": "MATHEUS HENRIQUE DE SOUSA LIMA MONTEIRO",
+   "setor": "Qualidade",
+   "etapa": "Gerais",
+   "atividade": "5S",
+   "nivel": 3,
+   "planejado": ""
+  },
+  {
+   "pessoa": "JOSIAS PALMA DE OLIVEIRA",
+   "setor": "Qualidade",
+   "etapa": "Gerais",
+   "atividade": "Certificação GNV",
+   "nivel": 1,
+   "planejado": "2026-08-20"
+  },
+  {
+   "pessoa": "VOTORANTINI MOURA VIEIRA DOS SANTOS",
+   "setor": "Processos",
+   "etapa": "Gerais",
+   "atividade": "Certificação GNV",
+   "nivel": 1,
+   "planejado": "2026-08-20"
+  },
+  {
+   "pessoa": "PEDRO AUGUSTO DE SOUSA MONTEIRO",
+   "setor": "T.I",
+   "etapa": "Gerais",
+   "atividade": "Certificação GNV",
+   "nivel": 1,
+   "planejado": "2026-08-20"
+  },
+  {
+   "pessoa": "MATHEUS HENRIQUE DE SOUSA LIMA MONTEIRO",
+   "setor": "Qualidade",
+   "etapa": "Gerais",
+   "atividade": "Certificação GNV",
+   "nivel": 1,
+   "planejado": "2026-08-20"
+  },
+  {
+   "pessoa": "JOSIAS PALMA DE OLIVEIRA",
+   "setor": "Qualidade",
+   "etapa": "Gerais",
+   "atividade": "Sistema de gestão (integração)",
+   "nivel": 4,
+   "planejado": ""
+  },
+  {
+   "pessoa": "VOTORANTINI MOURA VIEIRA DOS SANTOS",
+   "setor": "Processos",
+   "etapa": "Gerais",
+   "atividade": "Sistema de gestão (integração)",
+   "nivel": 3,
+   "planejado": ""
+  },
+  {
+   "pessoa": "PEDRO AUGUSTO DE SOUSA MONTEIRO",
+   "setor": "T.I",
+   "etapa": "Gerais",
+   "atividade": "Sistema de gestão (integração)",
+   "nivel": 4,
+   "planejado": ""
+  },
+  {
+   "pessoa": "MATHEUS HENRIQUE DE SOUSA LIMA MONTEIRO",
+   "setor": "Qualidade",
+   "etapa": "Gerais",
+   "atividade": "Sistema de gestão (integração)",
+   "nivel": 4,
+   "planejado": ""
+  },
+  {
+   "pessoa": "JOSIAS PALMA DE OLIVEIRA",
+   "setor": "Qualidade",
+   "etapa": "Gerais",
+   "atividade": "Dimensionamento / tolerância geométrica (GD&T)",
+   "nivel": 4,
+   "planejado": ""
+  },
+  {
+   "pessoa": "PEDRO AUGUSTO DE SOUSA MONTEIRO",
+   "setor": "T.I",
+   "etapa": "Gerais",
+   "atividade": "Dimensionamento / tolerância geométrica (GD&T)",
+   "nivel": 3,
+   "planejado": ""
+  },
+  {
+   "pessoa": "MATHEUS HENRIQUE DE SOUSA LIMA MONTEIRO",
+   "setor": "Qualidade",
+   "etapa": "Gerais",
+   "atividade": "Dimensionamento / tolerância geométrica (GD&T)",
+   "nivel": 4,
+   "planejado": ""
+  },
+  {
+   "pessoa": "JOSIAS PALMA DE OLIVEIRA",
+   "setor": "Qualidade",
+   "etapa": "Gerais",
+   "atividade": "MSA",
+   "nivel": 1,
+   "planejado": "2026-08-20"
+  },
+  {
+   "pessoa": "VOTORANTINI MOURA VIEIRA DOS SANTOS",
+   "setor": "Processos",
+   "etapa": "Gerais",
+   "atividade": "MSA",
+   "nivel": 1,
+   "planejado": "2026-08-20"
+  },
+  {
+   "pessoa": "PEDRO AUGUSTO DE SOUSA MONTEIRO",
+   "setor": "T.I",
+   "etapa": "Gerais",
+   "atividade": "MSA",
+   "nivel": 1,
+   "planejado": "2026-08-20"
+  },
+  {
+   "pessoa": "MATHEUS HENRIQUE DE SOUSA LIMA MONTEIRO",
+   "setor": "Qualidade",
+   "etapa": "Gerais",
+   "atividade": "MSA",
+   "nivel": 1,
+   "planejado": "2026-08-20"
+  },
+  {
+   "pessoa": "JOSIAS PALMA DE OLIVEIRA",
+   "setor": "Qualidade",
+   "etapa": "Gerais",
+   "atividade": "CEP",
+   "nivel": 1,
+   "planejado": "2026-08-20"
+  },
+  {
+   "pessoa": "VOTORANTINI MOURA VIEIRA DOS SANTOS",
+   "setor": "Processos",
+   "etapa": "Gerais",
+   "atividade": "CEP",
+   "nivel": 1,
+   "planejado": "2026-08-20"
+  },
+  {
+   "pessoa": "PEDRO AUGUSTO DE SOUSA MONTEIRO",
+   "setor": "T.I",
+   "etapa": "Gerais",
+   "atividade": "CEP",
+   "nivel": 1,
+   "planejado": "2026-08-20"
+  },
+  {
+   "pessoa": "MATHEUS HENRIQUE DE SOUSA LIMA MONTEIRO",
+   "setor": "Qualidade",
+   "etapa": "Gerais",
+   "atividade": "CEP",
+   "nivel": 1,
+   "planejado": "2026-08-20"
+  },
+  {
+   "pessoa": "JOSIAS PALMA DE OLIVEIRA",
+   "setor": "Qualidade",
+   "etapa": "Gerais",
+   "atividade": "NR10/NR11/NR12",
+   "nivel": 3,
+   "planejado": ""
+  },
+  {
+   "pessoa": "VOTORANTINI MOURA VIEIRA DOS SANTOS",
+   "setor": "Processos",
+   "etapa": "Gerais",
+   "atividade": "NR10/NR11/NR12",
+   "nivel": 3,
+   "planejado": ""
+  },
+  {
+   "pessoa": "JOSIAS PALMA DE OLIVEIRA",
+   "setor": "Qualidade",
+   "etapa": "Gerais",
+   "atividade": "NR33",
+   "nivel": 3,
+   "planejado": ""
+  },
+  {
+   "pessoa": "VOTORANTINI MOURA VIEIRA DOS SANTOS",
+   "setor": "Processos",
+   "etapa": "Gerais",
+   "atividade": "NR33",
+   "nivel": 3,
+   "planejado": ""
+  },
+  {
+   "pessoa": "JOAO GUILHERME DE LIMA",
+   "setor": "Supply Chain (PCP)",
+   "etapa": "PCP",
+   "atividade": "Análise de MRP",
+   "nivel": 3,
+   "planejado": ""
+  },
+  {
+   "pessoa": "BRAULIO ENEAS GONCALVES",
+   "setor": "Supply Chain (PCP)",
+   "etapa": "PCP",
+   "atividade": "Análise de MRP",
+   "nivel": 4,
+   "planejado": ""
+  },
+  {
+   "pessoa": "JOAO GUILHERME DE LIMA",
+   "setor": "Supply Chain (PCP)",
+   "etapa": "PCP",
+   "atividade": "Programação de linha",
+   "nivel": 3,
+   "planejado": ""
+  },
+  {
+   "pessoa": "BRAULIO ENEAS GONCALVES",
+   "setor": "Supply Chain (PCP)",
+   "etapa": "PCP",
+   "atividade": "Programação de linha",
+   "nivel": 4,
+   "planejado": ""
+  },
+  {
+   "pessoa": "JOAO GUILHERME DE LIMA",
+   "setor": "Supply Chain (PCP)",
+   "etapa": "PCP",
+   "atividade": "Análise de capacidade",
+   "nivel": 2,
+   "planejado": ""
+  },
+  {
+   "pessoa": "BRAULIO ENEAS GONCALVES",
+   "setor": "Supply Chain (PCP)",
+   "etapa": "PCP",
+   "atividade": "Análise de capacidade",
+   "nivel": 4,
+   "planejado": ""
+  },
+  {
+   "pessoa": "JOAO GUILHERME DE LIMA",
+   "setor": "Supply Chain (PCP)",
+   "etapa": "PCP",
+   "atividade": "Controle de apontamentos",
+   "nivel": 3,
+   "planejado": ""
+  },
+  {
+   "pessoa": "BRAULIO ENEAS GONCALVES",
+   "setor": "Supply Chain (PCP)",
+   "etapa": "PCP",
+   "atividade": "Controle de apontamentos",
+   "nivel": 4,
+   "planejado": ""
+  },
+  {
+   "pessoa": "JOAO GUILHERME DE LIMA",
+   "setor": "Supply Chain (PCP)",
+   "etapa": "PCP",
+   "atividade": "Gestão de terceirização",
+   "nivel": 3,
+   "planejado": ""
+  },
+  {
+   "pessoa": "BRAULIO ENEAS GONCALVES",
+   "setor": "Supply Chain (PCP)",
+   "etapa": "PCP",
+   "atividade": "Gestão de terceirização",
+   "nivel": 4,
+   "planejado": ""
+  },
+  {
+   "pessoa": "JOAO GUILHERME DE LIMA",
+   "setor": "Supply Chain (PCP)",
+   "etapa": "PCP",
+   "atividade": "Controle de orçamento de insumos (opex/capex)",
+   "nivel": 3,
+   "planejado": ""
+  },
+  {
+   "pessoa": "BRAULIO ENEAS GONCALVES",
+   "setor": "Supply Chain (PCP)",
+   "etapa": "PCP",
+   "atividade": "Controle de orçamento de insumos (opex/capex)",
+   "nivel": 4,
+   "planejado": ""
+  },
+  {
+   "pessoa": "JOAO GUILHERME DE LIMA",
+   "setor": "Supply Chain (PCP)",
+   "etapa": "Compras",
+   "atividade": "Prospecção e homologação de fornecedores",
+   "nivel": 3,
+   "planejado": ""
+  },
+  {
+   "pessoa": "BRAULIO ENEAS GONCALVES",
+   "setor": "Supply Chain (PCP)",
+   "etapa": "Compras",
+   "atividade": "Prospecção e homologação de fornecedores",
+   "nivel": 4,
+   "planejado": ""
+  },
+  {
+   "pessoa": "JOAO GUILHERME DE LIMA",
+   "setor": "Supply Chain (PCP)",
+   "etapa": "Compras",
+   "atividade": "Gestão de cotações",
+   "nivel": 3,
+   "planejado": ""
+  },
+  {
+   "pessoa": "BRAULIO ENEAS GONCALVES",
+   "setor": "Supply Chain (PCP)",
+   "etapa": "Compras",
+   "atividade": "Gestão de cotações",
+   "nivel": 4,
+   "planejado": ""
+  },
+  {
+   "pessoa": "JOAO GUILHERME DE LIMA",
+   "setor": "Supply Chain (PCP)",
+   "etapa": "Compras",
+   "atividade": "Emissão de pedidos e follow-up",
+   "nivel": 3,
+   "planejado": ""
+  },
+  {
+   "pessoa": "BRAULIO ENEAS GONCALVES",
+   "setor": "Supply Chain (PCP)",
+   "etapa": "Compras",
+   "atividade": "Emissão de pedidos e follow-up",
+   "nivel": 4,
+   "planejado": ""
+  },
+  {
+   "pessoa": "JOAO GUILHERME DE LIMA",
+   "setor": "Supply Chain (PCP)",
+   "etapa": "Compras",
+   "atividade": "Avaliação de desempenho (IDF)",
+   "nivel": 2,
+   "planejado": ""
+  },
+  {
+   "pessoa": "BRAULIO ENEAS GONCALVES",
+   "setor": "Supply Chain (PCP)",
+   "etapa": "Compras",
+   "atividade": "Avaliação de desempenho (IDF)",
+   "nivel": 4,
+   "planejado": ""
+  },
+  {
+   "pessoa": "JOAO GUILHERME DE LIMA",
+   "setor": "Supply Chain (PCP)",
+   "etapa": "Compras",
+   "atividade": "Desenvolvimento de contratos",
+   "nivel": 3,
+   "planejado": ""
+  },
+  {
+   "pessoa": "BRAULIO ENEAS GONCALVES",
+   "setor": "Supply Chain (PCP)",
+   "etapa": "Compras",
+   "atividade": "Desenvolvimento de contratos",
+   "nivel": 4,
+   "planejado": ""
+  },
+  {
+   "pessoa": "BRAULIO ENEAS GONCALVES",
+   "setor": "Supply Chain (PCP)",
+   "etapa": "Compras",
+   "atividade": "Alinhamento tático de abastecimento:",
+   "nivel": 4,
+   "planejado": ""
+  },
+  {
+   "pessoa": "RICARDO ELIAS DA SILVA",
+   "setor": "Supply Chain (PCP)",
+   "etapa": "Logistica",
+   "atividade": "Recebimento físico e sistêmico",
+   "nivel": 3,
+   "planejado": ""
+  },
+  {
+   "pessoa": "BRAULIO ENEAS GONCALVES",
+   "setor": "Supply Chain (PCP)",
+   "etapa": "Logistica",
+   "atividade": "Recebimento físico e sistêmico",
+   "nivel": 4,
+   "planejado": ""
+  },
+  {
+   "pessoa": "RICARDO ELIAS DA SILVA",
+   "setor": "Supply Chain (PCP)",
+   "etapa": "Logistica",
+   "atividade": "Armazenagem e endereçamento",
+   "nivel": 3,
+   "planejado": ""
+  },
+  {
+   "pessoa": "BRAULIO ENEAS GONCALVES",
+   "setor": "Supply Chain (PCP)",
+   "etapa": "Logistica",
+   "atividade": "Armazenagem e endereçamento",
+   "nivel": 4,
+   "planejado": ""
+  },
+  {
+   "pessoa": "RICARDO ELIAS DA SILVA",
+   "setor": "Supply Chain (PCP)",
+   "etapa": "Logistica",
+   "atividade": "Operação de equipamentos de movimentação",
+   "nivel": 3,
+   "planejado": ""
+  },
+  {
+   "pessoa": "BRAULIO ENEAS GONCALVES",
+   "setor": "Supply Chain (PCP)",
+   "etapa": "Logistica",
+   "atividade": "Operação de equipamentos de movimentação",
+   "nivel": 4,
+   "planejado": ""
+  },
+  {
+   "pessoa": "RICARDO ELIAS DA SILVA",
+   "setor": "Supply Chain (PCP)",
+   "etapa": "Logistica",
+   "atividade": "Abastecimento de linha (kitting / kanban)",
+   "nivel": 3,
+   "planejado": ""
+  },
+  {
+   "pessoa": "BRAULIO ENEAS GONCALVES",
+   "setor": "Supply Chain (PCP)",
+   "etapa": "Logistica",
+   "atividade": "Abastecimento de linha (kitting / kanban)",
+   "nivel": 4,
+   "planejado": ""
+  },
+  {
+   "pessoa": "RICARDO ELIAS DA SILVA",
+   "setor": "Supply Chain (PCP)",
+   "etapa": "Logistica",
+   "atividade": "Inventário ciclico e rotativo",
+   "nivel": 2,
+   "planejado": ""
+  },
+  {
+   "pessoa": "BRAULIO ENEAS GONCALVES",
+   "setor": "Supply Chain (PCP)",
+   "etapa": "Logistica",
+   "atividade": "Inventário ciclico e rotativo",
+   "nivel": 4,
+   "planejado": ""
+  },
+  {
+   "pessoa": "JOAO GUILHERME DE LIMA",
+   "setor": "Supply Chain (PCP)",
+   "etapa": "Expedição",
+   "atividade": "Separação de pedidos (picking)",
+   "nivel": 3,
+   "planejado": ""
+  },
+  {
+   "pessoa": "RICARDO ELIAS DA SILVA",
+   "setor": "Supply Chain (PCP)",
+   "etapa": "Expedição",
+   "atividade": "Separação de pedidos (picking)",
+   "nivel": 3,
+   "planejado": ""
+  },
+  {
+   "pessoa": "BRAULIO ENEAS GONCALVES",
+   "setor": "Supply Chain (PCP)",
+   "etapa": "Expedição",
+   "atividade": "Separação de pedidos (picking)",
+   "nivel": 4,
+   "planejado": ""
+  },
+  {
+   "pessoa": "JOAO GUILHERME DE LIMA",
+   "setor": "Supply Chain (PCP)",
+   "etapa": "Expedição",
+   "atividade": "Embalagem e acondicionamento (packing)",
+   "nivel": 3,
+   "planejado": ""
+  },
+  {
+   "pessoa": "RICARDO ELIAS DA SILVA",
+   "setor": "Supply Chain (PCP)",
+   "etapa": "Expedição",
+   "atividade": "Embalagem e acondicionamento (packing)",
+   "nivel": 3,
+   "planejado": ""
+  },
+  {
+   "pessoa": "BRAULIO ENEAS GONCALVES",
+   "setor": "Supply Chain (PCP)",
+   "etapa": "Expedição",
+   "atividade": "Embalagem e acondicionamento (packing)",
+   "nivel": 4,
+   "planejado": ""
+  },
+  {
+   "pessoa": "JOAO GUILHERME DE LIMA",
+   "setor": "Supply Chain (PCP)",
+   "etapa": "Expedição",
+   "atividade": "Faturamento e emissão de documentos",
+   "nivel": 2,
+   "planejado": ""
+  },
+  {
+   "pessoa": "RICARDO ELIAS DA SILVA",
+   "setor": "Supply Chain (PCP)",
+   "etapa": "Expedição",
+   "atividade": "Faturamento e emissão de documentos",
+   "nivel": 2,
+   "planejado": ""
+  },
+  {
+   "pessoa": "JOAO GUILHERME DE LIMA",
+   "setor": "Supply Chain (PCP)",
+   "etapa": "Expedição",
+   "atividade": "Roteirização e agendamento de coletas",
+   "nivel": 3,
+   "planejado": ""
+  },
+  {
+   "pessoa": "RICARDO ELIAS DA SILVA",
+   "setor": "Supply Chain (PCP)",
+   "etapa": "Expedição",
+   "atividade": "Roteirização e agendamento de coletas",
+   "nivel": 3,
+   "planejado": ""
+  },
+  {
+   "pessoa": "BRAULIO ENEAS GONCALVES",
+   "setor": "Supply Chain (PCP)",
+   "etapa": "Expedição",
+   "atividade": "Roteirização e agendamento de coletas",
+   "nivel": 4,
+   "planejado": ""
+  },
+  {
+   "pessoa": "JOAO GUILHERME DE LIMA",
+   "setor": "Supply Chain (PCP)",
+   "etapa": "Expedição",
+   "atividade": "Carregamento e amarração de carga",
+   "nivel": 3,
+   "planejado": ""
+  },
+  {
+   "pessoa": "RICARDO ELIAS DA SILVA",
+   "setor": "Supply Chain (PCP)",
+   "etapa": "Expedição",
+   "atividade": "Carregamento e amarração de carga",
+   "nivel": 3,
+   "planejado": ""
+  },
+  {
+   "pessoa": "BRAULIO ENEAS GONCALVES",
+   "setor": "Supply Chain (PCP)",
+   "etapa": "Expedição",
+   "atividade": "Carregamento e amarração de carga",
+   "nivel": 4,
+   "planejado": ""
+  },
+  {
+   "pessoa": "BRAULIO ENEAS GONCALVES",
+   "setor": "Supply Chain (PCP)",
+   "etapa": "Supply TEAM",
+   "atividade": "Strategic sourcing (compras estratégicas)",
+   "nivel": 4,
+   "planejado": ""
+  },
+  {
+   "pessoa": "JOAO GUILHERME DE LIMA",
+   "setor": "Supply Chain (PCP)",
+   "etapa": "Supply TEAM",
+   "atividade": "Gestão de riscos de fornecimento",
+   "nivel": 3,
+   "planejado": ""
+  },
+  {
+   "pessoa": "BRAULIO ENEAS GONCALVES",
+   "setor": "Supply Chain (PCP)",
+   "etapa": "Supply TEAM",
+   "atividade": "Gestão de riscos de fornecimento",
+   "nivel": 4,
+   "planejado": ""
+  },
+  {
+   "pessoa": "JOAO GUILHERME DE LIMA",
+   "setor": "Supply Chain (PCP)",
+   "etapa": "Supply TEAM",
+   "atividade": "Monitoramento de indicadores (kpis)",
+   "nivel": 3,
+   "planejado": ""
+  },
+  {
+   "pessoa": "BRAULIO ENEAS GONCALVES",
+   "setor": "Supply Chain (PCP)",
+   "etapa": "Supply TEAM",
+   "atividade": "Monitoramento de indicadores (kpis)",
+   "nivel": 4,
+   "planejado": ""
+  },
+  {
+   "pessoa": "BRAULIO ENEAS GONCALVES",
+   "setor": "Supply Chain (PCP)",
+   "etapa": "Supply TEAM",
+   "atividade": "Gestão de contratos e slas",
+   "nivel": 4,
+   "planejado": ""
+  },
+  {
+   "pessoa": "JOAO GUILHERME DE LIMA",
+   "setor": "Supply Chain (PCP)",
+   "etapa": "Supply TEAM",
+   "atividade": "Logística reversa e economia circular",
+   "nivel": 3,
+   "planejado": ""
+  },
+  {
+   "pessoa": "BRAULIO ENEAS GONCALVES",
+   "setor": "Supply Chain (PCP)",
+   "etapa": "Supply TEAM",
+   "atividade": "Logística reversa e economia circular",
+   "nivel": 4,
+   "planejado": ""
+  },
+  {
+   "pessoa": "JOAO GUILHERME DE LIMA",
+   "setor": "Supply Chain (PCP)",
+   "etapa": "Supply TEAM",
+   "atividade": "Gestão de MRO (manutenção, reparo e operações)",
+   "nivel": 3,
+   "planejado": ""
+  },
+  {
+   "pessoa": "BRAULIO ENEAS GONCALVES",
+   "setor": "Supply Chain (PCP)",
+   "etapa": "Supply TEAM",
+   "atividade": "Gestão de MRO (manutenção, reparo e operações)",
+   "nivel": 4,
+   "planejado": ""
+  },
+  {
+   "pessoa": "JOAO GUILHERME DE LIMA",
+   "setor": "Supply Chain (PCP)",
+   "etapa": "Gerais",
+   "atividade": "EPI'S",
+   "nivel": 3,
+   "planejado": ""
+  },
+  {
+   "pessoa": "BRAULIO ENEAS GONCALVES",
+   "setor": "Supply Chain (PCP)",
+   "etapa": "Gerais",
+   "atividade": "EPI'S",
+   "nivel": 4,
+   "planejado": ""
+  },
+  {
+   "pessoa": "JOAO GUILHERME DE LIMA",
+   "setor": "Supply Chain (PCP)",
+   "etapa": "Gerais",
+   "atividade": "5S",
+   "nivel": 3,
+   "planejado": ""
+  },
+  {
+   "pessoa": "BRAULIO ENEAS GONCALVES",
+   "setor": "Supply Chain (PCP)",
+   "etapa": "Gerais",
+   "atividade": "5S",
+   "nivel": 4,
+   "planejado": ""
+  },
+  {
+   "pessoa": "RICARDO ELIAS DA SILVA",
+   "setor": "Supply Chain (PCP)",
+   "etapa": "Gerais",
+   "atividade": "Certificação GNV",
+   "nivel": 3,
+   "planejado": ""
+  },
+  {
+   "pessoa": "BRAULIO ENEAS GONCALVES",
+   "setor": "Supply Chain (PCP)",
+   "etapa": "Gerais",
+   "atividade": "Sistema de gestão (integração)",
+   "nivel": 4,
+   "planejado": ""
+  },
+  {
+   "pessoa": "JOAO GUILHERME DE LIMA",
+   "setor": "Supply Chain (PCP)",
+   "etapa": "Gerais",
+   "atividade": "Dimensionamento / tolerância geométrica (GD&T)",
+   "nivel": 3,
+   "planejado": ""
+  },
+  {
+   "pessoa": "RICARDO ELIAS DA SILVA",
+   "setor": "Supply Chain (PCP)",
+   "etapa": "Gerais",
+   "atividade": "Dimensionamento / tolerância geométrica (GD&T)",
+   "nivel": 3,
+   "planejado": ""
+  },
+  {
+   "pessoa": "BRAULIO ENEAS GONCALVES",
+   "setor": "Supply Chain (PCP)",
+   "etapa": "Gerais",
+   "atividade": "Dimensionamento / tolerância geométrica (GD&T)",
+   "nivel": 3,
+   "planejado": ""
+  },
+  {
+   "pessoa": "BRAULIO ENEAS GONCALVES",
+   "setor": "Supply Chain (PCP)",
+   "etapa": "Gerais",
+   "atividade": "MSA",
+   "nivel": 4,
+   "planejado": ""
+  },
+  {
+   "pessoa": "BRAULIO ENEAS GONCALVES",
+   "setor": "Supply Chain (PCP)",
+   "etapa": "Gerais",
+   "atividade": "CEP",
+   "nivel": 4,
+   "planejado": ""
+  },
+  {
+   "pessoa": "BRAULIO ENEAS GONCALVES",
+   "setor": "Supply Chain (PCP)",
+   "etapa": "Gerais",
+   "atividade": "NR10/NR11/NR12",
+   "nivel": 4,
+   "planejado": ""
+  },
+  {
+   "pessoa": "BRAULIO ENEAS GONCALVES",
+   "setor": "Supply Chain (PCP)",
+   "etapa": "Gerais",
+   "atividade": "NR33",
+   "nivel": 4,
+   "planejado": ""
+  },
+  {
+   "pessoa": "JANIFER PONDIAN",
+   "setor": "Administrativo",
+   "etapa": "Finanças",
+   "atividade": "Contas a pagar",
+   "nivel": 4,
+   "planejado": ""
+  },
+  {
+   "pessoa": "JANIFER PONDIAN",
+   "setor": "Administrativo",
+   "etapa": "Finanças",
+   "atividade": "Contas a receber e cobrança",
+   "nivel": 4,
+   "planejado": ""
+  },
+  {
+   "pessoa": "JANIFER PONDIAN",
+   "setor": "Administrativo",
+   "etapa": "Finanças",
+   "atividade": "Análise e concessão de crédito",
+   "nivel": 3,
+   "planejado": ""
+  },
+  {
+   "pessoa": "JANIFER PONDIAN",
+   "setor": "Administrativo",
+   "etapa": "Finanças",
+   "atividade": "Conciliação bancária diária",
+   "nivel": 3,
+   "planejado": ""
+  },
+  {
+   "pessoa": "JANIFER PONDIAN",
+   "setor": "Administrativo",
+   "etapa": "Finanças",
+   "atividade": "Operações estruturadas e câmbio",
+   "nivel": 3,
+   "planejado": ""
+  },
+  {
+   "pessoa": "JANIFER PONDIAN",
+   "setor": "Administrativo",
+   "etapa": "Fiscal",
+   "atividade": "Classificação fiscal (NCM e CFOP)",
+   "nivel": 3,
+   "planejado": ""
+  },
+  {
+   "pessoa": "ALEX GIULIANO RAMOS",
+   "setor": "Administrativo",
+   "etapa": "Fiscal",
+   "atividade": "Classificação fiscal (NCM e CFOP)",
+   "nivel": 4,
+   "planejado": ""
+  },
+  {
+   "pessoa": "JANIFER PONDIAN",
+   "setor": "Administrativo",
+   "etapa": "Fiscal",
+   "atividade": "Obrigações acessórias (speds)",
+   "nivel": 3,
+   "planejado": ""
+  },
+  {
+   "pessoa": "ALEX GIULIANO RAMOS",
+   "setor": "Administrativo",
+   "etapa": "Fiscal",
+   "atividade": "Parametrização fiscal no ERP",
+   "nivel": 4,
+   "planejado": ""
+  },
+  {
+   "pessoa": "ALEX GIULIANO RAMOS",
+   "setor": "Administrativo",
+   "etapa": "Controle financeiro",
+   "atividade": "Apuração de custos industriais",
+   "nivel": 3,
+   "planejado": ""
+  },
+  {
+   "pessoa": "ALEXANDRE DE MARCOS SANTOS",
+   "setor": "Administrativo",
+   "etapa": "Controle financeiro",
+   "atividade": "Apuração de custos industriais",
+   "nivel": 4,
+   "planejado": ""
+  },
+  {
+   "pessoa": "ALEXANDRE DE MARCOS SANTOS",
+   "setor": "Administrativo",
+   "etapa": "Controle financeiro",
+   "atividade": "Gestão orçamentária (budget e forecast)",
+   "nivel": 4,
+   "planejado": ""
+  },
+  {
+   "pessoa": "ALEXANDRE DE MARCOS SANTOS",
+   "setor": "Administrativo",
+   "etapa": "Controle financeiro",
+   "atividade": "Formação de preço de venda (pricing)",
+   "nivel": 4,
+   "planejado": ""
+  },
+  {
+   "pessoa": "ALEXANDRE DE MARCOS SANTOS",
+   "setor": "Administrativo",
+   "etapa": "Controle financeiro",
+   "atividade": "Análise de DRE e indicadores de desempenho",
+   "nivel": 4,
+   "planejado": ""
+  },
+  {
+   "pessoa": "ALEXANDRE DE MARCOS SANTOS",
+   "setor": "Administrativo",
+   "etapa": "Controle financeiro",
+   "atividade": "Controles internos e compliance",
+   "nivel": 4,
+   "planejado": ""
+  },
+  {
+   "pessoa": "JANIFER PONDIAN",
+   "setor": "Administrativo",
+   "etapa": "Gerais",
+   "atividade": "EPI'S",
+   "nivel": 4,
+   "planejado": ""
+  },
+  {
+   "pessoa": "JANIFER PONDIAN",
+   "setor": "Administrativo",
+   "etapa": "Gerais",
+   "atividade": "5S",
+   "nivel": 1,
+   "planejado": "2026-08-15"
+  },
+  {
+   "pessoa": "JANIFER PONDIAN",
+   "setor": "Administrativo",
+   "etapa": "Gerais",
+   "atividade": "Certificação GNV",
+   "nivel": 1,
+   "planejado": "2026-08-15"
+  },
+  {
+   "pessoa": "JANIFER PONDIAN",
+   "setor": "Administrativo",
+   "etapa": "Gerais",
+   "atividade": "Sistema de gestão (integração)",
+   "nivel": 4,
+   "planejado": ""
+  },
+  {
+   "pessoa": "JANIFER PONDIAN",
+   "setor": "Administrativo",
+   "etapa": "RH",
+   "atividade": "• realizar processos de recrutamento e seleção",
+   "nivel": 3,
+   "planejado": ""
+  },
+  {
+   "pessoa": "JANIFER PONDIAN",
+   "setor": "Administrativo",
+   "etapa": "RH",
+   "atividade": "• conduzir entrevistas",
+   "nivel": 3,
+   "planejado": ""
+  },
+  {
+   "pessoa": "JANIFER PONDIAN",
+   "setor": "Administrativo",
+   "etapa": "RH",
+   "atividade": "Apoiar gestores na escolha de candidatos",
+   "nivel": 3,
+   "planejado": ""
+  },
+  {
+   "pessoa": "JANIFER PONDIAN",
+   "setor": "Administrativo",
+   "etapa": "RH",
+   "atividade": "• elaborar contratos de prestação de serviços (PJ).",
+   "nivel": 3,
+   "planejado": ""
+  },
+  {
+   "pessoa": "JANIFER PONDIAN",
+   "setor": "Administrativo",
+   "etapa": "RH",
+   "atividade": "• administrar a documentação dos colaboradores.",
+   "nivel": 3,
+   "planejado": ""
+  },
+  {
+   "pessoa": "JANIFER PONDIAN",
+   "setor": "Administrativo",
+   "etapa": "RH",
+   "atividade": "• controle de treinamentos",
+   "nivel": 3,
+   "planejado": ""
+  },
+  {
+   "pessoa": "JANIFER PONDIAN",
+   "setor": "Administrativo",
+   "etapa": "RH",
+   "atividade": "• controle de certificados e documentos.",
+   "nivel": 3,
+   "planejado": ""
+  },
+  {
+   "pessoa": "JANIFER PONDIAN",
+   "setor": "Administrativo",
+   "etapa": "RH",
+   "atividade": "• realizar integração de novos colaboradores.",
+   "nivel": 3,
+   "planejado": ""
+  },
+  {
+   "pessoa": "JANIFER PONDIAN",
+   "setor": "Administrativo",
+   "etapa": "Gestão",
+   "atividade": "• manter atualizados os cadastros dos profissionais.",
+   "nivel": 3,
+   "planejado": ""
+  },
+  {
+   "pessoa": "JANIFER PONDIAN",
+   "setor": "Administrativo",
+   "etapa": "Gestão",
+   "atividade": "• controlar a documentação exigida pelos clientes para acesso às plantas industriais.",
+   "nivel": 3,
+   "planejado": ""
+  },
+  {
+   "pessoa": "JANIFER PONDIAN",
+   "setor": "Administrativo",
+   "etapa": "Gestão",
+   "atividade": "• atuar como ponto de contato entre a empresa e o escritório de contabilidade responsável pelo departamento Pessoal.",
+   "nivel": 3,
+   "planejado": ""
+  },
+  {
+   "pessoa": "JANIFER PONDIAN",
+   "setor": "Administrativo",
+   "etapa": "Gestão",
+   "atividade": "Folha de pagamento",
+   "nivel": 3,
+   "planejado": ""
+  },
+  {
+   "pessoa": "JANIFER PONDIAN",
+   "setor": "Administrativo",
+   "etapa": "Gestão",
+   "atividade": "• conferir documentos, folhas, recibos e guias emitidos pelo escritório de contabilidade antes da liberação para pagamento ou assinatura.",
+   "nivel": 3,
+   "planejado": ""
+  },
+  {
+   "pessoa": "JANIFER PONDIAN",
+   "setor": "Administrativo",
+   "etapa": "Gestão",
+   "atividade": "Gestão de pessoas",
+   "nivel": 3,
+   "planejado": ""
+  },
+  {
+   "pessoa": "JANIFER PONDIAN",
+   "setor": "Administrativo",
+   "etapa": "Gestão",
+   "atividade": "• elaborar comunicados internos.",
+   "nivel": 3,
+   "planejado": ""
+  },
+  {
+   "pessoa": "JANIFER PONDIAN",
+   "setor": "Administrativo",
+   "etapa": "Gerais",
+   "atividade": "EPI'S",
+   "nivel": 3,
+   "planejado": ""
+  },
+  {
+   "pessoa": "JANIFER PONDIAN",
+   "setor": "Administrativo",
+   "etapa": "Gerais",
+   "atividade": "5S",
+   "nivel": 3,
+   "planejado": ""
+  },
+  {
+   "pessoa": "JANIFER PONDIAN",
+   "setor": "Administrativo",
+   "etapa": "Gerais",
+   "atividade": "Certificação GNV",
+   "nivel": 3,
+   "planejado": ""
+  },
+  {
+   "pessoa": "JANIFER PONDIAN",
+   "setor": "Administrativo",
+   "etapa": "Gerais",
+   "atividade": "Sistema de gestão (integração)",
+   "nivel": 3,
+   "planejado": ""
+  }
+ ]
+}

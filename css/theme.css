@@ -3647,3 +3647,12 @@ html.th-sw *, html.th-sw *::before, html.th-sw *::after { transition: none !impo
   .fx-mx .pl-hp.fx-col1 { min-width: 170px; width: 170px; max-width: 170px; } .fx-an { padding: 8px 10px; font-size: .78rem; }
   .fx-wrap { max-height: calc(100dvh - 140px); }
 }
+
+/* Cadastro Convergas + cargos de apoio */
+.fx-pk { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 8px; margin-bottom: 6px; }
+.fx-pk > div { padding: 10px 12px; border-radius: 12px; background: color-mix(in srgb, var(--accent) 7%, transparent); text-align: center; }
+.fx-pk b { display: block; font-size: 1.2rem; font-weight: 700; color: var(--text); } .fx-pk small { font-size: .72rem; color: var(--text-3); }
+.fx-pk-st { display: inline-flex; align-items: center; gap: 6px; font-size: .78rem; color: var(--text-2); } .fx-pk-st svg { width: 14px; height: 14px; color: var(--accent); }
+.fx-gh.fx-apoio { background-image: repeating-linear-gradient(135deg, color-mix(in srgb, var(--accent) 6%, transparent) 0 6px, transparent 6px 12px); }
+.fx-gh.fx-apoio small { color: var(--accent); }
+@media (max-width: 720px) { .fx-pk { grid-template-columns: repeat(3, minmax(0, 1fr)); } }

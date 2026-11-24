@@ -3666,8 +3666,11 @@
     const ordemEt = etapas.map((e) => e.ativ[0]); // etapas na ordem em que aparecem
     void ordemEt;
     const ativos = rhAtivos();
-    const grupos = rhList('rhCargos').filter((c) => fxSet(c) === setor).sort((a, b) => fxOrd(a) - fxOrd(b) || a.nome.localeCompare(b.nome))
-      .map((c) => ({ c, min: fxMin(c), pessoas: ativos.filter((u) => u.cargoId === c.id).sort((a, b) => a.name.localeCompare(b.name)) }));
+    const idsSetor = new Set(ativ.map((t) => t.id));
+    const apoia = (c) => fxSet(c) !== setor && Array.isArray(c.atividades) && c.atividades.some((id) => idsSetor.has(id));
+    const grupos = rhList('rhCargos').filter((c) => fxSet(c) === setor || apoia(c))
+      .sort((a, b) => (apoia(a) ? 1 : 0) - (apoia(b) ? 1 : 0) || fxOrd(a) - fxOrd(b) || a.nome.localeCompare(b.nome))
+      .map((c) => ({ c, min: fxMin(c), apoio: apoia(c) ? fxSet(c) : '', pessoas: ativos.filter((u) => u.cargoId === c.id).sort((a, b) => a.name.localeCompare(b.name)) }));
     const cel = new Map(); // `${cargoId}|${ativId}` → { hab, v }
     grupos.forEach((g) => ativ.forEach((t) => {
       if (!fxAplica(g.c, t)) return;
@@ -3981,6 +3984,90 @@
     return res;
   }
 
+  // ---------- Cadastro Convergas: setores, cargos, atividades, pessoas e níveis de uma vez ----------
+  // Pacote gerado da FRM-051-02 + lista de PJ 2026 (js/seed/convergas-mapa.json). Idempotente:
+  // o que já existe (mesmo nome) é atualizado, não duplicado. Grava pelo login de quem clica.
+  const FX_SET_ALIAS = { 'producao': ['producao', 'operacao', 'fabrica'], 'qualidade': ['qualidade'], 'processos': ['processo'], 'ti': ['ti', 'tecnologia', 'informatica'],
+    'supplychainpcp': ['supply', 'pcp', 'suprimento', 'logistica'], 'comercial': ['comercial', 'vendas'], 'engenharia': ['engenharia'], 'administrativo': ['administrativo', 'adm', 'financeiro'] };
+  const fxK = (x) => fxNorm(x).replace(/\s/g, '');
+  function fxSetorExistente(nome) {
+    const ss = rhSetores(); const k = fxK(nome);
+    return ss.find((s) => fxK(s.nome) === k) || ss.find((s) => (FX_SET_ALIAS[k] || []).some((a) => fxK(s.nome).includes(a)));
+  }
+  async function fxCarregarConvergas() {
+    const ok = ['rhSetores', 'rhCargos', 'rhTreinos', 'rhHabil', 'team'].every((c) => Perm.podeGravar(c));
+    if (!ok) return toast('Só quem pode editar RH faz o cadastro completo', 'warn');
+    let pk; try { const r = await fetch('js/seed/convergas-mapa.json', { cache: 'no-store' }); pk = await r.json(); } catch (e) { return toast('Não consegui carregar o pacote de cadastro', 'warn'); }
+    const ativos = rhAtivos().slice().sort((a, b) => a.name.localeCompare(b.name));
+    const setRes = pk.setores.map((n) => { const e = fxSetorExistente(n); return { n, e }; });
+    const sugest = (p) => { const id = fxPalpitePessoa(p.nome); return id || (p.soVincular ? '' : 'novo'); };
+    const card = modal({
+      title: 'Cadastro Convergas', sub: 'Mapa de flexibilidade FRM-051-02 + lista PJ 2026 · confira antes de gravar', wide: true,
+      body: `<div class="info-grid fx-pk"><div><b>${pk.setores.length}</b><small>setores</small></div><div><b>${pk.cargos.length}</b><small>cargos</small></div><div><b>${pk.atividades.length}</b><small>atividades</small></div><div><b>${pk.pessoas.length}</b><small>pessoas</small></div><div><b>${pk.niveis.length}</b><small>níveis</small></div></div>
+        <div class="form-sec">${ic('grid')}Setores</div>
+        <div class="fx-imp">${setRes.map((x) => `<div class="fx-imp-r"><span><b>${esc(x.n)}</b><small>${pk.cargos.filter((c) => c.setor === x.n).map((c) => esc(c.nome)).join(' · ') || '—'}</small></span><span class="fx-pk-st">${x.e ? `${ic('check')}usa o setor “${esc(x.e.nome)}”` : `${ic('plus')}será criado`}</span></div>`).join('')}</div>
+        <div class="form-sec">${ic('users')}Pessoas → cargo</div>
+        <div class="fx-imp">${pk.pessoas.map((p, i) => `<div class="fx-imp-r"><span><b>${esc(p.nome)}</b><small>${esc(p.funcao)} → ${esc(p.cargo || '—')}${p.setor ? ' · ' + esc(p.setor) : ''}</small></span>
+          <select data-pk="${i}"><option value="novo" ${sugest(p) === 'novo' ? 'selected' : ''}>Cadastrar como novo colaborador</option><option value="" ${sugest(p) === '' ? 'selected' : ''}>Não cadastrar</option>${ativos.map((u) => `<option value="${u.id}" ${sugest(p) === u.id ? 'selected' : ''}>É ${esc(u.name)}${u.sector ? ' · ' + esc(u.sector) : ''}</option>`).join('')}</select></div>`).join('')}</div>
+        <div class="field full" style="margin-top:14px">${sw('Atualizar o nome de quem já existe para o nome completo da lista', 'nomeCompleto', true)}</div>
+        <p class="fx-imp-n">Atividades e cargos que já existirem com o mesmo nome são atualizados, não duplicados. Cada pessoa fica no cargo e setor indicados; os níveis vêm da planilha (E → 4, Q → 3, T → 2, data → treino planejado). Montadores que não estão na planilha entram em Montador GNV I, sem nível, para avaliação.</p>`,
+      footer: `<button class="btn ghost" data-close>Cancelar</button><button class="btn primary" id="saveBtn">${ic('check')}Cadastrar tudo</button>`,
+    });
+    Icons.apply(card); $$('[data-pk]', card).forEach((s2) => ccSelect(s2, { search: true, icon: 'users' }));
+    $('#saveBtn', card).onclick = () => {
+      const escolha = pk.pessoas.map((p, i) => $(`[data-pk="${i}"]`, card).value);
+      const usados = escolha.filter((x) => x && x !== 'novo'); const dup = usados.find((x, i) => usados.indexOf(x) !== i);
+      if (dup) return toast(`${rhNome(dup)} foi escolhido para duas pessoas da lista`, 'warn');
+      const r = fxAplicarPacote(pk, escolha, $('[name="nomeCompleto"]', card).checked);
+      closeModal(); toast(`Cadastro feito: ${r.setores} setor(es) novo(s), ${r.cargos} cargo(s), ${r.ativ} atividade(s), ${r.novos} pessoa(s) nova(s), ${r.atualizados} atualizada(s), ${r.niveis} nível(is)`);
+      fxSetF('todos'); go(currentRoute);
+    };
+  }
+  function fxAplicarPacote(pk, escolha, nomeCompleto) {
+    const res = { setores: 0, cargos: 0, ativ: 0, novos: 0, atualizados: 0, niveis: 0 }; const hoje = rhHoje(); const quem = (typeof pvMe === 'function' && pvMe()) || '';
+    // setores
+    const S = {};
+    pk.setores.forEach((n) => { const e = fxSetorExistente(n); if (e) S[n] = e.nome; else { Store.add('rhSetores', { id: 'rs_' + rhSlug(n), nome: n, responsavelId: '' }); S[n] = n; res.setores++; } });
+    // atividades
+    const A = {}; const kA = (x) => [x.setor, x.etapa, x.nome].map(fxNorm).join('|');
+    pk.atividades.forEach((x) => {
+      const setor = S[x.setor] || x.setor;
+      let t = fxAtividades().find((y) => fxSet(y) === setor && fxNorm(fxEtapa(y)) === fxNorm(x.etapa) && fxNorm(y.nome) === fxNorm(x.nome));
+      const base = { tipo: RH_OP, setor, etapa: x.etapa, ordem: x.ordem };
+      if (t) Store.update('rhTreinos', t.id, base); else { t = Store.add('rhTreinos', { nome: x.nome, cargaHoras: 1, validadeMeses: 0, minimo: 2, critico: false, ...base }); res.ativ++; }
+      A[kA(x)] = t.id;
+    });
+    // cargos
+    const C = {};
+    pk.cargos.forEach((x) => {
+      const setor = S[x.setor] || x.setor; const ats = x.atividades.map((a) => A[kA(a)]).filter(Boolean);
+      let c = rhList('rhCargos').find((y) => fxNorm(y.nome) === fxNorm(x.nome));
+      if (c) Store.update('rhCargos', c.id, { setor, ordem: x.ordem, minimo: c.minimo || x.minimo || 2, atividades: [...new Set((Array.isArray(c.atividades) ? c.atividades : []).concat(ats))] });
+      else { c = Store.add('rhCargos', { nome: x.nome, setor, treinos: [], minimo: x.minimo || 2, ordem: x.ordem, atividades: ats }); res.cargos++; }
+      C[x.nome] = c;
+    });
+    // pessoas
+    const P = {};
+    pk.pessoas.forEach((p, i) => {
+      const esc0 = escolha[i]; if (!esc0) return; const c = p.cargo && C[p.cargo]; const setor = c ? c.setor : (S[p.setor] || p.setor || '');
+      const vinc = c ? { cargoId: c.id, role: c.nome, sector: setor } : {};
+      if (esc0 === 'novo') { const u = Store.add('team', { name: p.nome, email: '', sector: setor, contrato: 'PJ', situacao: 'ativo', vpn: false, engServer: false, machineId: '', ...vinc }); P[p.pj] = u.id; res.novos++; return; }
+      const u = rhPessoa(esc0); if (!u) return;
+      const patch = { ...vinc }; if (nomeCompleto && p.nome.length > (u.name || '').length) patch.name = p.nome;
+      Store.update('team', u.id, patch); P[p.pj] = u.id; res.atualizados++;
+    });
+    // níveis
+    pk.niveis.forEach((n) => {
+      const uid = P[n.pessoa]; const tid = A[kA({ setor: n.setor, etapa: n.etapa, nome: n.atividade })]; if (!uid || !tid) return;
+      const h = rhHab(tid, uid); if (h && Number(h.nivel) === n.nivel && (h.planejado || '') === (n.planejado || '')) return;
+      const hist = ((h && h.hist) || []).concat([{ nivel: n.nivel, data: hoje, obs: 'Cadastro inicial · planilha FRM-051-02', em: new Date().toISOString(), reg: quem }]);
+      const obj = { postoId: tid, colaboradorId: uid, nivel: n.nivel, data: hoje, planejado: n.planejado || '', hist };
+      if (h) Store.update('rhHabil', h.id, obj); else Store.add('rhHabil', { id: rhHabId(tid, uid), ...obj });
+      res.niveis++;
+    });
+    return res;
+  }
+
   // ---------- Página ----------
   let fxSetSel = null;
   const fxSetF = (s) => { fxSetSel = s; try { localStorage.setItem('cc_fx_setor', s); } catch (e) {} };
@@ -3994,16 +4081,16 @@
     if (fxSetSel !== 'todos' && !setores.includes(fxSetSel)) fxSetSel = 'todos';
     const setor = fxSetSel;
     pageShell('RH', 'Polivalência', setor === 'todos' ? 'Mapa de flexibilidade por setor · FRM-051-02' : `Mapa de flexibilidade · ${setor}`,
-      `${podeTr ? `<button class="btn" id="fxImp">${ic('upload')}Importar planilha</button>` : ''}<button class="btn" id="fxExp">${ic('download')}Exportar Excel</button>${setor !== 'todos' ? `<button class="btn" id="fxPr">${ic('file')}Imprimir</button>` : ''}${podeTr ? `<button class="btn primary" id="fxNova">${ic('plus')}Nova atividade</button>` : ''}`);
-    if (podeTr) { $('#fxImp').onclick = fxImportar; $('#fxNova').onclick = () => rhFormTreino({ tipo: RH_OP, setor: setor === 'todos' ? '' : setor }); }
+      `${podeTr ? `<button class="btn" id="fxPk">${ic('users')}Cadastro Convergas</button><button class="btn" id="fxImp">${ic('upload')}Importar planilha</button>` : ''}<button class="btn" id="fxExp">${ic('download')}Exportar Excel</button>${setor !== 'todos' ? `<button class="btn" id="fxPr">${ic('file')}Imprimir</button>` : ''}${podeTr ? `<button class="btn primary" id="fxNova">${ic('plus')}Nova atividade</button>` : ''}`);
+    if (podeTr) { $('#fxPk').onclick = fxCarregarConvergas; $('#fxImp').onclick = fxImportar; $('#fxNova').onclick = () => rhFormTreino({ tipo: RH_OP, setor: setor === 'todos' ? '' : setor }); }
     $('#fxExp').onclick = () => (setores.length ? fxExportar(setor === 'todos' ? setores : [setor]) : toast('Cadastre ou importe as atividades primeiro', 'warn'));
     if (setor !== 'todos') $('#fxPr').onclick = () => fxPrint(fxDados(setor));
 
     if (!setores.length) {
       const e = document.createElement('div'); e.className = 'tbl-wrap';
-      e.innerHTML = `${emptyState('grid', 'Mapa de flexibilidade vazio', 'Importe a planilha FRM-051-02 ou cadastre as atividades de cada setor.')}${podeTr ? `<div class="rh-sug"><button type="button" class="btn primary" id="fxImp2">${ic('upload')}Importar planilha</button><button type="button" class="btn" id="fxNova2">${ic('plus')}Cadastrar atividade</button></div>` : ''}`;
+      e.innerHTML = `${emptyState('grid', 'Mapa de flexibilidade vazio', 'Importe a planilha FRM-051-02 ou cadastre as atividades de cada setor.')}${podeTr ? `<div class="rh-sug"><button type="button" class="btn primary" id="fxPk2">${ic('users')}Cadastro Convergas</button><button type="button" class="btn" id="fxImp2">${ic('upload')}Importar planilha</button><button type="button" class="btn" id="fxNova2">${ic('plus')}Cadastrar atividade</button></div>` : ''}`;
       view.appendChild(e); Icons.apply(e);
-      if (podeTr) { $('#fxImp2', e).onclick = fxImportar; $('#fxNova2', e).onclick = () => rhFormTreino({ tipo: RH_OP }); }
+      if (podeTr) { $('#fxPk2', e).onclick = fxCarregarConvergas; $('#fxImp2', e).onclick = fxImportar; $('#fxNova2', e).onclick = () => rhFormTreino({ tipo: RH_OP }); }
       return;
     }
     const dados = new Map(setores.map((s) => [s, fxDados(s)]));
@@ -4031,7 +4118,7 @@
       graf.innerHTML = `<div class="fx-card fx-wide"><div class="fx-ch"><b>Índice de flexibilidade por setor</b><span>linha = meta ${FX_META * 100}% · clique para abrir</span></div>${fxBars(all.map((d) => ({ k: d.setor, l: d.setor, s: `${d.ativ.length} atividades · ${d.grupos.length} cargos`, v: d.indice })))}</div>`;
       view.appendChild(graf);
       const cards = document.createElement('section'); cards.className = 'fx-sets';
-      cards.innerHTML = all.map((d) => `<button type="button" class="fx-set" data-s="${esc(d.setor)}"><div class="fx-set-h">${fxRing(d.indice, 58)}<span><b>${esc(d.setor)}</b><small>${d.ativ.length} atividades · ${d.pessoas.length} pessoas</small></span><em class="fx-${fxCls(d.indice)}">${fxPct(d.indice)}</em></div>
+      cards.innerHTML = all.map((d) => `<button type="button" class="fx-set" data-s="${esc(d.setor)}"><div class="fx-set-h">${fxRing(d.indice, 58)}<span><b>${esc(d.setor)}</b><small>${d.ativ.length} atividades · ${d.pessoas.filter((p) => !p.g.apoio).length} pessoas</small></span><em class="fx-${fxCls(d.indice)}">${fxPct(d.indice)}</em></div>
         <div class="fx-set-c">${d.grupos.length ? d.grupos.map((g) => { const v = d.idxCargo(g); return `<div><span>${esc(g.c.nome)}<small>${g.pessoas.length} pessoa${g.pessoas.length === 1 ? '' : 's'}</small></span><i><i class="fx-${fxCls(v)}" style="width:${v == null ? 0 : Math.round(v * 100)}%"></i></i><b class="fx-${fxCls(v)}">${fxPct(v)}</b></div>`; }).join('') : '<p class="fx-vazio">Nenhum cargo neste setor</p>'}</div>
         <div class="fx-set-f">${!d.celulas ? '<span class="badge neutral plain">Sem avaliação</span>' : `${d.semNinguem.length ? `<span class="badge danger plain">${d.semNinguem.length} sem habilitado</span>` : ''}${d.risco.length ? `<span class="badge warn plain">${d.risco.length} em risco</span>` : '<span class="badge ok plain">Tudo coberto</span>'}`}</div></button>`).join('');
       view.appendChild(cards); Icons.apply(cards);
@@ -4055,7 +4142,7 @@
       view.appendChild(al); Icons.apply(al);
     }
     const graf = document.createElement('section'); graf.className = 'fx-graf';
-    graf.innerHTML = `<div class="fx-card"><div class="fx-ch"><b>Cobertura por cargo</b><span>habilitados ÷ mínimo</span></div>${fxBars(d.grupos.map((g) => ({ k: g.c.id, l: g.c.nome, s: `mín. ${g.min} · ${g.pessoas.length} pessoa${g.pessoas.length === 1 ? '' : 's'}`, v: d.idxCargo(g), on: fxCargoSel === g.c.id })), { vazio: 'Cadastre os cargos deste setor em Pessoas & setores' })}</div>
+    graf.innerHTML = `<div class="fx-card"><div class="fx-ch"><b>Cobertura por cargo</b><span>habilitados ÷ mínimo</span></div>${fxBars(d.grupos.map((g) => ({ k: g.c.id, l: g.c.nome, s: `${g.apoio ? 'apoio · ' + g.apoio + ' · ' : ''}mín. ${g.min} · ${g.pessoas.length} pessoa${g.pessoas.length === 1 ? '' : 's'}`, v: d.idxCargo(g), on: fxCargoSel === g.c.id })), { vazio: 'Cadastre os cargos deste setor em Pessoas & setores' })}</div>
       <div class="fx-card"><div class="fx-ch"><b>Cobertura por etapa</b><span>${d.etapas.length} etapa${d.etapas.length === 1 ? '' : 's'}</span></div>${fxBars(d.etapas.map((e) => ({ l: e.nome, s: `${e.ativ.length} atividade${e.ativ.length === 1 ? '' : 's'}`, v: d.idxEtapa(e) })))}</div>
       <div class="fx-card"><div class="fx-ch"><b>Pessoas</b><span>atividades do cargo</span></div>${fxStack(d.pessoas)}</div>`;
     view.appendChild(graf); Icons.apply(graf);
@@ -4082,7 +4169,7 @@
     const cobCell = (c) => (c ? `<td class="fx-cob fx-${fxCls(c.v)}" title="${c.hab} habilitado(s)">${fxPct(c.v)}</td>` : '<td class="fx-cob fx-na">—</td>');
     const nCols = 1 + gs.reduce((s, g) => s + Math.max(1, g.pessoas.length) + 1, 0) + 1;
     box.innerHTML = `<div class="pl-wrap fx-wrap"><table class="pl-mx fx-mx"><thead>
-      <tr><th class="pl-hp fx-col1 fx-hc0" rowspan="2">Atividade <em>${d.ativ.length}</em></th>${gs.map((g) => `<th class="fx-gh" colspan="${Math.max(1, g.pessoas.length) + 1}"><span>${esc(g.c.nome)}</span><small>mín. ${g.min} · <b class="fx-${fxCls(d.idxCargo(g))}">${fxPct(d.idxCargo(g))}</b></small></th>`).join('')}<th class="fx-ih" rowspan="2"><span>Índice</span></th></tr>
+      <tr><th class="pl-hp fx-col1 fx-hc0" rowspan="2">Atividade <em>${d.ativ.length}</em></th>${gs.map((g) => `<th class="fx-gh${g.apoio ? ' fx-apoio' : ''}" colspan="${Math.max(1, g.pessoas.length) + 1}" ${g.apoio ? `title="Cargo do setor ${esc(g.apoio)} que também faz atividades deste setor"` : ''}><span>${esc(g.c.nome)}</span><small>${g.apoio ? `apoio · ${esc(g.apoio)} · ` : ''}mín. ${g.min} · <b class="fx-${fxCls(d.idxCargo(g))}">${fxPct(d.idxCargo(g))}</b></small></th>`).join('')}<th class="fx-ih" rowspan="2"><span>Índice</span></th></tr>
       <tr>${gs.map((g) => (g.pessoas.length ? g.pessoas.map((u) => `<th class="fx-ph"><button type="button" class="fx-pb" data-u="${u.id}" title="${esc(u.name)}">${rhAvatar(u.name)}<span>${esc(rhPrimeiro(u.name))}</span></button></th>`).join('') : '<th class="fx-ph fx-vz">sem pessoas</th>') + '<th class="fx-ph fx-cobh">Cob.</th>').join('')}</tr></thead>
       <tbody>${d.etapas.map((e) => `<tr class="fx-et"><th class="pl-hp" colspan="${nCols - 1}"><span>${esc(e.nome)}</span></th><td class="fx-cob fx-${fxCls(d.idxEtapa(e))}">${fxPct(d.idxEtapa(e))}</td></tr>`
         + e.ativ.map((t) => `<tr><th class="pl-hp fx-col1"><button type="button" class="fx-an" data-t="${t.id}" title="Abrir atividade">${t.critico ? ic('alert') : ''}<span>${esc(t.nome)}</span></button></th>${gs.map((g) => { const c = d.cob(g, t);
