@@ -3656,7 +3656,7 @@
   const fxAtividades = () => rhList('rhTreinos').filter(rhIsOp);
   function fxSetores() {
     const nomes = rhSetores().map((s) => s.nome);
-    const usados = new Set(fxAtividades().map(fxSet).concat(rhList('rhCargos').map(fxSet)));
+    const usados = new Set(fxAtividades().map(fxSet));   // setor sem atividades (ex.: Diretoria) não entra no mapa
     return nomes.filter((n) => usados.has(n)).concat([...usados].filter((n) => !nomes.includes(n)).sort());
   }
   function fxDados(setor) {
@@ -3668,7 +3668,7 @@
     const ativos = rhAtivos();
     const idsSetor = new Set(ativ.map((t) => t.id));
     const apoia = (c) => fxSet(c) !== setor && Array.isArray(c.atividades) && c.atividades.some((id) => idsSetor.has(id));
-    const doMapa = (c) => Array.isArray(c.atividades) || ativos.some((u) => u.cargoId === c.id);
+    const doMapa = (c) => ativ.some((t) => fxAplica(c, t)) && (Array.isArray(c.atividades) || ativos.some((u) => u.cargoId === c.id));
     const grupos = rhList('rhCargos').filter((c) => (fxSet(c) === setor && doMapa(c)) || apoia(c))
       .sort((a, b) => (apoia(a) ? 1 : 0) - (apoia(b) ? 1 : 0) || fxOrd(a) - fxOrd(b) || a.nome.localeCompare(b.nome))
       .map((c) => ({ c, min: fxMin(c), apoio: apoia(c) ? fxSet(c) : '', pessoas: ativos.filter((u) => u.cargoId === c.id).sort((a, b) => a.name.localeCompare(b.name)) }));
@@ -4029,7 +4029,8 @@
     let pk; try { const r = await fetch('js/seed/convergas-mapa.json', { cache: 'no-store' }); pk = await r.json(); } catch (e) { return toast('Não consegui carregar o pacote de cadastro', 'warn'); }
     const ativos = rhAtivos().slice().sort((a, b) => a.name.localeCompare(b.name));
     const setRes = pk.setores.map((n) => { const e = fxSetorExistente(n); return { n, e }; });
-    const palp = fxPalpites(pk.pessoas.map((p) => p.nome));
+    const saem = new Set(fxDesligaveis(pk).map((u) => u.id));
+    const palp = fxPalpites(pk.pessoas.map((p) => p.nome)).map((id) => (saem.has(id) ? '' : id));
     const sugestI = pk.pessoas.map((p, i) => palp[i] || (p.soVincular ? '' : 'novo'));
     const card = modal({
       title: 'Cadastro Convergas', sub: 'Mapa de flexibilidade FRM-051-02 + lista PJ 2026 · confira antes de gravar', wide: true,
@@ -4043,6 +4044,9 @@
           <p class="fx-imp-n" style="margin:0 0 8px">Cargos do sistema que não estão no pacote. Os parecidos com um cargo do pacote (ex.: "Analista de T.I" e "Analista de TI") são juntados: pessoas e treinamentos exigidos passam para o cargo do pacote e o duplicado é apagado.</p>
           <div class="fx-imp">${ex.map((x, i) => `<div class="fx-imp-r"><span><b>${esc(x.c.nome)}</b><small>${esc(fxSet(x.c))} · ${x.n} pessoa${x.n === 1 ? '' : 's'}${(x.c.treinos || []).length ? ` · ${(x.c.treinos || []).length} treinamento(s) exigido(s)` : ''}</small></span>
             <select data-cx="${i}"><option value="">Manter como está</option>${pk.cargos.map((pc) => `<option value="${esc(pc.nome)}" ${x.alvo === pc.nome ? 'selected' : ''}>Juntar com “${esc(pc.nome)}” (${esc(pc.setor)})</option>`).join('')}</select></div>`).join('')}</div>` : ''; })()}
+        ${(() => { const sai = fxDesligaveis(pk); return sai.length ? `<div class="form-sec">${ic('x')}Não fazem mais parte da empresa</div>
+          <p class="fx-imp-n" style="margin:0 0 8px">Registra o desligamento (como em Admissão / Desligamento), com a data de hoje e a pendência "confirmar data e motivo" no checklist.</p>
+          <div class="fx-imp">${sai.map((u) => `<label class="fx-imp-r fx-desl"><span><b>${esc(u.name)}</b><small>${esc([(rhCargo(u.cargoId) || {}).nome || u.role, u.sector].filter(Boolean).join(' · ') || '—')}</small></span><span class="fx-pk-st"><input type="checkbox" data-desl="${u.id}" checked> Desligar</span></label>`).join('')}</div>` : ''; })()}
         <div class="field full" style="margin-top:14px">${sw('Atualizar o nome de quem já existe para o nome completo da lista', 'nomeCompleto', true)}</div>
         <p class="fx-imp-n">Atividades e cargos que já existirem com o mesmo nome são atualizados, não duplicados. Cada pessoa fica no cargo e setor indicados; os níveis vêm da planilha (E → 4, Q → 3, T → 2, data → treino planejado). Montadores que não estão na planilha entram em Montador GNV I, sem nível, para avaliação.</p>`,
       footer: `<button class="btn ghost" data-close>Cancelar</button><button class="btn primary" id="saveBtn">${ic('check')}Cadastrar tudo</button>`,
@@ -4055,7 +4059,8 @@
       const antigos = fxCargosAntigos(pk); const juntar = antigos.map((x, i) => ({ c: x.c, alvo: ($(`[data-cx="${i}"]`, card) || {}).value || '' })).filter((x) => x.alvo);
       const r = fxAplicarPacote(pk, escolha, $('[name="nomeCompleto"]', card).checked);
       const j = fxJuntarCargos(juntar);
-      closeModal(); toast(`Cadastro feito: ${r.setores} setor(es) novo(s), ${r.cargos} cargo(s), ${r.ativ} atividade(s), ${r.novos} pessoa(s) nova(s), ${r.atualizados} atualizada(s), ${r.niveis} nível(is)${j ? ` · ${j} cargo(s) duplicado(s) juntado(s)` : ''}`);
+      const des = $$('[data-desl]', card).filter((x) => x.checked).map((x) => x.dataset.desl); fxDesligar(des);
+      closeModal(); toast(`Cadastro feito: ${r.setores} setor(es) novo(s), ${r.cargos} cargo(s), ${r.ativ} atividade(s), ${r.novos} pessoa(s) nova(s), ${r.atualizados} atualizada(s), ${r.niveis} nível(is)${j ? ` · ${j} cargo(s) duplicado(s) juntado(s)` : ''}${des.length ? ` · ${des.length} desligamento(s)` : ''}`);
       fxSetF('todos'); go(currentRoute);
     };
   }
@@ -4087,6 +4092,22 @@
       Store.remove('rhCargos', c.id); n++;
     });
     return n;
+  }
+  // pessoas do pacote "desligar": colaborador ativo com esse primeiro nome (e só ele)
+  function fxDesligaveis(pk) {
+    return (pk.desligar || []).map((n) => { const l = rhAtivos().filter((u) => fxPessoaScore(n, u) >= 3); return l.length === 1 ? l[0] : null; }).filter(Boolean);
+  }
+  // mesmo registro da tela Admissão / Desligamento
+  function fxDesligar(ids) {
+    const hoje = rhHoje();
+    ids.forEach((pid) => {
+      const u = rhPessoa(pid); if (!u || u.situacao === 'desligado') return;
+      Store.add('rhMovs', { tipo: 'desligamento', colaboradorId: pid, nome: u.name, data: hoje, motivo: 'Outro', aviso: '', obs: 'Registrado pelo Cadastro Convergas: não faz mais parte da empresa.',
+        checklist: [{ t: 'Confirmar data e motivo do desligamento', done: false }], status: 'andamento', criadoEm: new Date().toISOString() });
+      Store.update('team', pid, { situacao: 'desligado', desligamento: hoje, motivoDesligamento: 'Outro', gestorId: '' });
+      rhList('team').filter((x) => x.gestorId === pid).forEach((x) => Store.update('team', x.id, { gestorId: '' }));
+      rhList('rhVeiculos').filter((v) => v.responsavelId === pid).forEach((v) => Store.update('rhVeiculos', v.id, { responsavelId: '' }));
+    });
   }
   function fxAplicarPacote(pk, escolha, nomeCompleto) {
     const res = { setores: 0, cargos: 0, ativ: 0, novos: 0, atualizados: 0, niveis: 0 }; const hoje = rhHoje(); const quem = (typeof pvMe === 'function' && pvMe()) || '';

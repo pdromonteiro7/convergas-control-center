@@ -9,7 +9,8 @@
   "Supply Chain (PCP)",
   "Comercial",
   "Engenharia",
-  "Administrativo"
+  "Administrativo",
+  "Diretoria"
  ],
  "atividades": [
   {
@@ -3484,6 +3485,16 @@
     "lista PJ"
    ],
    "atividades": []
+  },
+  {
+   "nome": "Diretor",
+   "setor": "Diretoria",
+   "minimo": 2,
+   "ordem": 20,
+   "fonte": [
+    "informado pela empresa"
+   ],
+   "atividades": []
   }
  ],
  "pessoas": [
@@ -3657,11 +3668,17 @@
   },
   {
    "pj": "ANDRE BERMUDO",
-   "nome": "Andre Bermudo",
-   "funcao": "(planilha FRM-051-02)",
+   "nome": "André Bermudo",
+   "funcao": "Diretor (planilha: Diretor comercial)",
    "cargo": "Diretor comercial",
-   "setor": "Comercial",
-   "soVincular": true
+   "setor": "Comercial"
+  },
+  {
+   "pj": "TONY BERMUDO",
+   "nome": "Tony Bermudo",
+   "funcao": "Diretor",
+   "cargo": "Diretor",
+   "setor": "Diretoria"
   }
  ],
  "niveis": [
@@ -6097,5 +6114,10 @@
    "nivel": 3,
    "planejado": ""
   }
+ ],
+ "desligar": [
+  "Leonardo",
+  "Albino",
+  "Gaetano"
  ]
 }
