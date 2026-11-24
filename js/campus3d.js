@@ -142,6 +142,7 @@
       trim: M({ color: '#1E7A48', roughness: .45 }),
       gnvCap: M({ color: '#D9DEE4', roughness: .25, metalness: .8 }),
       steel: M({ color: '#7D8896', roughness: .35, metalness: .7 }),
+      plate: M({ color: '#C9D0D8', roughness: .3, metalness: .85 }),
       redBox: M({ color: '#C8333A', roughness: .45, metalness: .2 }),
       drum: M({ color: '#2E6FB8', roughness: .5, metalness: .2 }),
       orange: M({ color: '#F07A22', roughness: .6 }),
@@ -326,19 +327,28 @@
         const v = cyl(.045, .045, .14, M.gnvCap, cx, cy, ez + sd * .04, g, 8); v.rotation.x = Math.PI / 2;
         box(.18, .03, .03, M.gnvCap, cx, cy, ez + sd * .1, g, false); box(.03, .03, .1, M.gnvCap, cx + .08, cy, ez + sd * .12, g, false); });
     };
-    const rk = opt.rack == null ? 6 : opt.rack;
-    const slots = [[.6, 1.5], [1.2, 1.5], [.6, 2.12], [1.2, 2.12], [.6, 2.74], [1.2, 2.74]];
-    slots.slice(0, rk).forEach(([cx, cy]) => cil(cx, cy, 0, 1.72, 'z', .29, [-.3, .3], true));
-    // quadro do rack: colunas, travessas por fileira e tubulação das válvulas
-    [.25, 1.55].forEach((fx) => [-1, 1].forEach((sd) => box(.08, 2.3, .08, M.black, fx, 2.1, sd * .98, g)));
-    [1.16, 1.81, 2.43, 3.06].forEach((fy) => [-1, 1].forEach((sd) => box(1.38, .06, .06, M.black, .9, fy, sd * .98, g, false)));
-    box(.08, .08, 2.04, M.black, .25, 3.06, 0, g, false); box(.08, .08, 2.04, M.black, 1.55, 3.06, 0, g, false);
-    [-1, 1].forEach((sd) => { box(.03, 1.32, .03, M.gnvCap, .9, 2.12, sd * 1.21, g, false); slots.slice(0, rk).forEach(([cx, cy]) => box(Math.abs(cx - .9) + .02, .025, .025, M.gnvCap, (cx + .9) / 2, cy + .1, sd * 1.21, g, false)); });
-    // cilindros compridos na lateral do chassi, com cintas e suportes
+    // rack atrás da cabine: 5 cilindros (2 embaixo, 2 no meio, 1 em cima do lado da cabine), deitados de lado
+    const rk = opt.rack == null ? 5 : opt.rack;
+    const slots = [[.2, 1.48], [.78, 1.48], [.2, 2.04], [.78, 2.04], [.78, 2.6]];
+    slots.slice(0, rk).forEach(([cx, cy]) => cil(cx, cy, 0, 1.72, 'z', .27, [-.3, .3], true));
+    // quadro preto: colunas em U, prateleiras por fileira e mão-francesa diagonal para trás
+    [-.12, .49, 1.1].forEach((fx, i) => [-1, 1].forEach((sd) => box(i === 1 ? .1 : .12, i === 2 ? 2.15 : 1.6, .1, M.black, fx, i === 2 ? 2.0 : 1.75, sd * .93, g)));
+    [1.18, 1.76, 2.32].forEach((fy) => [-1, 1].forEach((sd) => box(1.3, .07, .1, M.black, .49, fy, sd * .93, g, false)));
+    [-1, 1].forEach((sd) => { box(.66, .07, .1, M.black, .8, 2.88, sd * .93, g, false);
+      const d = box(.07, 2.05, .07, M.black, .48, 2.1, sd * .97, g, false); d.rotation.z = -Math.atan2(1.25, 1.6); });   // mão-francesa: do topo (lado da cabine) até a base traseira
+    box(1.3, .1, 2.0, M.black, .49, 1.12, 0, g);                                  // base do rack
+    // tubulação prateada entre as válvulas (dos dois lados)
+    [-1, 1].forEach((sd) => { const zz = sd * 1.2; const usados = slots.slice(0, rk);
+      if (usados.length) { const ys = usados.map((x) => x[1]); box(.03, Math.max(...ys) - 1.25 + .1, .03, M.gnvCap, .49, (Math.max(...ys) + 1.25) / 2, zz, g, false);
+        usados.forEach(([cx, cy]) => box(Math.abs(cx - .49) + .03, .025, .025, M.gnvCap, (cx + .49) / 2, cy - .12, zz, g, false)); } });
+    // laterais: 2 cilindros de cada lado (um em cima do outro), com abraçadeiras pretas, chapa xadrez em cima e regulador atrás
     if (opt.lateral !== false) [-1, 1].forEach((sd) => {
-      [.6, 1.06].forEach((cy) => cil(-.3, cy, sd * .82, 2.0, 'x', .21, [-.33, 0, .33]));
-      [-.96, -.3, .36].forEach((sx) => box(.07, .78, .08, M.black, sx, .83, sd * .58, g, false));
-      box(.05, .05, .2, M.gnvCap, .85, 1.06, sd * .72, g, false);
+      const zc = sd * .8;
+      [.5, .93].forEach((cy) => cil(.1, cy, zc, 1.75, 'x', .21));
+      [-.62, .1, .82].forEach((sx) => { box(.16, .98, .5, M.black, sx, .72, zc, g); box(.17, .06, .3, M.steel, sx, .9, zc + sd * .25, g, false); });
+      box(1.7, .035, .5, M.plate, .1, 1.22, zc, g);                              // degrau de chapa xadrez
+      const r = cyl(.1, .1, .22, M.gnvCap, -1.0, .93, zc, g, 12); r.rotation.z = Math.PI / 2; box(.12, .18, .16, M.steel, -1.12, .93, zc, g, false);
+      box(.55, .05, .3, M.plate, 1.45, .55, sd * 1.05, g, false);                // degrau da cabine
     });
     // quinta roda
     cyl(.52, .52, .1, M.black, -2.15, 1.06, 0, g, 24); box(.5, .03, .14, M.steel, -2.35, 1.12, 0, g, false);
@@ -533,7 +543,7 @@
       baias.forEach((bx, i) => {
         const tz = bz + bd / 2, noElev = i === 0;
         if (noElev) lift(M, bx - .4, tz, g, 4.2);
-        truck(M, bx, tz, g, { y: noElev ? .55 : 0, rack: noElev ? 6 : 3, lateral: noElev });
+        truck(M, bx, tz, g, { y: noElev ? .55 : 0, rack: noElev ? 5 : 2, lateral: noElev });
         if (!noElev) { box(1.2, .14, 1.0, M.wood, bx + .9, .08, tz + 2.05, g); [-.25, .25].forEach((cz) => { const c = cyl(.29, .29, 1.5, M.gnv, bx + .9, .45, tz + 2.05 + cz * 1.1, g, 16); c.rotation.z = Math.PI / 2; }); }   // cilindros esperando instalação
         grid.block(bx - 3.75, tz - 1.85, bx + 3.65, tz + 1.85);
         if (!noElev) grid.block(bx - .1, tz + 1.4, bx + 1.9, tz + 2.75);
