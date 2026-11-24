@@ -3545,3 +3545,10 @@ html.th-sw *, html.th-sw *::before, html.th-sw *::after { transition: none !impo
 .pl-mx thead th, .pl-mx .pl-hp, .pl-mx tbody td { background: var(--pl-solid); }
 .pl-mx tbody tr:nth-child(even) th.pl-hp, .pl-mx tbody tr:nth-child(even) td { background: color-mix(in srgb, var(--text) 2%, var(--pl-solid)); }
 .pl-mx tbody tr:hover td, .pl-mx tbody tr:hover th.pl-hp { background: color-mix(in srgb, var(--accent) 6%, var(--pl-solid)); }
+/* bloco de indicadores mensais no Painel de cada área */
+.sx-bloco { margin-top: 16px; }
+.sx-by { display: inline-flex; align-items: center; gap: 6px; margin-left: 10px; } .sx-by b { font-size: .86rem; min-width: 36px; text-align: center; color: var(--text); }
+.sx-by .icon-btn { width: 28px; height: 28px; } .sx-by [data-y="-1"] svg { transform: rotate(180deg); }
+.sx-bloco .sx-svg { height: 260px; }
+.sx-mb .sx-lc { box-shadow: none; }
+@media (max-width: 760px) { .sx-bloco .sx-svg { height: 200px; } .sx-bloco .sx-h { flex-wrap: wrap; } }

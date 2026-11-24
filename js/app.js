@@ -2983,7 +2983,7 @@
     $('#sxPrev', tb).onclick = () => { sxAno--; go(cx.rota); }; $('#sxNext', tb).onclick = () => { sxAno++; go(cx.rota); };
     $('#sxPrint').onclick = () => sxImprimir(ano, vals, cx);
     const box = document.createElement('div'); view.appendChild(box);
-    if (tab === 'lanc') return sxLancamentos(box, ano, vals, cx);
+    if (tab === 'lanc') return sxLancamentos(box, ano, vals, { ...cx, lista: cx.lancLista || L });
     // resumo do período
     const mesAtual = String(ano) === todayISO().slice(0, 4) ? Number(todayISO().slice(5, 7)) : 12;
     const pick = (arr, conta) => { if (sxPer === 12) { const l = arr.filter((v) => v != null); return conta ? l.reduce((a, b) => a + b, 0) : sxAvg(l); } return arr[sxPer]; };
@@ -2994,18 +2994,49 @@
       <div class="sx-grid${L.length === 1 ? ' um' : ''}">${L.map((S, si) => `<section class="pvp-card sx-card" style="--c:${S.c};--d:${si * 50}ms" data-s="${S.id}">
         <div class="sx-h"><span class="sx-hi">${ic(S.i)}</span><b>${esc(S.n)}</b>${S.series.some((s) => s.fonte === 'manual') ? `<button type="button" class="sx-lk" data-lanc="${S.id}">${ic('edit')}Lançar</button>` : ''}</div>
         <div class="sx-leg">${S.series.map((s) => `<span><i class="${s.tipo}${s.dash ? ' dash' : ''}" style="--c:${s.cor}"></i>${esc(s.t)}${s.fonte === 'manual' ? '' : `<em title="${esc(s.como || '')}">auto</em>`}</span>`).join('')}</div>
-        <div class="sx-ch">${sxChart(S, vals, L.length === 1 ? 1120 : 560)}<div class="sx-tip" hidden></div></div></section>`).join('')}</div>`;
+        <div class="sx-ch">${sxChart(S, vals, L.length === 1 && innerWidth >= 760 ? 1120 : 560)}<div class="sx-tip" hidden></div></div></section>`).join('')}</div>`;
     Icons.apply(box);
     const per = $('#sxPer', box); per.value = String(sxPer); ccSelect(per, { icon: 'calendar' }); per.addEventListener('change', () => { sxPer = Number(per.value); go(cx.rota); });
-    $$('[data-lanc]', box).forEach((b) => (b.onclick = () => { sxTab[cx.rota] = 'lanc'; sessionStorage.setItem('sx_foco', b.dataset.lanc); go(cx.rota); }));
+    $$('[data-lanc]', box).forEach((b) => (b.onclick = () => { const dest = (cx.lancarEm || {})[b.dataset.lanc];
+      if (dest) { sessionStorage.setItem('sx_lanc_abrir', b.dataset.lanc); navTo(dest); return; }
+      sxTab[cx.rota] = 'lanc'; sessionStorage.setItem('sx_foco', b.dataset.lanc); go(cx.rota); }));
     // dica ao passar o mouse
-    $$('.sx-card', box).forEach((card) => {
-      const S = L.find((x) => x.id === card.dataset.s); const tip = $('.sx-tip', card); const ch = $('.sx-ch', card);
-      $$('.sx-hit', card).forEach((h) => { h.onmouseenter = () => { const i = +h.dataset.i;
-        tip.innerHTML = `<b>${MES_L[i]} ${ano}</b>${S.series.map((s) => `<span><i style="--c:${s.cor}"></i>${esc(s.t)}<em>${sxFmt(vals[`${S.id}.${s.k}`][i], s.u)}</em></span>`).join('')}`;
-        tip.hidden = false; const r = h.getBoundingClientRect(), rc = ch.getBoundingClientRect(); const x = r.left - rc.left + r.width / 2; tip.style.left = Math.min(Math.max(8, x - 95), rc.width - 198) + 'px'; };
-        h.onmouseleave = () => { tip.hidden = true; }; });
-    });
+    $$('.sx-card', box).forEach((card) => sxBindTip(card, L.find((x) => x.id === card.dataset.s), vals, ano));
+  }
+  function sxBindTip(card, S, vals, ano) {
+    const tip = $('.sx-tip', card); const ch = $('.sx-ch', card); if (!tip || !ch) return;
+    $$('.sx-hit', card).forEach((h) => { h.onmouseenter = () => { const i = +h.dataset.i;
+      tip.innerHTML = `<b>${MES_L[i]} ${ano}</b>${S.series.map((s) => `<span><i style="--c:${s.cor}"></i>${esc(s.t)}<em>${sxFmt(vals[`${S.id}.${s.k}`][i], s.u)}</em></span>`).join('')}`;
+      tip.hidden = false; const r = h.getBoundingClientRect(), rc = ch.getBoundingClientRect(); const x = r.left - rc.left + r.width / 2; tip.style.left = Math.min(Math.max(8, x - 95), rc.width - 198) + 'px'; };
+      h.onmouseleave = () => { tip.hidden = true; }; });
+  }
+  // bloco "Indicadores mensais" no Painel de cada área (o setor lança e acompanha os próprios números)
+  const SX_BLOCO_ANO = {};
+  function sxLancModal(S, ano) {
+    const card = modal({ title: `Lançamentos · ${S.n}`, sub: String(ano), wide: true, body: '<div class="sx-mb"></div>', footer: `<button class="btn primary" id="sxMOk">${ic('check')}Concluir</button>` });
+    sxLancamentos($('.sx-mb', card), ano, sxValores(ano, [S]), { lista: [S] });
+    const fim = () => { closeModal(); go(currentRoute); };
+    $('#sxMOk', card).onclick = fim; $$('[data-close]', card).forEach((b) => (b.onclick = fim));
+  }
+  function sxBlocoArea(sid) {
+    const S = SX.find((x) => x.id === sid); if (!S || !view) return;
+    const sec = document.createElement('section'); sec.className = 'pvp-card sx-card sx-bloco'; sec.style.setProperty('--c', S.c); sec.dataset.s = sid;
+    view.appendChild(sec);
+    const render = () => {
+      const ano = SX_BLOCO_ANO[sid] || Number(todayISO().slice(0, 4));
+      const vals = sxValores(ano, [S]); sxGuardarRetrato(ano, vals, [S]);
+      const pode = S.series.some((s) => s.fonte === 'manual') && Perm.podeGravar(sxColl(S));
+      sec.innerHTML = `<div class="sx-h"><span class="sx-hi">${ic('activity')}</span><b>Indicadores mensais</b>
+        <span class="sx-by"><button type="button" class="icon-btn" data-y="-1" aria-label="Ano anterior">${ic('chevron')}</button><b>${ano}</b><button type="button" class="icon-btn" data-y="1" aria-label="Próximo ano">${ic('chevron')}</button></span>
+        ${pode ? `<button type="button" class="sx-lk" data-lanc>${ic('edit')}Lançar</button>` : ''}</div>
+        <div class="sx-leg">${S.series.map((s) => `<span><i class="${s.tipo}${s.dash ? ' dash' : ''}" style="--c:${s.cor}"></i>${esc(s.t)}${s.fonte === 'manual' ? '' : `<em title="${esc(s.como || '')}">auto</em>`}</span>`).join('')}</div>
+        <div class="sx-ch">${sxChart(S, vals, innerWidth < 760 ? 560 : 1120)}<div class="sx-tip" hidden></div></div>`;
+      Icons.apply(sec); sxBindTip(sec, S, vals, ano);
+      $$('[data-y]', sec).forEach((b) => (b.onclick = () => { SX_BLOCO_ANO[sid] = ano + Number(b.dataset.y); render(); }));
+      const lk = $('[data-lanc]', sec); if (lk) lk.onclick = () => sxLancModal(S, ano);
+    };
+    render();
+    if (sessionStorage.getItem('sx_lanc_abrir') === sid) { sessionStorage.removeItem('sx_lanc_abrir'); setTimeout(() => { sec.scrollIntoView({ behavior: 'smooth', block: 'center' }); if (Perm.podeGravar(sxColl(S))) sxLancModal(S, SX_BLOCO_ANO[sid] || Number(todayISO().slice(0, 4))); }, 450); }
   }
   function sxLancamentos(box, ano, vals, cx) {
     const L = cx.lista; const pode = L.some((S) => Perm.podeGravar(sxColl(S)));
@@ -3040,16 +3071,18 @@
   }
 
   // Qualidade: painel com os setores da casa
-  PAGES['qa-setores'] = () => sxPagina({ rota: 'qa-setores', crumb: 'Qualidade', titulo: 'Painel por setor', sub: 'Indicadores mensais de cada setor.', lista: SX.filter((S) => S.id !== 'log'),
-    tiles: ({ pick, vals, rncTot, tile }) => { const disp = pick(vals['man.disp']); const comp = pick(vals['rh.pct_comp']); const ac = pick(vals['qual.acoes'], true);
+  // visão geral de todos os setores (consulta e análise crítica); cada setor lança na própria área
+  PAGES['qa-setores'] = () => sxPagina({ rota: 'qa-setores', crumb: 'Qualidade', titulo: 'Painel por setor', sub: 'Visão geral dos indicadores de todos os setores.', lista: SX,
+    lancarEm: { eng: 'eng-painel', man: 'manutencao-home', log: 'sup-painel' }, lancLista: SX.filter((S) => S.id === 'prod'),
+    tiles: ({ pick, vals, rncTot, tile }) => { const disp = pick(vals['man.disp']); const comp = pick(vals['rh.pct_comp']); const ent = pick(vals['log.entregas']);
       const engPz = (() => { const a = pick(vals['eng.prazo_real']), b = pick(vals['eng.prazo_est']); return a != null && b != null ? a - b : null; })();
-      return tile(rncTot ? 't-warn' : 't-ok', 'alert', rncTot, 'RNCs no período', 'Engenharia, Produção e Qualidade')
-        + tile('t-info', 'check', ac || 0, 'Ações corretivas', 'respondidas no período')
+      return tile(rncTot ? 't-warn' : 't-ok', 'alert', rncTot, 'RNCs no período', 'todos os setores')
+        + tile(ent == null ? '' : ent >= 95 ? 't-ok' : ent >= 85 ? 't-warn' : 't-danger', 'box', sxFmt(ent, '%'), 'Entregas no prazo', 'Suprimentos')
         + tile(disp == null ? '' : disp >= 95 ? 't-ok' : 't-warn', 'wrench', sxFmt(disp, '%'), 'Disponibilidade', 'Manutenção')
         + tile(comp == null ? '' : comp >= 95 ? 't-ok' : comp >= 80 ? 't-warn' : 't-danger', 'users', sxFmt(comp, '%'), 'Equipe competente', 'RH')
         + tile(engPz == null ? '' : engPz <= 0 ? 't-ok' : 't-warn', 'settings', engPz == null ? '—' : (engPz > 0 ? '+' : '') + sxFmt(engPz, 'd'), 'Desvio de prazo', 'Engenharia · real − previsto'); } });
   // Suprimentos: entregas, estoque e RNC
-  PAGES['sup-painel'] = () => { sxMigrarSup(); sxPagina({ rota: 'sup-painel', crumb: 'Suprimentos', titulo: 'Indicadores', sub: 'Entregas, estoque e RNC de Suprimentos.', lista: SX.filter((S) => S.id === 'log'), nTiles: 4,
+  PAGES['sup-painel'] = () => { sxMigrarSup(); if (sessionStorage.getItem('sx_lanc_abrir') === 'log') { sessionStorage.removeItem('sx_lanc_abrir'); sxTab['sup-painel'] = 'lanc'; } sxPagina({ rota: 'sup-painel', crumb: 'Suprimentos', titulo: 'Indicadores', sub: 'Entregas, estoque e RNC de Suprimentos.', lista: SX.filter((S) => S.id === 'log'), nTiles: 4,
     tiles: ({ pick, vals, rncTot, tile }) => { const ent = pick(vals['log.entregas']); const est = pick(vals['log.estoque']); const meses = vals['log.entregas'].filter((v) => v != null).length;
       return tile(ent == null ? '' : ent >= 95 ? 't-ok' : ent >= 85 ? 't-warn' : 't-danger', 'calendar', sxFmt(ent, '%'), 'Entregas no prazo', 'meta 95%')
         + tile(est == null ? '' : est >= 98 ? 't-ok' : est >= 95 ? 't-warn' : 't-danger', 'box', sxFmt(est, '%'), 'Acuracidade de estoque', 'meta 98%')
@@ -9113,6 +9146,10 @@
       { label: 'Projetos', items: [ { r: 'eng-painel', t: 'Painel', s: 'Painel', i: 'grid' }, { r: 'eng-projetos', t: 'Projetos', s: 'Projetos', i: 'settings' } ] },
     ] },
   };
+  [['eng-painel', 'eng'], ['manutencao-home', 'man'], ['rh-painel', 'rh'], ['qa-dashboard', 'qual']].forEach(([r, sid]) => {
+    const base = PAGES[r]; if (!base) return;
+    PAGES[r] = () => { const ret = base(); try { sxBlocoArea(sid); } catch (e) { console.warn(e); } return ret; };
+  });
   const TITLES = {}; const ROUTE_AREA = {};
   Object.keys(NAV).forEach((area) => NAV[area].groups.forEach((g) => g.items.forEach((it) => { TITLES[it.r] = it.t; if (it.r !== 'settings') ROUTE_AREA[it.r] = area; })));
   // páginas internas (fora do menu) que pertencem a uma área
