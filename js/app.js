@@ -4287,6 +4287,7 @@
   let fxEdApoio = [];   // cargos de outro setor trazidos como apoio (aparecem até ganhar uma atividade)
   // marca/desmarca a atividade no cargo (lista "todas do setor" vira lista explícita)
   function fxSetAplica(c, ids, on) {
+    if (fxEdSel && fxSet(c) !== fxEdSel && !fxEdApoio.includes(c.id)) fxEdApoio = fxEdApoio.concat(c.id);   // apoio desmarcado não some da grade
     const base = Array.isArray(c.atividades) ? c.atividades.slice() : fxAtividades().filter((x) => fxSet(x) === fxSet(c)).map((x) => x.id);
     const nova = on ? [...new Set(base.concat(ids))] : base.filter((x) => !ids.includes(x));
     Store.update('rhCargos', c.id, { atividades: nova });
