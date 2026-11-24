@@ -2391,17 +2391,34 @@
           ${field('Requisitos (escolaridade, experiência)', 'requisitos', c.requisitos, 'textarea', { full: true, ph: 'Ex.: Técnico em mecânica; CNH B' })}
         </div>
         <div class="form-sec">${ic('award')}Treinamentos exigidos para o cargo</div>
-        <div class="rh-chk">${tr.map((t) => `<button type="button" class="rh-chk-i${set.has(t.id) ? ' on' : ''}" data-t="${t.id}"><i>${ic('check')}</i><span><b>${esc(t.nome)}</b><small>${esc(t.tipo)}${t.validadeMeses ? ' · reciclagem a cada ' + t.validadeMeses + ' meses' : ' · sem vencimento'}</small></span></button>`).join('')}</div>`,
+        <div class="rh-chk">${tr.filter((t) => !rhIsOp(t)).map((t) => `<button type="button" class="rh-chk-i${set.has(t.id) ? ' on' : ''}" data-t="${t.id}"><i>${ic('check')}</i><span><b>${esc(t.nome)}</b><small>${esc(t.tipo)}${t.validadeMeses ? ' · reciclagem a cada ' + t.validadeMeses + ' meses' : ' · sem vencimento'}</small></span></button>`).join('')}</div>
+        <div class="form-sec">${ic('grid')}Polivalência · atividades do cargo</div>
+        <div class="form-grid">${field('Mínimo de habilitados por atividade', 'minimo', c.minimo || 2, 'text', { hint: 'Ex.: 2 → com só 1 pessoa habilitada a cobertura fica em 50%' })}</div>
+        <div id="fxAt"></div>`,
       footer: (editing ? `<button class="btn danger ghost" id="delBtn" style="margin-right:auto">${ic('trash')}Excluir</button>` : '') + submitFooter(editing),
       wide: true,
     });
     ccSelect($('[name="setor"]', card), { icon: 'grid', search: true });
     $$('.rh-chk-i', card).forEach((b) => (b.onclick = () => { const t = b.dataset.t; set.has(t) ? set.delete(t) : set.add(t); b.classList.toggle('on', set.has(t)); }));
+    rhMaskNum($('[name="minimo"]', card), 20);
+    // atividades do setor do cargo, por etapa (sem lista definida = todas marcadas)
+    const atSel = new Set(fxAtividades().filter((t) => fxAplica(c.id ? c : { setor: c.setor }, t)).map((t) => t.id));
+    const pintaAt = () => {
+      const st = $('[name="setor"]', card).value || 'Sem setor'; const at = fxAtividades().filter((t) => fxSet(t) === st);
+      const ets = [...new Set(at.map(fxEtapa))];
+      $('#fxAt', card).innerHTML = at.length ? ets.map((e) => `<div class="fx-cgE"><b>${esc(e)}</b><div class="pl-chips">${at.filter((t) => fxEtapa(t) === e).map((t) => `<button type="button" class="pl-chip${atSel.has(t.id) ? ' on' : ''}" data-at="${t.id}">${ic('check')}${esc(t.nome)}</button>`).join('')}</div></div>`).join('')
+        : `<span class="hint">${st === 'Sem setor' ? 'Escolha o setor do cargo para ver as atividades.' : 'Nenhuma atividade neste setor. Cadastre em Polivalência ou importe a planilha.'}</span>`;
+      Icons.apply($('#fxAt', card));
+      $$('[data-at]', card).forEach((b) => (b.onclick = () => { const k = b.dataset.at; atSel.has(k) ? atSel.delete(k) : atSel.add(k); b.classList.toggle('on', atSel.has(k)); }));
+    };
+    $('[name="setor"]', card).addEventListener('change', pintaAt); pintaAt();
     const del = $('#delBtn', card);
     if (del) del.onclick = () => { const n = rhList('team').filter((u) => u.cargoId === c.id).length; if (n) return toast(`${n} pessoa(s) usam este cargo — troque o cargo delas antes`, 'warn'); confirmDialog(`Excluir o cargo "${c.nome}"?`, () => { Store.remove('rhCargos', c.id); toast('Cargo excluído', 'info'); go(currentRoute); }); };
     $('#saveBtn', card).onclick = () => {
       const d = readForm(card); if (!d.nome) return toast('Informe o nome do cargo', 'warn');
-      const obj = { nome: d.nome, setor: d.setor, descricao: d.descricao, requisitos: d.requisitos, treinos: Array.from(set) };
+      const stC = d.setor || 'Sem setor';
+      const obj = { nome: d.nome, setor: d.setor, descricao: d.descricao, requisitos: d.requisitos, treinos: Array.from(set).filter((x) => { const T = Store.find('rhTreinos', x); return T && !rhIsOp(T); }).concat((c.treinos || []).filter((x) => { const T = Store.find('rhTreinos', x); return T && rhIsOp(T); })),
+        minimo: Math.max(1, rhNum(d.minimo) || 2), atividades: fxAtividades().filter((t) => fxSet(t) === stC && atSel.has(t.id)).map((t) => t.id) };
       if (editing) { Store.update('rhCargos', c.id, obj); rhList('team').filter((u) => u.cargoId === c.id && u.role !== d.nome).forEach((u) => Store.update('team', u.id, { role: d.nome })); }
       else Store.add('rhCargos', obj);
       toast(editing ? 'Cargo atualizado' : 'Cargo criado'); closeModal(); go(currentRoute);
@@ -3594,90 +3611,493 @@
         ${pend.length ? `<div class="tu-alerta">${ic('alert')}<span>Treinamento ainda não registrado. Registre antes de habilitar.</span></div>` : ''}
         <div class="form-grid">${field('Data da avaliação', 'data', h.data && niv ? h.data : rhHoje(), 'date')}
           <div class="field"><label>Liberado por (líder)</label><select name="liberadoPor"><option value="">—</option>${lideres.map((x) => `<option value="${x.id}" ${h.liberadoPor === x.id ? 'selected' : ''}>${esc(x.name)}</option>`).join('')}</select></div>
+          <div class="field" id="plPlan" ${niv === 1 ? '' : 'hidden'}><label>Treinamento planejado para</label><input name="planejado" type="date" value="${esc(h.planejado || '')}"><span class="hint">Mapa de flexibilidade: conta na aderência ao planejamento</span></div>
           ${field('Observação', 'obs', '', 'textarea', { full: true, ph: 'Ex.: acompanhou 3 lotes, sem desvios' })}</div>
         ${(h.hist || []).length ? `<div class="tu-emis"><span class="sv-msg-h">Histórico</span>${h.hist.slice().reverse().map((x) => `<div>${rhNivGlyph(x.nivel, 16)}<b>${x.nivel} · ${esc((RH_NIV[x.nivel] || RH_NIV[0]).l)}</b><span>${fmtDate(x.data)}${x.por ? ' · liberado por ' + esc(rhNome(x.por)) : ''}${x.obs ? ' · ' + esc(x.obs) : ''}</span></div>`).join('')}</div>` : ''}`,
       footer: submitFooter(true),
     });
     ccSelect($('[name="liberadoPor"]', card), { search: true, icon: 'users' }); rhLimDates(card, { data: [rhAnos(-30), rhHoje()] });
-    $$('.pl-nb', card).forEach((b) => (b.onclick = () => { niv = Number(b.dataset.n); $$('.pl-nb', card).forEach((x) => x.classList.toggle('on', x === b)); }));
+    $$('.pl-nb', card).forEach((b) => (b.onclick = () => { niv = Number(b.dataset.n); $$('.pl-nb', card).forEach((x) => x.classList.toggle('on', x === b)); $('#plPlan', card).hidden = niv !== 1; }));
     $('#saveBtn', card).onclick = () => {
       const d = readForm(card);
       if (!d.data || d.data > rhHoje()) return toast('Informe a data da avaliação', 'warn');
       if (niv >= 3 && !d.liberadoPor) return toast('Informe quem liberou a pessoa no posto', 'warn');
-      if (niv === (Number(h.nivel) || 0) && !d.obs && h.id) { closeModal(); return; }
+      const planejado = niv === 1 ? d.planejado || '' : '';
+      if (niv === (Number(h.nivel) || 0) && !d.obs && h.id && planejado === (h.planejado || '')) { closeModal(); return; }
       const hist = (h.hist || []).concat([{ nivel: niv, data: d.data, por: d.liberadoPor, obs: d.obs, em: new Date().toISOString(), reg: (typeof pvMe === 'function' && pvMe()) || '' }]);
-      const obj = { postoId: p.id, colaboradorId: u.id, nivel: niv, data: d.data, liberadoPor: d.liberadoPor, hist };
+      const obj = { postoId: p.id, colaboradorId: u.id, nivel: niv, data: d.data, liberadoPor: d.liberadoPor, planejado, hist };
       if (h.id) Store.update('rhHabil', h.id, obj); else Store.add('rhHabil', { id: rhHabId(p.id, u.id), ...obj });
       closeModal(); toast(niv >= 3 ? `${u.name.split(' ')[0]} habilitado na operação` : 'Nível atualizado'); go(currentRoute);
     };
   }
 
-  function rhPoliPrint(postos, pessoas) {
-    const sym = [0, 1, 2, 3, 4].map((n) => rhNivGlyph(n, 16));
-    const corpo = `<style>@page { size: A4 landscape; margin: 12mm; } th.v { writing-mode: vertical-rl; transform: rotate(180deg); white-space: nowrap; height: 130px; text-align: left; padding: 6px 4px; } td.c { text-align: center; width: 34px; } td.c svg, .cont svg { vertical-align: middle; } .cont svg { margin: 0 2px 0 6px; } .crit { color: #b42318; }</style>
-      <div class="info"><div><small>Operações</small><b>${postos.length}</b></div><div><small>Críticas</small><b>${postos.filter((p) => p.critico).length}</b></div><div><small>Colaboradores</small><b>${pessoas.length}</b></div><div><small>Em risco</small><b>${postos.filter((p) => rhPostoCob(p).st !== 'ok').length}</b></div></div>
-      <p class="cont">Legenda: ${RH_NIV.map((N) => `${sym[N.n]} ${N.n} ${N.l}`).join(' · ')} · <span class="crit">*</span> operação crítica. Habilitado = nível 3 ou 4.</p>
-      <table><thead><tr><th>Colaborador</th>${postos.map((p) => `<th class="v">${p.critico ? '<span class="crit">*</span> ' : ''}${esc(p.nome)}</th>`).join('')}</tr></thead><tbody>
-      ${pessoas.map((u) => `<tr><td>${esc(u.name)}<br><small style="color:#667">${esc(u.sector || '')}</small></td>${postos.map((p) => `<td class="c">${sym[rhNivel(p.id, u.id)]}</td>`).join('')}</tr>`).join('')}
-      <tr><td><b>Habilitados / mínimo</b></td>${postos.map((p) => { const cb = rhPostoCob(p); return `<td class="c" style="font-size:11px"><b class="st ${cb.st === 'ok' ? 'ok' : 'vencido'}">${cb.hab}/${cb.min}</b></td>`; }).join('')}</tr></tbody></table>
-      <div class="ass"><div>&nbsp;<small>Responsável pelo setor</small></div><div>&nbsp;<small>Recursos Humanos</small></div></div>`;
-    rhPrintDoc('Matriz de polivalência', corpo);
+  /* =========================== MAPA DE FLEXIBILIDADE (FRM-051-02) ===========================
+     A planilha FRM-051-02 dentro do Control Center. Ligação:
+       Setor → Cargos (com as pessoas) → Atividades (operações), agrupadas por Etapa.
+     Regra (Votorantini): para cada atividade, o cargo precisa de N pessoas habilitadas
+     (nível 3+; mínimo do cargo, padrão 2). Cobertura = habilitados ÷ mínimo, teto 100%.
+       ex.: mínimo 2 e só 1 habilitado → 50%; 2 ou mais → 100%.
+     Índices: da atividade, do cargo, da etapa e do setor = média das coberturas
+     (só onde a atividade se aplica ao cargo). Da pessoa = atividades do cargo em que
+     está habilitada ÷ atividades do cargo. Aderência ao planejamento = treinos
+     planejados (nível 1 com data) ainda no prazo ÷ planejados. */
+  const FX_META = 0.8;
+  const FX_LETRA = ['', 'M1', 'T', 'Q', 'E'];   // como a planilha escreve cada nível
+  const fxSet = (x) => (x && x.setor) || 'Sem setor';
+  const fxEtapa = (t) => String((t && t.etapa) || '').trim() || 'Geral';
+  const fxMin = (c) => Math.max(1, Number(c && c.minimo) || 2);
+  // atividades do cargo: lista explícita; sem lista = todas as atividades do setor do cargo
+  const fxAplica = (c, t) => (Array.isArray(c.atividades) ? c.atividades.includes(t.id) : fxSet(c) === fxSet(t));
+  const fxPct = (v) => (v == null ? '—' : Math.round(v * 100) + '%');
+  const fxCls = (v) => (v == null ? 'na' : v >= 1 ? 'ok' : v > 0 ? 'mid' : 'zero');
+  const fxAvg = (a) => (a.length ? a.reduce((s, x) => s + x, 0) / a.length : null);
+  const fxOrd = (x) => (x.ordem == null ? 9999 : Number(x.ordem));
+  const fxNorm = (s) => String(s || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-z0-9]+/g, ' ').trim();
+  const fxAtividades = () => rhList('rhTreinos').filter(rhIsOp);
+  function fxSetores() {
+    const nomes = rhSetores().map((s) => s.nome);
+    const usados = new Set(fxAtividades().map(fxSet).concat(rhList('rhCargos').map(fxSet)));
+    return nomes.filter((n) => usados.has(n)).concat([...usados].filter((n) => !nomes.includes(n)).sort());
+  }
+  function fxDados(setor) {
+    const ativ = fxAtividades().filter((t) => fxSet(t) === setor).sort((a, b) => fxOrd(a) - fxOrd(b) || fxEtapa(a).localeCompare(fxEtapa(b)) || a.nome.localeCompare(b.nome));
+    const etapas = [];
+    ativ.forEach((t) => { let e = etapas.find((x) => x.nome === fxEtapa(t)); if (!e) etapas.push((e = { nome: fxEtapa(t), ativ: [] })); e.ativ.push(t); });
+    const ordemEt = etapas.map((e) => e.ativ[0]); // etapas na ordem em que aparecem
+    void ordemEt;
+    const ativos = rhAtivos();
+    const grupos = rhList('rhCargos').filter((c) => fxSet(c) === setor).sort((a, b) => fxOrd(a) - fxOrd(b) || a.nome.localeCompare(b.nome))
+      .map((c) => ({ c, min: fxMin(c), pessoas: ativos.filter((u) => u.cargoId === c.id).sort((a, b) => a.name.localeCompare(b.name)) }));
+    const cel = new Map(); // `${cargoId}|${ativId}` → { hab, v }
+    grupos.forEach((g) => ativ.forEach((t) => {
+      if (!fxAplica(g.c, t)) return;
+      const hab = g.pessoas.filter((u) => rhNivel(t.id, u.id) >= 3).length;
+      cel.set(g.c.id + '|' + t.id, { hab, v: Math.min(1, hab / g.min) });
+    }));
+    const cob = (g, t) => cel.get(g.c.id + '|' + t.id) || null;
+    const idxAtiv = (t) => fxAvg(grupos.map((g) => cob(g, t)).filter(Boolean).map((x) => x.v));
+    const idxCargo = (g) => fxAvg(ativ.map((t) => cob(g, t)).filter(Boolean).map((x) => x.v));
+    const idxEtapa = (e) => fxAvg(e.ativ.flatMap((t) => grupos.map((g) => cob(g, t)).filter(Boolean).map((x) => x.v)));
+    const todas = [...cel.values()].map((x) => x.v);
+    const pessoas = grupos.flatMap((g) => g.pessoas.map((u) => {
+      const ap = ativ.filter((t) => fxAplica(g.c, t)); const nv = ap.map((t) => rhNivel(t.id, u.id));
+      const hab = nv.filter((n) => n >= 3).length, trein = nv.filter((n) => n === 1 || n === 2).length;
+      return { u, g, tot: ap.length, hab, trein, falta: ap.length - hab - trein, v: ap.length ? hab / ap.length : null };
+    }));
+    const ids = new Set(ativ.map((t) => t.id)); const hoje = rhHoje();
+    const plan = rhList('rhHabil').filter((h) => ids.has(h.postoId) && Number(h.nivel) === 1 && h.planejado && ativos.some((u) => u.id === h.colaboradorId));
+    const noPrazo = plan.filter((h) => h.planejado >= hoje).length;
+    const habSetor = (t) => grupos.filter((g) => fxAplica(g.c, t)).reduce((s, g) => s + g.pessoas.filter((u) => rhNivel(t.id, u.id) >= 3).length, 0);
+    const risco = ativ.filter((t) => { const v = idxAtiv(t); return v != null && v < 1; });
+    const semNinguem = ativ.filter((t) => grupos.some((g) => fxAplica(g.c, t)) && habSetor(t) === 0);
+    const soUm = ativ.filter((t) => habSetor(t) === 1);
+    return { setor, ativ, etapas, grupos, cob, idxAtiv, idxCargo, idxEtapa, pessoas, indice: fxAvg(todas), celulas: todas.length,
+      aderencia: plan.length ? noPrazo / plan.length : null, planejados: plan.length, atrasados: plan.length - noPrazo, risco, semNinguem, soUm };
+  }
+  // índice geral da empresa (todos os setores) — usado no indicador de RH
+  function fxGeral() { const v = []; fxSetores().forEach((s) => { const d = fxDados(s); d.ativ.forEach((t) => d.grupos.forEach((g) => { const c = d.cob(g, t); if (c) v.push(c.v); })); }); return { v: fxAvg(v), n: v.length }; }
+
+  // ---------- gráficos (SVG/CSS leves, seguem o tema claro/escuro) ----------
+  function fxRing(v, size) {
+    size = size || 64; const r = size / 2 - 5, C = 2 * Math.PI * r, p = v == null ? 0 : Math.max(0, Math.min(1, v));
+    return `<svg class="fx-ring fx-${fxCls(v)}" viewBox="0 0 ${size} ${size}" width="${size}" height="${size}" aria-hidden="true"><circle cx="${size / 2}" cy="${size / 2}" r="${r}" class="fx-ring-bg"/><circle cx="${size / 2}" cy="${size / 2}" r="${r}" class="fx-ring-v" stroke-dasharray="${(C * p).toFixed(1)} ${C.toFixed(1)}" transform="rotate(-90 ${size / 2} ${size / 2})"/></svg>`;
+  }
+  // barras horizontais com a linha da meta
+  function fxBars(itens, opts) {
+    opts = opts || {};
+    if (!itens.length) return `<p class="fx-vazio">${esc(opts.vazio || 'Sem dados')}</p>`;
+    return `<div class="fx-bars" style="--meta:${FX_META * 100}%">${itens.map((x) => `<button type="button" class="fx-bar${x.on ? ' on' : ''}" ${x.k ? `data-k="${esc(x.k)}"` : ''} ${x.k ? '' : 'tabindex="-1"'} title="${esc(x.l)} · ${fxPct(x.v)}${x.s ? ' · ' + esc(x.s) : ''}">
+      <span class="fx-bl">${esc(x.l)}${x.s ? `<small>${esc(x.s)}</small>` : ''}</span>
+      <span class="fx-bt"><i class="fx-${fxCls(x.v)}" style="width:${x.v == null ? 0 : Math.round(x.v * 100)}%"></i><em></em></span>
+      <b class="fx-${fxCls(x.v)}">${fxPct(x.v)}</b></button>`).join('')}</div>`;
+  }
+  // pessoas: habilitado / em treinamento / falta (barra empilhada)
+  function fxStack(ps) {
+    if (!ps.length) return `<p class="fx-vazio">Nenhuma pessoa nos cargos deste setor</p>`;
+    return `<div class="fx-stk">${ps.slice().sort((a, b) => (b.v || 0) - (a.v || 0)).map((p) => { const t = p.tot || 1;
+      return `<button type="button" class="fx-sr" data-u="${p.u.id}" title="${esc(p.u.name)} · ${p.hab} habilitado · ${p.trein} em treinamento · ${p.falta} falta">
+        <span class="fx-bl">${esc(p.u.name)}<small>${esc(p.g.c.nome)}</small></span>
+        <span class="fx-st"><i class="h" style="width:${(100 * p.hab) / t}%"></i><i class="t" style="width:${(100 * p.trein) / t}%"></i></span>
+        <b class="fx-${fxCls(p.v)}">${fxPct(p.v)}</b></button>`; }).join('')}</div>
+      <div class="fx-stl"><span><i class="h"></i>Habilitado</span><span><i class="t"></i>Em treinamento</span><span><i></i>Falta</span></div>`;
   }
 
-  let rhPlF = { setor: 'todos', q: '' };
+  // ---------- impressão (A4 paisagem, um setor) ----------
+  function fxPrint(d) {
+    const sym = [0, 1, 2, 3, 4].map((n) => rhNivGlyph(n, 15));
+    const gs = d.grupos;
+    const cols = gs.map((g) => Math.max(1, g.pessoas.length) + 1).reduce((s, n) => s + n, 0) + 2;
+    const pct = (v) => `<td class="c p ${fxCls(v)}">${fxPct(v)}</td>`;
+    const corpo = `<style>@page { size: A4 landscape; margin: 10mm; } table { font-size: 10px; } th, td { padding: 4px 5px; }
+      th.v { writing-mode: vertical-rl; transform: rotate(180deg); white-space: nowrap; height: 110px; text-align: left; } td.c { text-align: center; } td.c svg { vertical-align: middle; }
+      tr.et td { background: #0b3d6b; color: #fff; font-weight: 700; text-transform: uppercase; letter-spacing: .04em; } td.p { font-weight: 700; } td.ok { color: #127a4b; } td.mid { color: #a26500; } td.zero { color: #b42318; } td.na { color: #99a; }
+      td.x { background: #f3f5f8; color: #aab; } th.g { text-align: center; background: #dfe7f1; } tfoot td { background: #eef2f7; font-weight: 700; }</style>
+      <div class="info"><div><small>Índice do setor</small><b>${fxPct(d.indice)}</b></div><div><small>Atividades</small><b>${d.ativ.length}</b></div><div><small>Em risco</small><b>${d.risco.length}</b></div><div><small>Aderência ao planejamento</small><b>${fxPct(d.aderencia)}</b></div></div>
+      <p class="cont">Legenda: ${RH_NIV.map((N) => `${sym[N.n]} ${N.n} ${N.l}`).join(' · ')} · cinza = não se aplica ao cargo. Cobertura = habilitados (nível 3+) ÷ mínimo do cargo.</p>
+      <table><thead><tr><th rowspan="2">Atividade</th>${gs.map((g) => `<th class="g" colspan="${Math.max(1, g.pessoas.length) + 1}">${esc(g.c.nome)}<br><small>mín. ${g.min}</small></th>`).join('')}<th rowspan="2" class="v">Índice da atividade</th></tr>
+      <tr>${gs.map((g) => (g.pessoas.length ? g.pessoas.map((u) => `<th class="v">${esc(u.name)}</th>`).join('') : '<th class="v">—</th>') + '<th class="v">Cobertura</th>').join('')}</tr></thead><tbody>
+      ${d.etapas.map((e) => `<tr class="et"><td colspan="${cols - 1}">${esc(e.nome)}</td><td class="c">${fxPct(d.idxEtapa(e))}</td></tr>`
+        + e.ativ.map((t) => `<tr><td>${esc(t.nome)}</td>${gs.map((g) => { const c = d.cob(g, t);
+          const pes = g.pessoas.length ? g.pessoas.map((u) => (c ? `<td class="c">${sym[rhNivel(t.id, u.id)]}</td>` : '<td class="c x">NA</td>')).join('') : '<td class="c x">—</td>';
+          return pes + (c ? pct(c.v) : '<td class="c x">—</td>'); }).join('')}${pct(d.idxAtiv(t))}</tr>`).join('')).join('')}</tbody>
+      <tfoot><tr><td>Índice por pessoa / cargo</td>${gs.map((g) => (g.pessoas.length ? g.pessoas.map((u) => { const p = d.pessoas.find((x) => x.u.id === u.id); return `<td class="c">${fxPct(p && p.v)}</td>`; }).join('') : '<td></td>') + `<td class="c">${fxPct(d.idxCargo(g))}</td>`).join('')}<td class="c">${fxPct(d.indice)}</td></tr></tfoot></table>
+      <div class="ass"><div>&nbsp;<small>Responsável pelo setor</small></div><div>&nbsp;<small>Recursos Humanos</small></div></div>`;
+    rhPrintDoc(`Mapa de flexibilidade · ${d.setor}`, corpo, d.setor);
+  }
+
+  // ---------- Excel (ExcelJS, carregado só quando usado) ----------
+  const fxExcelJS = () => (window.ExcelJS ? Promise.resolve(window.ExcelJS) : loadScript('js/vendor/exceljs.min.js').then(() => window.ExcelJS));
+  function fxBaixar(buf, nome) {
+    const url = URL.createObjectURL(new Blob([buf], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' }));
+    const a = document.createElement('a'); a.href = url; a.download = nome; document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(url), 4000);
+  }
+  async function fxExportar(setores) {
+    let X; try { X = await fxExcelJS(); } catch (e) { toast('Não foi possível carregar o gerador de Excel', 'warn'); return; }
+    const wb = new X.Workbook(); wb.creator = 'Convergas Control Center'; wb.created = new Date();
+    const AZUL = 'FF0B3D6B', BRANCO = 'FFFFFFFF', LINHA = 'FFC9D2DE', CINZA = 'FFF3F5F8';
+    const COR = { ok: { f: 'FFE3F6EC', t: 'FF127A4B' }, mid: { f: 'FFFFF3D6', t: 'FFA26500' }, zero: { f: 'FFFDE4E1', t: 'FFB42318' }, na: { f: CINZA, t: 'FF99A1AE' } };
+    const NIV = [null, { f: 'FFE0F0FD', t: 'FF1D6FB8' }, { f: 'FFFFF3D6', t: 'FFA26500' }, { f: 'FFE3F6EC', t: 'FF127A4B' }, { f: 'FFD5F5EE', t: 'FF0E7A68' }];
+    const borda = { top: { style: 'thin', color: { argb: LINHA } }, left: { style: 'thin', color: { argb: LINHA } }, bottom: { style: 'thin', color: { argb: LINHA } }, right: { style: 'thin', color: { argb: LINHA } } };
+    const fill = (argb) => ({ type: 'pattern', pattern: 'solid', fgColor: { argb } });
+    const fonte = (o) => Object.assign({ name: 'Arial', size: 10 }, o || {});
+    const hoje = new Date().toLocaleDateString('pt-BR');
+    const dados = setores.map(fxDados);
+
+    // Resumo
+    const rs = wb.addWorksheet('Resumo', { views: [{ showGridLines: false }], pageSetup: { paperSize: 9, orientation: 'landscape', fitToPage: true, fitToWidth: 1, fitToHeight: 0 } });
+    rs.columns = [{ width: 30 }, { width: 16 }, { width: 13 }, { width: 13 }, { width: 16 }, { width: 13 }, { width: 18 }];
+    rs.mergeCells('A1:G1'); rs.getCell('A1').value = 'MAPA DE FLEXIBILIDADE · CONVERGAS'; rs.getCell('A1').font = fonte({ size: 16, bold: true, color: { argb: AZUL } });
+    rs.mergeCells('A2:G2'); rs.getCell('A2').value = `FRM-051-02 · gerado pelo Control Center em ${hoje} · meta de flexibilidade ${FX_META * 100}%`; rs.getCell('A2').font = fonte({ color: { argb: 'FF667788' } });
+    const hr = rs.getRow(4); ['Setor', 'Índice de flexibilidade', 'Atividades', 'Em risco', 'Sem habilitado', 'Pessoas', 'Aderência ao plano'].forEach((h, i) => { const c = hr.getCell(i + 1); c.value = h; c.font = fonte({ bold: true, color: { argb: BRANCO } }); c.fill = fill(AZUL); c.alignment = { vertical: 'middle', horizontal: i ? 'center' : 'left', wrapText: true }; c.border = borda; });
+    hr.height = 30;
+    dados.forEach((d, i) => {
+      const r = rs.getRow(5 + i);
+      [d.setor, d.indice, d.ativ.length, d.risco.length, d.semNinguem.length, d.pessoas.length, d.aderencia].forEach((v, j) => {
+        const c = r.getCell(j + 1); c.value = v == null ? '—' : v; c.border = borda; c.font = fonte(); c.alignment = { horizontal: j ? 'center' : 'left' };
+        if ((j === 1 || j === 6) && v != null) { c.numFmt = '0%'; const k = fxCls(v); c.fill = fill(COR[k].f); c.font = fonte({ bold: true, color: { argb: COR[k].t } }); }
+      });
+    });
+    const lr = 6 + dados.length;
+    rs.getCell(`A${lr}`).value = 'Como ler'; rs.getCell(`A${lr}`).font = fonte({ bold: true });
+    ['Cobertura de um cargo numa atividade = pessoas habilitadas (E ou Q) ÷ mínimo do cargo (padrão 2), no máximo 100%. Ex.: mínimo 2 e só 1 habilitado = 50%.',
+      'Índice da atividade, do cargo, da etapa e do setor = média das coberturas onde a atividade se aplica ao cargo.',
+      'Índice da pessoa = atividades do cargo em que está habilitada ÷ atividades do cargo.',
+      'Aderência ao planejamento = treinamentos planejados (M1, com data) ainda no prazo ÷ planejados.']
+      .forEach((t, i) => { rs.mergeCells(`A${lr + 1 + i}:G${lr + 1 + i}`); const c = rs.getCell(`A${lr + 1 + i}`); c.value = t; c.font = fonte({ size: 9, color: { argb: 'FF445566' } }); c.alignment = { wrapText: true, vertical: 'top' }; rs.getRow(lr + 1 + i).height = 26; });
+
+    // Uma aba por setor, no formato da FRM-051-02
+    const usados = new Set(['Resumo']);
+    dados.forEach((d) => {
+      let nome = d.setor.replace(/[\\/*?:[\]]/g, ' ').slice(0, 31).trim() || 'Setor'; let n = 2; while (usados.has(nome)) nome = nome.slice(0, 28) + ' ' + n++; usados.add(nome);
+      const ws = wb.addWorksheet(nome, { views: [{ state: 'frozen', xSplit: 1, ySplit: 5, showGridLines: false }], pageSetup: { paperSize: 9, orientation: 'landscape', fitToPage: true, fitToWidth: 1, fitToHeight: 0, margins: { left: 0.3, right: 0.3, top: 0.4, bottom: 0.4, header: 0.2, footer: 0.2 } } });
+      const gs = d.grupos; const layout = []; let col = 2;
+      gs.forEach((g) => { const ps = g.pessoas.length ? g.pessoas : [null]; layout.push({ g, c0: col, ps, cob: col + ps.length }); col += ps.length + 1; });
+      const ultima = col; // índice da atividade
+      ws.getColumn(1).width = 46; for (let c = 2; c < ultima; c++) ws.getColumn(c).width = 7; layout.forEach((L) => { ws.getColumn(L.cob).width = 8.5; if (L.ps.length === 1) ws.getColumn(L.c0).width = 11; }); ws.getColumn(ultima).width = 12;
+      ws.mergeCells(1, 1, 1, ultima); ws.getCell(1, 1).value = `MAPA DE FLEXIBILIDADE · ${d.setor.toUpperCase()}`; ws.getCell(1, 1).font = fonte({ size: 15, bold: true, color: { argb: AZUL } });
+      ws.mergeCells(2, 1, 2, ultima); ws.getCell(2, 1).value = `Convergas · FRM-051-02 · ${hoje} · índice do setor ${fxPct(d.indice)} · ${d.risco.length} atividade(s) em risco · aderência ao planejamento ${fxPct(d.aderencia)}`; ws.getCell(2, 1).font = fonte({ color: { argb: 'FF667788' } });
+      const cab = (r, c, v, o) => { const x = ws.getCell(r, c); x.value = v; x.font = fonte(Object.assign({ bold: true, color: { argb: BRANCO } }, o && o.font)); x.fill = fill((o && o.bg) || AZUL); x.border = borda; x.alignment = Object.assign({ vertical: 'middle', horizontal: 'center', wrapText: true }, o && o.al); return x; };
+      ws.mergeCells(4, 1, 5, 1); cab(4, 1, 'ETAPA / ATIVIDADE', { al: { horizontal: 'left' } });
+      layout.forEach((L) => { ws.mergeCells(4, L.c0, 4, L.cob); cab(4, L.c0, `${L.g.c.nome.toUpperCase()}  ·  mín. ${L.g.min}`);
+        L.ps.forEach((u, i) => cab(5, L.c0 + i, u ? u.name : '—', { bg: 'FF1E5A8E', al: { textRotation: 90, vertical: 'bottom' } })); cab(5, L.cob, 'COBERTURA', { bg: 'FF2D4A66', font: { size: 8 }, al: { textRotation: 90, vertical: 'bottom' } }); });
+      ws.mergeCells(4, ultima, 5, ultima); cab(4, ultima, 'ÍNDICE DA ATIVIDADE');
+      ws.getRow(4).height = 44; ws.getRow(5).height = 128;
+      layout.forEach((L) => { ws.getCell(4, L.c0).font = fonte({ bold: true, size: 9, color: { argb: BRANCO } }); });
+      const pctCell = (r, c, v, bold) => { const x = ws.getCell(r, c); x.value = v == null ? '—' : v; if (v != null) x.numFmt = '0%'; const k = fxCls(v); x.fill = fill(COR[k].f); x.font = fonte({ bold: !!bold, color: { argb: COR[k].t } }); x.alignment = { horizontal: 'center', vertical: 'middle' }; x.border = borda; };
+      let r = 6;
+      d.etapas.forEach((e) => {
+        ws.mergeCells(r, 1, r, ultima - 1); const x = ws.getCell(r, 1); x.value = e.nome.toUpperCase(); x.font = fonte({ bold: true, color: { argb: BRANCO } }); x.fill = fill('FF2D4A66'); x.border = borda;
+        pctCell(r, ultima, d.idxEtapa(e), true); r++;
+        e.ativ.forEach((t) => {
+          const a = ws.getCell(r, 1); a.value = t.nome + (t.critico ? '  ⚠' : ''); a.font = fonte(); a.border = borda; a.alignment = { vertical: 'middle', wrapText: true };
+          layout.forEach((L) => { const cb = d.cob(L.g, t);
+            L.ps.forEach((u, i) => { const x = ws.getCell(r, L.c0 + i); x.border = borda; x.alignment = { horizontal: 'center', vertical: 'middle' };
+              if (!cb || !u) { x.value = cb ? '' : 'NA'; x.fill = fill(CINZA); x.font = fonte({ size: 8, color: { argb: 'FF99A1AE' } }); return; }
+              const n = rhNivel(t.id, u.id); const h = rhHab(t.id, u.id);
+              if (n === 1 && h && h.planejado) { x.value = new Date(h.planejado + 'T12:00:00'); x.numFmt = 'dd/mm/yy'; } else x.value = FX_LETRA[n] || '';
+              if (NIV[n]) { x.fill = fill(NIV[n].f); x.font = fonte({ bold: true, size: n === 1 ? 8 : 10, color: { argb: NIV[n].t } }); } else x.font = fonte();
+            });
+            if (cb) pctCell(r, L.cob, cb.v); else { const x = ws.getCell(r, L.cob); x.value = '—'; x.fill = fill(CINZA); x.border = borda; x.alignment = { horizontal: 'center' }; x.font = fonte({ color: { argb: 'FF99A1AE' } }); }
+          });
+          pctCell(r, ultima, d.idxAtiv(t), true); r++;
+        });
+      });
+      // rodapé
+      const rot = (rr, txt) => { const x = ws.getCell(rr, 1); x.value = txt; x.font = fonte({ bold: true }); x.fill = fill('FFEEF2F7'); x.border = borda; };
+      rot(r, 'ÍNDICE POR PESSOA / CARGO');
+      layout.forEach((L) => { L.ps.forEach((u, i) => { const p = u && d.pessoas.find((y) => y.u.id === u.id); pctCell(r, L.c0 + i, p ? p.v : null); }); pctCell(r, L.cob, d.idxCargo(L.g), true); });
+      pctCell(r, ultima, d.indice, true); r++;
+      rot(r, 'ADERÊNCIA AO PLANEJAMENTO'); pctCell(r, ultima, d.aderencia, true); r += 2;
+      // legenda
+      const leg = [['E', 'Executor (M4) · nível 4: domina e treina outras pessoas', 4], ['Q', 'Qualificado (M3) · nível 3: executa sozinho, liberado pelo líder', 3], ['T', 'Necessita supervisão (M2) · nível 2', 2], ['data', 'Treinamento planejado (M1) · nível 1, com a data prevista', 1], ['NA', 'Não se aplica ao cargo', 0]];
+      ws.getCell(r, 1).value = 'LEGENDA'; ws.getCell(r, 1).font = fonte({ bold: true }); r++;
+      leg.forEach(([k, txt, n]) => { const a = ws.getCell(r, 2); a.value = k; a.alignment = { horizontal: 'center' }; a.border = borda; a.font = fonte({ bold: true, color: { argb: NIV[n] ? NIV[n].t : 'FF99A1AE' } }); a.fill = fill(NIV[n] ? NIV[n].f : CINZA);
+        ws.mergeCells(r, 3, r, Math.max(3, Math.min(ultima, 14))); const b = ws.getCell(r, 3); b.value = txt; b.font = fonte({ size: 9 }); r++; });
+      ws.mergeCells(r + 1, 1, r + 1, Math.max(3, Math.min(ultima, 14))); const nota = ws.getCell(r + 1, 1);
+      nota.value = 'Cobertura = pessoas habilitadas (E ou Q) ÷ mínimo do cargo, no máximo 100%. Índices = média das coberturas onde a atividade se aplica.'; nota.font = fonte({ size: 9, italic: true, color: { argb: 'FF667788' } });
+    });
+    const buf = await wb.xlsx.writeBuffer();
+    fxBaixar(buf, `Mapa de flexibilidade - ${setores.length === 1 ? setores[0] : 'Convergas'} - ${rhHoje()}.xlsx`);
+    toast('Planilha gerada');
+  }
+
+  // ---------- Importar a planilha FRM-051-02 ----------
+  // Layout do modelo: linha 6 = cargo (D, M, U, AC) e pessoas ao lado; atividades a
+  // partir da linha 9 (B = número, C = nome); etapas = linhas com só a coluna C.
+  const FX_BLOCOS = [[4, 5, 12], [13, 14, 20], [21, 22, 28], [29, 30, 37]];
+  const FX_ALIAS = { OP: ['operacao', 'operacional', 'producao', 'fabrica', 'montagem'], GQ: ['qualidade', 'gq', 'garantia'], PCP: ['pcp', 'planejamento', 'suprimento', 'logistica'],
+    FINANCAS: ['financ', 'fiscal'], COMERCIAL: ['comercial', 'vendas'], ENG: ['engenharia', 'eng', 'projeto'], RH: ['rh', 'recursos humanos', 'pessoas'] };
+  function fxTitulo(s) {
+    const STOP = ['de', 'da', 'do', 'das', 'dos', 'e', 'em', 'a', 'o', 'para', 'com', 'na', 'no'];
+    const t = String(s || '').replace(/\s+/g, ' ').trim();
+    const out = t.split(/(\s+|\/|\(|\))/).map((w) => {
+      if (!/[A-Za-zÀ-ÿ]/.test(w)) return w;
+      const low = w.toLowerCase();
+      if (STOP.includes(low)) return low;
+      if (/[0-9&.']/.test(w) || (w.length <= 4 && w === w.toUpperCase() && !/[À-ÿ]/.test(w))) return w;  // sigla (POP, CEP, MSA, NR10); palavra com acento não é sigla
+      return low;
+    }).join('');
+    return out.charAt(0).toUpperCase() + out.slice(1);
+  }
+  const fxTxt = (v) => { if (v == null) return ''; if (typeof v === 'object') { if (v instanceof Date) return v; if ('result' in v) return fxTxt(v.result); if (v.richText) return v.richText.map((x) => x.text).join(''); if ('text' in v) return String(v.text); return ''; } return String(v).trim(); };
+  function fxLerAba(ws) {
+    const head = ws.getRow(6); let ok = false;
+    for (let c = 36; c <= 40; c++) if (/flexibilidade/i.test(String(fxTxt(head.getCell(c).value)))) ok = true;
+    if (!ok && !/flexibilidade/i.test(ws.name)) return null;
+    const cargos = FX_BLOCOS.map(([cc, p0, p1], i) => ({ i, nome: String(fxTxt(head.getCell(cc).value) || ''), pessoas: Array.from({ length: p1 - p0 + 1 }, (_, k) => ({ col: p0 + k, nome: String(fxTxt(head.getCell(p0 + k).value) || '') })).filter((p) => p.nome) }))
+      .filter((c) => c.nome);
+    const etapas = []; let et = null; let ordem = 0;
+    for (let r = 8; r <= Math.min(ws.rowCount, 200); r++) {
+      const row = ws.getRow(r); const b = fxTxt(row.getCell(2).value); const c = fxTxt(row.getCell(3).value);
+      if (/^(índice|indice|aderência|aderencia|legenda)/i.test(String(b)) || /^legenda/i.test(String(c))) break;
+      if (!c || c instanceof Date) continue;
+      if (!b && r > 8) { et = { nome: fxTitulo(c), ativ: [] }; etapas.push(et); continue; }
+      if (!/^\d+$|^#/.test(String(b).trim())) continue;
+      if (!et) { et = { nome: 'Geral', ativ: [] }; etapas.push(et); }
+      const marks = {};
+      cargos.forEach((cg) => cg.pessoas.forEach((p) => {
+        const v = fxTxt(row.getCell(p.col).value);
+        if (v instanceof Date) marks[cg.i + '|' + p.nome] = { n: 1, planejado: v.toISOString().slice(0, 10) };
+        else { const k = String(v).trim().toUpperCase(); const n = { E: 4, Q: 3, T: 2 }[k]; if (n) marks[cg.i + '|' + p.nome] = { n }; else if (k === 'NA') marks[cg.i + '|' + p.nome] = { na: true }; }
+      }));
+      et.ativ.push({ nome: fxTitulo(c), ordem: ordem++, marks });
+    }
+    const sufixo = ws.name.replace(/^mapa de flexibilidade\s*/i, '').trim() || ws.name;
+    return { aba: ws.name, sufixo, titulo: String(fxTxt(ws.getRow(2).getCell(2).value) || ''), cargos, etapas, nAtiv: etapas.reduce((s, e) => s + e.ativ.length, 0) };
+  }
+  function fxPalpiteSetor(a) {
+    const setores = rhSetores(); const k = fxNorm(a.sufixo).toUpperCase().replace(/\s/g, '');
+    const al = FX_ALIAS[k] || [fxNorm(a.sufixo)];
+    const s = setores.find((x) => fxNorm(x.nome) === fxNorm(a.sufixo)) || setores.find((x) => al.some((w) => fxNorm(x.nome).includes(w)));
+    return s ? s.nome : '';
+  }
+  function fxPalpitePessoa(nome) {
+    const n = fxNorm(nome).split(' ').filter((w) => w.length > 1); if (!n.length) return '';
+    let best = null, score = 0;
+    rhAtivos().forEach((u) => { const m = fxNorm(u.name).split(' ');
+      let s = n.filter((w) => m.includes(w)).length + (m[0] === n[0] ? 1.5 : 0);
+      n.forEach((w) => { if (w.length === 1 || (w.length <= 2)) return; if (!m.includes(w) && m.some((x) => x.startsWith(w) || w.startsWith(x))) s += 0.5; });
+      if (s > score) { score = s; best = u; } });
+    return best && score >= 2.5 ? best.id : '';
+  }
+  async function fxImportar() {
+    if (!Perm.podeGravar('rhTreinos') || !Perm.podeGravar('rhHabil')) return toast('Sem permissão para importar', 'warn');
+    const inp = document.createElement('input'); inp.type = 'file'; inp.accept = '.xlsx';
+    inp.onchange = async () => {
+      const f = inp.files && inp.files[0]; if (!f) return;
+      let X; try { X = await fxExcelJS(); } catch (e) { toast('Não foi possível carregar o leitor de Excel', 'warn'); return; }
+      let abas;
+      try { const wb = new X.Workbook(); await wb.xlsx.load(await f.arrayBuffer()); abas = wb.worksheets.map(fxLerAba).filter((a) => a && a.nAtiv); }
+      catch (e) { console.error('[fx] importar', e); toast('Não consegui ler esta planilha', 'warn'); return; }
+      if (!abas.length) return toast('Nenhuma aba no formato do Mapa de Flexibilidade (FRM-051-02)', 'warn');
+      fxImportPreview(abas);
+    };
+    inp.click();
+  }
+  function fxImportPreview(abas) {
+    const setores = rhSetores(); const ativos = rhAtivos().slice().sort((a, b) => a.name.localeCompare(b.name));
+    const nomes = [...new Set(abas.flatMap((a) => a.cargos.flatMap((c) => c.pessoas.map((p) => p.nome))))].sort((a, b) => a.localeCompare(b));
+    const optSet = (sel) => `<option value="">Não importar esta aba</option>${setores.map((s) => `<option ${s.nome === sel ? 'selected' : ''}>${esc(s.nome)}</option>`).join('')}`;
+    const optPes = (sel) => `<option value="">Ignorar (não está no Control Center)</option>${ativos.map((u) => `<option value="${u.id}" ${u.id === sel ? 'selected' : ''}>${esc(u.name)}${u.sector ? ' · ' + esc(u.sector) : ''}</option>`).join('')}`;
+    const card = modal({
+      title: 'Importar Mapa de Flexibilidade', sub: 'FRM-051-02 · confira antes de gravar', wide: true,
+      body: `<div class="form-sec">${ic('grid')}Abas da planilha → setores</div>
+        <div class="fx-imp">${abas.map((a, i) => `<div class="fx-imp-r"><span><b>${esc(a.aba)}</b><small>${a.cargos.length} cargo(s) · ${a.nAtiv} atividades · ${a.etapas.length} etapas</small></span><select data-aba="${i}">${optSet(fxPalpiteSetor(a))}</select></div>`).join('')}</div>
+        <div class="form-sec">${ic('users')}Pessoas da planilha → colaboradores</div>
+        <div class="fx-imp">${nomes.map((n, i) => `<div class="fx-imp-r"><span><b>${esc(n)}</b></span><select data-pes="${i}">${optPes(fxPalpitePessoa(n))}</select></div>`).join('')}</div>
+        <div class="field full" style="margin-top:14px">${sw('Atualizar o cargo das pessoas conforme a planilha', 'atuCargo', true)}</div>
+        <p class="fx-imp-n">Atividades e cargos que já existirem no setor (mesmo nome) são atualizados, não duplicados. Níveis: E → 4, Q → 3, T → 2, data → 1 (treino planejado). Atividade sem nenhuma marcação no cargo fica como "não se aplica".</p>`,
+      footer: `<button class="btn ghost" data-close>Cancelar</button><button class="btn primary" id="saveBtn">${ic('check')}Importar</button>`,
+    });
+    $$('select', card).forEach((s) => ccSelect(s, { search: true, icon: s.dataset.aba != null ? 'grid' : 'users' }));
+    $('#saveBtn', card).onclick = () => {
+      const mapaSet = abas.map((a, i) => $(`[data-aba="${i}"]`, card).value);
+      const mapaPes = {}; nomes.forEach((n, i) => { mapaPes[n] = $(`[data-pes="${i}"]`, card).value; });
+      if (!mapaSet.some(Boolean)) return toast('Escolha o setor de pelo menos uma aba', 'warn');
+      const atu = $('[name="atuCargo"]', card).checked;
+      const r = fxAplicarImport(abas, mapaSet, mapaPes, atu);
+      closeModal(); toast(`Importado: ${r.ativ} atividades, ${r.cargos} cargos, ${r.niveis} níveis${r.ignorados ? ` · ${r.ignorados} marcação(ões) de pessoas ignoradas` : ''}`);
+      if (r.conflitos.length) setTimeout(() => toast(`Pessoa em mais de um cargo na planilha (ficou o primeiro): ${r.conflitos.join(', ')}`, 'warn'), 600);
+      const s1 = mapaSet.find(Boolean); if (s1) fxSetF(s1); go(currentRoute);
+    };
+  }
+  function fxAplicarImport(abas, mapaSet, mapaPes, atuCargo) {
+    const res = { ativ: 0, cargos: 0, niveis: 0, ignorados: 0, conflitos: [] }; const hoje = rhHoje(); const jaTemCargo = new Map(); const quem = (typeof pvMe === 'function' && pvMe()) || '';
+    abas.forEach((a, ai) => {
+      const setor = mapaSet[ai]; if (!setor) return;
+      // atividades
+      const ids = {};
+      a.etapas.forEach((e) => e.ativ.forEach((x) => {
+        let t = fxAtividades().find((y) => fxSet(y) === setor && fxNorm(fxEtapa(y)) === fxNorm(e.nome) && fxNorm(y.nome) === fxNorm(x.nome));
+        const base = { tipo: RH_OP, setor, etapa: e.nome, ordem: x.ordem };
+        if (t) Store.update('rhTreinos', t.id, base);
+        else { t = Store.add('rhTreinos', { nome: x.nome, cargaHoras: 1, validadeMeses: 0, minimo: 2, critico: false, ...base }); res.ativ++; }
+        ids[e.nome + '|' + x.ordem] = t.id;
+      }));
+      // cargos + vínculo cargo → atividades + pessoas
+      a.cargos.forEach((cg) => {
+        let c = rhList('rhCargos').find((y) => fxNorm(y.nome) === fxNorm(cg.nome) && (fxSet(y) === setor || !y.setor));
+        const aplic = new Set(Array.isArray(c && c.atividades) ? c.atividades : []);
+        a.etapas.forEach((e) => e.ativ.forEach((x) => { if (cg.pessoas.some((p) => x.marks[cg.i + '|' + p.nome] && !x.marks[cg.i + '|' + p.nome].na)) aplic.add(ids[e.nome + '|' + x.ordem]); }));
+        if (c) Store.update('rhCargos', c.id, { setor, atividades: [...aplic], ordem: cg.i, minimo: c.minimo || 2 });
+        else { c = Store.add('rhCargos', { nome: fxTitulo(cg.nome), setor, treinos: [], atividades: [...aplic], minimo: 2, ordem: cg.i }); res.cargos++; }
+        cg.pessoas.forEach((p) => {
+          const uid = mapaPes[p.nome]; const u = uid && rhPessoa(uid);
+          const marcas = a.etapas.flatMap((e) => e.ativ.map((x) => ({ tid: ids[e.nome + '|' + x.ordem], m: x.marks[cg.i + '|' + p.nome] }))).filter((x) => x.m && !x.m.na);
+          if (!u) { res.ignorados += marcas.length; return; }
+          // cada pessoa tem um cargo só: se aparece em 2 abas/cargos, vale o primeiro (os níveis das duas entram)
+          if (jaTemCargo.has(u.id) && jaTemCargo.get(u.id) !== c.id) res.conflitos.push(`${u.name} (${c.nome} · ${setor})`);
+          else { jaTemCargo.set(u.id, c.id); if (atuCargo && u.cargoId !== c.id) Store.update('team', u.id, { cargoId: c.id, role: c.nome, sector: setor }); }
+          marcas.forEach(({ tid, m }) => {
+            const h = rhHab(tid, u.id); if (h && Number(h.nivel) === m.n && (h.planejado || '') === (m.planejado || '')) return;
+            const hist = ((h && h.hist) || []).concat([{ nivel: m.n, data: hoje, obs: 'Importado da planilha FRM-051-02', em: new Date().toISOString(), reg: quem }]);
+            const obj = { postoId: tid, colaboradorId: u.id, nivel: m.n, data: hoje, planejado: m.planejado || '', hist };
+            if (h) Store.update('rhHabil', h.id, obj); else Store.add('rhHabil', { id: rhHabId(tid, u.id), ...obj });
+            res.niveis++;
+          });
+        });
+      });
+    });
+    return res;
+  }
+
+  // ---------- Página ----------
+  let fxSetSel = null;
+  const fxSetF = (s) => { fxSetSel = s; try { localStorage.setItem('cc_fx_setor', s); } catch (e) {} };
+  let fxCargoSel = '';
   PAGES['rh-polivalencia'] = () => {
     rhMigrarPostos();
-    const podeEd = Perm.podeGravar('rhHabil'); const podeTr = Perm.podeGravar('rhTreinos');
-    pageShell('RH', 'Polivalência', 'Quem sabe fazer cada operação.',
-      `<button class="btn" id="plPrint">${ic('file')}Imprimir</button>${podeTr ? `<button class="btn primary" id="plNovo">${ic('plus')}Nova operação</button>` : ''}`);
-    if (podeTr) $('#plNovo').onclick = () => rhFormTreino({ tipo: RH_OP });
-    const todos = rhPostos(); const ativos = rhAtivos().slice().sort((a, b) => a.name.localeCompare(b.name));
-    $('#plPrint').onclick = () => (todos.length ? rhPoliPrint(todos, ativos) : toast('Cadastre as operações primeiro', 'warn'));
-    if (!todos.length) {
-      const e = document.createElement('div'); e.className = 'tbl-wrap'; e.innerHTML = `${emptyState('grid', 'Nenhuma operação', 'Operações são treinamentos do tipo Técnico / operação.')}${podeTr ? `<div class="rh-sug"><button type="button" class="btn primary" id="plNovo2">${ic('plus')}Cadastrar operação</button></div>` : ''}`;
-      view.appendChild(e); Icons.apply(e); const b = $('#plNovo2', e); if (b) b.onclick = () => rhFormTreino({ tipo: RH_OP }); return;
+    const podeTr = Perm.podeGravar('rhTreinos'), podeEd = Perm.podeGravar('rhHabil');
+    const setores = fxSetores();
+    if (fxSetSel == null) { try { fxSetSel = localStorage.getItem('cc_fx_setor'); } catch (e) {} }
+    if (fxSetSel == null) { const eu = rhAtivos().find((u) => u.name === pvMe()); fxSetSel = eu && setores.includes(eu.sector) ? eu.sector : 'todos'; }
+    if (fxSetSel !== 'todos' && !setores.includes(fxSetSel)) fxSetSel = 'todos';
+    const setor = fxSetSel;
+    pageShell('RH', 'Polivalência', setor === 'todos' ? 'Mapa de flexibilidade por setor · FRM-051-02' : `Mapa de flexibilidade · ${setor}`,
+      `${podeTr ? `<button class="btn" id="fxImp">${ic('upload')}Importar planilha</button>` : ''}<button class="btn" id="fxExp">${ic('download')}Exportar Excel</button>${setor !== 'todos' ? `<button class="btn" id="fxPr">${ic('file')}Imprimir</button>` : ''}${podeTr ? `<button class="btn primary" id="fxNova">${ic('plus')}Nova atividade</button>` : ''}`);
+    if (podeTr) { $('#fxImp').onclick = fxImportar; $('#fxNova').onclick = () => rhFormTreino({ tipo: RH_OP, setor: setor === 'todos' ? '' : setor }); }
+    $('#fxExp').onclick = () => (setores.length ? fxExportar(setor === 'todos' ? setores : [setor]) : toast('Cadastre ou importe as atividades primeiro', 'warn'));
+    if (setor !== 'todos') $('#fxPr').onclick = () => fxPrint(fxDados(setor));
+
+    if (!setores.length) {
+      const e = document.createElement('div'); e.className = 'tbl-wrap';
+      e.innerHTML = `${emptyState('grid', 'Mapa de flexibilidade vazio', 'Importe a planilha FRM-051-02 ou cadastre as atividades de cada setor.')}${podeTr ? `<div class="rh-sug"><button type="button" class="btn primary" id="fxImp2">${ic('upload')}Importar planilha</button><button type="button" class="btn" id="fxNova2">${ic('plus')}Cadastrar atividade</button></div>` : ''}`;
+      view.appendChild(e); Icons.apply(e);
+      if (podeTr) { $('#fxImp2', e).onclick = fxImportar; $('#fxNova2', e).onclick = () => rhFormTreino({ tipo: RH_OP }); }
+      return;
     }
-    const cobs = todos.map((p) => ({ p, cb: rhPostoCob(p) }));
-    const crit = cobs.filter((x) => x.p.critico); const critRisco = crit.filter((x) => x.cb.st !== 'ok');
-    const habPessoas = new Set(ativos.filter((u) => todos.some((p) => rhNivel(p.id, u.id) >= 3)).map((u) => u.id)); const ativosIds = new Set(ativos.map((u) => u.id));
-    let emTrein = 0; todos.forEach((p) => { emTrein += rhPostoCob(p).trein; });
-    const polis = ativos.filter((u) => todos.filter((p) => rhNivel(p.id, u.id) >= 3).length >= 2).length;
+    const dados = new Map(setores.map((s) => [s, fxDados(s)]));
+    // filtro de setor
+    const bar = document.createElement('div'); bar.className = 'rh-mxf fx-setf';
+    bar.innerHTML = `<div class="rh-mxf-c">${[['todos', 'Visão geral', null]].concat(setores.map((s) => [s, s, dados.get(s).indice])).map(([k, l, v]) => `<button type="button" class="rh-fc${setor === k ? ' on' : ''}" data-s="${esc(k)}">${esc(l)}${v != null ? `<em class="fx-${fxCls(v)}">${fxPct(v)}</em>` : k === 'todos' ? '' : '<em>—</em>'}</button>`).join('')}</div>`;
+    view.appendChild(bar); Icons.apply(bar);
+    $$('[data-s]', bar).forEach((b) => (b.onclick = () => { fxSetF(b.dataset.s); fxCargoSel = ''; go(currentRoute); }));
+
+    // ===== VISÃO GERAL =====
+    if (setor === 'todos') {
+      const all = [...dados.values()];
+      const cel = all.reduce((s, d) => s + d.celulas, 0);
+      const geral = cel ? all.reduce((s, d) => s + (d.indice || 0) * d.celulas, 0) / cel : null;
+      const tile = (cls, icn, v, l, s) => `<div class="pvd-tile ${cls}"><span class="pvd-ti">${ic(icn)}</span><b>${v}</b><span>${esc(l)}</span><small>${esc(s)}</small></div>`;
+      const tiles = document.createElement('section'); tiles.className = 'pc-tiles tp-tiles';
+      const risco = all.reduce((s, d) => s + d.risco.length, 0), sem = all.reduce((s, d) => s + d.semNinguem.length, 0), plan = all.reduce((s, d) => s + d.planejados, 0), atr = all.reduce((s, d) => s + d.atrasados, 0);
+      tiles.innerHTML = tile(geral != null && geral >= FX_META ? 't-ok' : 't-warn', 'activity', fxPct(geral), 'Índice da empresa', `meta ${FX_META * 100}%`)
+        + tile('t-info', 'grid', all.reduce((s, d) => s + d.ativ.length, 0), 'Atividades', `${setores.length} setores`)
+        + tile(risco ? 't-warn' : 't-ok', 'alert', risco, 'Atividades em risco', 'cobertura abaixo de 100%')
+        + tile(sem ? 't-danger' : 't-ok', 'x', sem, 'Sem ninguém habilitado', 'nenhuma pessoa nível 3+')
+        + tile(atr ? 't-danger' : 't-ok', 'calendar', plan ? fxPct((plan - atr) / plan) : '—', 'Aderência ao planejamento', plan ? `${atr} de ${plan} atrasado(s)` : 'nenhum treino planejado');
+      view.appendChild(tiles); Icons.apply(tiles);
+      const graf = document.createElement('section'); graf.className = 'fx-graf';
+      graf.innerHTML = `<div class="fx-card fx-wide"><div class="fx-ch"><b>Índice de flexibilidade por setor</b><span>linha = meta ${FX_META * 100}% · clique para abrir</span></div>${fxBars(all.map((d) => ({ k: d.setor, l: d.setor, s: `${d.ativ.length} atividades · ${d.grupos.length} cargos`, v: d.indice })))}</div>`;
+      view.appendChild(graf);
+      const cards = document.createElement('section'); cards.className = 'fx-sets';
+      cards.innerHTML = all.map((d) => `<button type="button" class="fx-set" data-s="${esc(d.setor)}"><div class="fx-set-h">${fxRing(d.indice, 58)}<span><b>${esc(d.setor)}</b><small>${d.ativ.length} atividades · ${d.pessoas.length} pessoas</small></span><em class="fx-${fxCls(d.indice)}">${fxPct(d.indice)}</em></div>
+        <div class="fx-set-c">${d.grupos.length ? d.grupos.map((g) => { const v = d.idxCargo(g); return `<div><span>${esc(g.c.nome)}<small>${g.pessoas.length} pessoa${g.pessoas.length === 1 ? '' : 's'}</small></span><i><i class="fx-${fxCls(v)}" style="width:${v == null ? 0 : Math.round(v * 100)}%"></i></i><b class="fx-${fxCls(v)}">${fxPct(v)}</b></div>`; }).join('') : '<p class="fx-vazio">Nenhum cargo neste setor</p>'}</div>
+        <div class="fx-set-f">${!d.celulas ? '<span class="badge neutral plain">Sem avaliação</span>' : `${d.semNinguem.length ? `<span class="badge danger plain">${d.semNinguem.length} sem habilitado</span>` : ''}${d.risco.length ? `<span class="badge warn plain">${d.risco.length} em risco</span>` : '<span class="badge ok plain">Tudo coberto</span>'}`}</div></button>`).join('');
+      view.appendChild(cards); Icons.apply(cards);
+      $$('[data-s], [data-k]', view).forEach((b) => { if (b.closest('.fx-setf')) return; b.onclick = () => { fxSetF(b.dataset.s || b.dataset.k); go(currentRoute); }; });
+      return;
+    }
+
+    // ===== UM SETOR =====
+    const d = dados.get(setor);
     const tile = (cls, icn, v, l, s) => `<div class="pvd-tile ${cls}"><span class="pvd-ti">${ic(icn)}</span><b>${v}</b><span>${esc(l)}</span><small>${esc(s)}</small></div>`;
     const tiles = document.createElement('section'); tiles.className = 'pc-tiles tp-tiles';
-    tiles.innerHTML = tile('t-info', 'grid', todos.length, 'Operações', `${crit.length} crítica${crit.length === 1 ? '' : 's'}`)
-      + tile(critRisco.length ? 't-danger' : 't-ok', 'alert', critRisco.length, 'Críticas em risco', critRisco.length ? 'abaixo do mínimo' : 'todas cobertas')
-      + tile('t-ok', 'check', [...habPessoas].filter((x) => ativosIds.has(x)).length, 'Pessoas habilitadas', 'nível 3 ou 4')
-      + tile('t-warn', 'clock', emTrein, 'Em treinamento', 'níveis 1 e 2')
-      + tile('', 'users', polis, 'Polivalentes', 'habilitados em 2+ operações');
+    tiles.innerHTML = tile(d.indice != null && d.indice >= FX_META ? 't-ok' : 't-warn', 'activity', fxPct(d.indice), 'Índice do setor', `meta ${FX_META * 100}%`)
+      + tile('t-info', 'grid', d.ativ.length, 'Atividades', `${d.etapas.length} etapa${d.etapas.length === 1 ? '' : 's'} · ${d.grupos.length} cargo${d.grupos.length === 1 ? '' : 's'}`)
+      + tile(d.risco.length ? 't-warn' : 't-ok', 'alert', d.risco.length, 'Em risco', 'cobertura abaixo de 100%')
+      + tile(d.semNinguem.length ? 't-danger' : d.soUm.length ? 't-warn' : 't-ok', 'users', d.semNinguem.length, 'Sem ninguém habilitado', `${d.soUm.length} com só 1 pessoa`)
+      + tile(d.atrasados ? 't-danger' : 't-ok', 'calendar', fxPct(d.aderencia), 'Aderência ao planejamento', d.planejados ? `${d.atrasados} de ${d.planejados} atrasado(s)` : 'nenhum treino planejado');
     view.appendChild(tiles); Icons.apply(tiles);
-    if (critRisco.length) {
+    if (d.semNinguem.length || d.soUm.length) {
       const al = document.createElement('div'); al.className = 'tu-alerta pl-al';
-      al.innerHTML = `${ic('alert')}<span><b>Operações críticas sem cobertura mínima:</b> ${critRisco.map((x) => `${esc(x.p.nome)} (${x.cb.hab}/${x.cb.min})`).join(', ')}</span>`;
+      al.innerHTML = `${ic('alert')}<span>${d.semNinguem.length ? `<b>Ninguém habilitado:</b> ${d.semNinguem.slice(0, 6).map((t) => esc(t.nome)).join(', ')}${d.semNinguem.length > 6 ? ` e mais ${d.semNinguem.length - 6}` : ''}. ` : ''}${d.soUm.length ? `<b>Só 1 pessoa sabe:</b> ${d.soUm.slice(0, 6).map((t) => esc(t.nome)).join(', ')}${d.soUm.length > 6 ? ` e mais ${d.soUm.length - 6}` : ''}.` : ''}</span>`;
       view.appendChild(al); Icons.apply(al);
     }
-    const setores = Array.from(new Set(todos.map((p) => p.setor || 'Sem setor')));
-    if (rhPlF.setor !== 'todos' && !setores.includes(rhPlF.setor)) rhPlF.setor = 'todos';
-    const bar = document.createElement('div'); bar.className = 'rh-mxf';
-    bar.innerHTML = `<label class="rh-pk-q">${ic('search')}<input id="plQ" placeholder="Buscar colaborador…" value="${esc(rhPlF.q)}" autocomplete="off"></label>
-      <div class="rh-mxf-c">${[['todos', 'Todos os setores', todos.length]].concat(setores.map((s) => [s, s, todos.filter((p) => (p.setor || 'Sem setor') === s).length])).map(([k, l, n]) => `<button type="button" class="rh-fc${rhPlF.setor === k ? ' on' : ''}" data-s="${esc(k)}">${esc(l)}<em>${n}</em></button>`).join('')}</div>`;
-    view.appendChild(bar); Icons.apply(bar);
-    const leg = document.createElement('div'); leg.className = 'pl-leg'; leg.innerHTML = RH_NIV.map((N) => `<span>${rhNivGlyph(N.n, 18)}<b>${N.n}</b>${esc(N.l)}</span>`).join('') + `<span class="pl-legc">${ic('alert')}Operação crítica</span>`;
+    const graf = document.createElement('section'); graf.className = 'fx-graf';
+    graf.innerHTML = `<div class="fx-card"><div class="fx-ch"><b>Cobertura por cargo</b><span>habilitados ÷ mínimo</span></div>${fxBars(d.grupos.map((g) => ({ k: g.c.id, l: g.c.nome, s: `mín. ${g.min} · ${g.pessoas.length} pessoa${g.pessoas.length === 1 ? '' : 's'}`, v: d.idxCargo(g), on: fxCargoSel === g.c.id })), { vazio: 'Cadastre os cargos deste setor em Pessoas & setores' })}</div>
+      <div class="fx-card"><div class="fx-ch"><b>Cobertura por etapa</b><span>${d.etapas.length} etapa${d.etapas.length === 1 ? '' : 's'}</span></div>${fxBars(d.etapas.map((e) => ({ l: e.nome, s: `${e.ativ.length} atividade${e.ativ.length === 1 ? '' : 's'}`, v: d.idxEtapa(e) })))}</div>
+      <div class="fx-card"><div class="fx-ch"><b>Pessoas</b><span>atividades do cargo</span></div>${fxStack(d.pessoas)}</div>`;
+    view.appendChild(graf); Icons.apply(graf);
+    $$('[data-k]', graf).forEach((b) => (b.onclick = () => { fxCargoSel = fxCargoSel === b.dataset.k ? '' : b.dataset.k; go(currentRoute); }));
+    $$('[data-u]', graf).forEach((b) => (b.onclick = () => rhOpenPessoa(b.dataset.u)));
+
+    // filtro por cargo + legenda
+    if (d.grupos.length > 1) {
+      const cf = document.createElement('div'); cf.className = 'rh-mxf';
+      cf.innerHTML = `<div class="rh-mxf-c">${[['', 'Todos os cargos', d.grupos.length]].concat(d.grupos.map((g) => [g.c.id, g.c.nome, g.pessoas.length])).map(([k, l, n]) => `<button type="button" class="rh-fc${fxCargoSel === k ? ' on' : ''}" data-c="${k}">${esc(l)}<em>${n}</em></button>`).join('')}</div>`;
+      view.appendChild(cf);
+      $$('[data-c]', cf).forEach((b) => (b.onclick = () => { fxCargoSel = b.dataset.c; go(currentRoute); }));
+    }
+    const leg = document.createElement('div'); leg.className = 'pl-leg';
+    leg.innerHTML = RH_NIV.map((N) => `<span>${rhNivGlyph(N.n, 18)}<b>${N.n}</b>${esc(N.l)}</span>`).join('') + `<span class="fx-legna"><i></i>Não se aplica ao cargo</span><span class="pl-legc">${ic('alert')}Atividade crítica</span>`;
     view.appendChild(leg); Icons.apply(leg);
+
+    const gs = d.grupos.filter((g) => !fxCargoSel || g.c.id === fxCargoSel);
     const box = document.createElement('div'); view.appendChild(box);
-    const paint = () => {
-      const ps = todos.filter((p) => rhPlF.setor === 'todos' || (p.setor || 'Sem setor') === rhPlF.setor);
-      let us = ativos; if (rhPlF.setor !== 'todos') us = us.filter((u) => (u.sector || 'Sem setor') === rhPlF.setor || ps.some((p) => rhNivel(p.id, u.id) > 0));
-      if (rhPlF.q) { const q = rhPlF.q.toLowerCase(); us = us.filter((u) => [u.name, u.sector].join(' ').toLowerCase().includes(q)); }
-      box.innerHTML = !us.length ? `<div class="tbl-wrap">${emptyState('users', 'Ninguém neste filtro', '')}</div>` : `<div class="pl-wrap"><table class="pl-mx" style="--n:${ps.length}"><colgroup><col class="pl-c1">${ps.map(() => '<col>').join('')}</colgroup><thead><tr><th class="pl-hp">Colaborador <em>${us.length}</em></th>${ps.map((p) => { const cb = rhPostoCob(p); return `<th class="pl-hc${p.critico ? ' crit' : ''}" data-ph="${p.id}" title="${esc(p.nome)}"><span class="pl-hn">${p.critico ? ic('alert') : ''}${esc(String(p.nome).replace(/^treinamentos? (de|da|do|em|para)\s+/i, '').replace(/^./, (x) => x.toUpperCase()))}</span><span class="pl-hb s-${cb.st}">${cb.hab}/${cb.min}</span></th>`; }).join('')}</tr></thead>
-        <tbody>${us.map((u) => `<tr><th class="pl-hp"><button type="button" class="pl-pn" data-u="${u.id}">${rhAvatar(u.name)}<span><b>${esc(u.name)}</b><small>${esc(u.sector || '—')}</small></span></button></th>${ps.map((p) => { const n = rhNivel(p.id, u.id); const pend = n >= 3 && rhPostoPend(p, u.id).length; return `<td><button type="button" class="pl-c n${n}${pend ? ' pend' : ''}" data-p="${p.id}" data-u="${u.id}" title="${esc(p.nome)} · ${esc(RH_NIV[n].l)}${pend ? ' · treinamento não registrado' : ''}" ${podeEd ? '' : 'disabled'}>${rhNivGlyph(n, 24)}${pend ? '<i></i>' : ''}</button></td>`; }).join('')}</tr>`).join('')}</tbody></table></div>`;
-      Icons.apply(box);
-      $$('.pl-c', box).forEach((b) => (b.onclick = () => rhFormHabil(rhPostos().find((x) => x.id === b.dataset.p), rhPessoa(b.dataset.u))));
-      $$('.pl-pn', box).forEach((b) => (b.onclick = () => rhOpenPessoa(b.dataset.u)));
-      $$('[data-ph]', box).forEach((b) => (b.onclick = () => rhOpenTreino(b.dataset.ph)));
-    };
-    $$('[data-s]', bar).forEach((b) => (b.onclick = () => { rhPlF.setor = b.dataset.s; $$('[data-s]', bar).forEach((x) => x.classList.toggle('on', x === b)); paint(); }));
-    $('#plQ', bar).oninput = (e) => { rhPlF.q = e.target.value; paint(); };
-    paint();
+    if (!d.ativ.length || !gs.length) {
+      box.innerHTML = `<div class="tbl-wrap">${emptyState('grid', !d.ativ.length ? 'Nenhuma atividade neste setor' : 'Nenhum cargo neste setor', !d.ativ.length ? 'Cadastre as atividades (tipo Técnico / operação) ou importe a planilha.' : 'Crie os cargos do setor em Pessoas & setores e vincule as atividades.')}</div>`;
+      Icons.apply(box); return;
+    }
+    const cobCell = (c) => (c ? `<td class="fx-cob fx-${fxCls(c.v)}" title="${c.hab} habilitado(s)">${fxPct(c.v)}</td>` : '<td class="fx-cob fx-na">—</td>');
+    const nCols = 1 + gs.reduce((s, g) => s + Math.max(1, g.pessoas.length) + 1, 0) + 1;
+    box.innerHTML = `<div class="pl-wrap fx-wrap"><table class="pl-mx fx-mx"><thead>
+      <tr><th class="pl-hp fx-col1 fx-hc0" rowspan="2">Atividade <em>${d.ativ.length}</em></th>${gs.map((g) => `<th class="fx-gh" colspan="${Math.max(1, g.pessoas.length) + 1}"><span>${esc(g.c.nome)}</span><small>mín. ${g.min} · <b class="fx-${fxCls(d.idxCargo(g))}">${fxPct(d.idxCargo(g))}</b></small></th>`).join('')}<th class="fx-ih" rowspan="2"><span>Índice</span></th></tr>
+      <tr>${gs.map((g) => (g.pessoas.length ? g.pessoas.map((u) => `<th class="fx-ph"><button type="button" class="fx-pb" data-u="${u.id}" title="${esc(u.name)}">${rhAvatar(u.name)}<span>${esc(rhPrimeiro(u.name))}</span></button></th>`).join('') : '<th class="fx-ph fx-vz">sem pessoas</th>') + '<th class="fx-ph fx-cobh">Cob.</th>').join('')}</tr></thead>
+      <tbody>${d.etapas.map((e) => `<tr class="fx-et"><th class="pl-hp" colspan="${nCols - 1}"><span>${esc(e.nome)}</span></th><td class="fx-cob fx-${fxCls(d.idxEtapa(e))}">${fxPct(d.idxEtapa(e))}</td></tr>`
+        + e.ativ.map((t) => `<tr><th class="pl-hp fx-col1"><button type="button" class="fx-an" data-t="${t.id}" title="Abrir atividade">${t.critico ? ic('alert') : ''}<span>${esc(t.nome)}</span></button></th>${gs.map((g) => { const c = d.cob(g, t);
+          const pes = g.pessoas.length ? g.pessoas.map((u) => { if (!c) return '<td class="fx-x" title="Não se aplica ao cargo"><i></i></td>'; const n = rhNivel(t.id, u.id); const h = rhHab(t.id, u.id); const pl = n === 1 && h && h.planejado;
+            const atras = pl && h.planejado < rhHoje();
+            return `<td><button type="button" class="pl-c n${n}${atras ? ' pend' : ''}" data-p="${t.id}" data-u="${u.id}" title="${esc(u.name)} · ${esc(RH_NIV[n].l)}${pl ? ' · planejado para ' + fmtDate(h.planejado) + (atras ? ' (atrasado)' : '') : ''}" ${podeEd ? '' : 'disabled'}>${rhNivGlyph(n, 22)}${atras ? '<i></i>' : ''}</button></td>`; }).join('') : `<td class="fx-x"><i></i></td>`;
+          return pes + cobCell(c); }).join('')}<td class="fx-cob fx-idx fx-${fxCls(d.idxAtiv(t))}">${fxPct(d.idxAtiv(t))}</td></tr>`).join('')).join('')}</tbody>
+      <tfoot><tr><th class="pl-hp fx-col1">Índice por pessoa</th>${gs.map((g) => (g.pessoas.length ? g.pessoas.map((u) => { const p = d.pessoas.find((x) => x.u.id === u.id); return `<td class="fx-cob fx-${fxCls(p && p.v)}" title="${p ? `${p.hab} de ${p.tot} atividades` : ''}">${fxPct(p && p.v)}</td>`; }).join('') : '<td></td>') + `<td class="fx-cob fx-${fxCls(d.idxCargo(g))}">${fxPct(d.idxCargo(g))}</td>`).join('')}<td class="fx-cob fx-idx fx-${fxCls(d.indice)}">${fxPct(d.indice)}</td></tr></tfoot></table></div>`;
+    Icons.apply(box);
+    // 2ª linha do cabeçalho fixo começa onde a 1ª termina (a altura muda com a largura da tela)
+    const fxH1 = () => { const tr = $('.fx-mx thead tr', box); if (tr) box.querySelector('.fx-mx').style.setProperty('--fxh1', tr.getBoundingClientRect().height + 'px'); };
+    fxH1(); requestAnimationFrame(fxH1);
+    $$('.pl-c', box).forEach((b) => (b.onclick = () => rhFormHabil(rhPostos().find((x) => x.id === b.dataset.p), rhPessoa(b.dataset.u))));
+    $$('[data-u]', box).forEach((b) => { if (!b.classList.contains('pl-c')) b.onclick = () => rhOpenPessoa(b.dataset.u); });
+    $$('[data-t]', box).forEach((b) => (b.onclick = () => rhOpenTreino(b.dataset.t)));
   };
 
   /* =========================== AUDITORES INTERNOS (IATF 7.2.3) =========================== */
@@ -4018,22 +4438,47 @@
         <div class="field full"><label>Reciclagem</label><select name="validadeMeses">${[['0', 'Não vence'], ['6', 'A cada 6 meses'], ['12', 'A cada 12 meses'], ['24', 'A cada 24 meses'], ['36', 'A cada 36 meses']].map(([v, l]) => `<option value="${v}" ${String(t.validadeMeses || 0) === v ? 'selected' : ''}>${l}</option>`).join('')}</select></div></div>
         <div id="opBox" ${t.tipo === RH_OP ? '' : 'hidden'}><div class="form-sec">${ic('grid')}Operação (polivalência)</div><div class="form-grid">
           ${field('Setor', 'setor', t.setor || '', 'select', { options: [{ v: '', t: 'Sem setor' }].concat(rhSetores().map((s) => ({ v: s.nome, t: s.nome }))) })}
-          ${field('Mínimo de habilitados', 'minimo', t.minimo || 2, 'text', { hint: 'Abaixo disso a operação fica em risco' })}
-          <div class="field full">${sw('Operação crítica (qualidade, segurança ou entrega)', 'critico', t.critico)}</div></div></div>`,
+          <div class="field"><label>Etapa</label><input name="etapa" list="fxEtapas" value="${esc(t.etapa || '')}" placeholder="Ex.: Pré-montagem" autocomplete="off"><datalist id="fxEtapas"></datalist><span class="hint">Agrupa as atividades no mapa de flexibilidade</span></div>
+          ${field('Mínimo de habilitados na empresa', 'minimo', t.minimo || 2, 'text', { hint: 'Abaixo disso a operação fica em risco' })}
+          <div class="field full">${sw('Operação crítica (qualidade, segurança ou entrega)', 'critico', t.critico)}</div></div>
+          <div class="form-sec">${ic('briefcase')}Cargos que fazem esta atividade</div><div class="pl-chips" id="fxCg"></div></div>`,
       footer: (editing ? `<button class="btn danger ghost" id="delBtn" style="margin-right:auto">${ic('trash')}Excluir</button>` : '') + submitFooter(editing),
     });
     ccSelect($('[name="tipo"]', card), { icon: 'award' }); ccSelect($('[name="validadeMeses"]', card), { icon: 'refresh' }); ccSelect($('[name="setor"]', card), { icon: 'grid' });
     rhMaskNum($('[name="cargaHoras"]', card), 400); rhMaskNum($('[name="minimo"]', card), 20);
     $('[name="tipo"]', card).addEventListener('change', (e) => { $('#opBox', card).hidden = e.target.value !== RH_OP; });
+    // Mapa de flexibilidade: etapas sugeridas e cargos do setor escolhido
+    const cgSel = new Set(rhList('rhCargos').filter((c) => (t.id ? fxAplica(c, t) : fxSet(c) === (t.setor || 'Sem setor'))).map((c) => c.id));
+    const pintaOp = () => {
+      const st = $('[name="setor"]', card).value || 'Sem setor';
+      $('#fxEtapas', card).innerHTML = [...new Set(fxAtividades().filter((x) => fxSet(x) === st && x.etapa).map((x) => x.etapa))].map((e) => `<option value="${esc(e)}">`).join('');
+      const cs = rhList('rhCargos').filter((c) => fxSet(c) === st).sort((a, b) => a.nome.localeCompare(b.nome));
+      $('#fxCg', card).innerHTML = cs.length ? cs.map((c) => `<button type="button" class="pl-chip${cgSel.has(c.id) ? ' on' : ''}" data-cg="${c.id}">${ic('check')}${esc(c.nome)}</button>`).join('') : '<span class="hint">Nenhum cargo neste setor. Crie em Pessoas & setores.</span>';
+      Icons.apply($('#fxCg', card));
+      $$('[data-cg]', card).forEach((b) => (b.onclick = () => { const k = b.dataset.cg; cgSel.has(k) ? cgSel.delete(k) : cgSel.add(k); b.classList.toggle('on', cgSel.has(k)); }));
+    };
+    $('[name="setor"]', card).addEventListener('change', pintaOp); pintaOp();
     const del = $('#delBtn', card);
     if (del) del.onclick = () => rhList('rhTreinoReg').some((r) => r.treinoId === t.id) || rhList('rhTurmas').some((x) => x.treinoId === t.id) ? toast('Treinamento com registros não pode ser excluído', 'warn') : confirmDialog(`Excluir "${t.nome}" do catálogo?`, () => { rhList('rhHabil').filter((h) => h.postoId === t.id).forEach((h) => Store.remove('rhHabil', h.id)); Store.remove('rhTreinos', t.id); rhList('rhCargos').filter((c) => (c.treinos || []).includes(t.id)).forEach((c) => Store.update('rhCargos', c.id, { treinos: c.treinos.filter((x) => x !== t.id) })); toast('Treinamento excluído', 'info'); go(currentRoute); });
     $('#saveBtn', card).onclick = () => {
       const d = readForm(card); if (d.nome.length < 3) return toast('Informe o nome do treinamento', 'warn');
       const ch = rhNum(d.cargaHoras); if (!ch) return toast('Informe a carga horária', 'warn');
-      if (rhList('rhTreinos').some((x) => x.id !== t.id && x.nome.trim().toLowerCase() === d.nome.trim().toLowerCase())) return toast('Já existe um treinamento com esse nome', 'warn');
+      // atividades (operação) podem repetir o nome em etapas/setores diferentes (ex.: "POP" em cada etapa)
+      const mesmoEscopo = (x) => d.tipo !== RH_OP || !rhIsOp(x) || ((x.setor || '') === (d.setor || '') && (x.etapa || '').trim().toLowerCase() === (d.etapa || '').trim().toLowerCase());
+      if (rhList('rhTreinos').some((x) => x.id !== t.id && x.nome.trim().toLowerCase() === d.nome.trim().toLowerCase() && mesmoEscopo(x))) return toast(d.tipo === RH_OP ? 'Já existe essa atividade nesta etapa' : 'Já existe um treinamento com esse nome', 'warn');
       const obj = { nome: d.nome, tipo: d.tipo, cargaHoras: ch, validadeMeses: Number(d.validadeMeses) || 0 };
-      if (d.tipo === RH_OP) Object.assign(obj, { setor: d.setor || '', minimo: Math.max(1, rhNum(d.minimo) || 2), critico: !!d.critico });
-      if (editing) Store.update('rhTreinos', t.id, obj); else Store.add('rhTreinos', obj);
+      if (d.tipo === RH_OP) Object.assign(obj, { setor: d.setor || '', etapa: d.etapa || '', minimo: Math.max(1, rhNum(d.minimo) || 2), critico: !!d.critico });
+      let salvo; if (editing) salvo = Store.update('rhTreinos', t.id, obj); else salvo = Store.add('rhTreinos', obj);
+      // vínculo cargo → atividade (lista sem definição = "todas do setor"; ao mexer, vira lista explícita)
+      if (d.tipo === RH_OP && salvo) {
+        rhList('rhCargos').forEach((c) => {
+          const quer = cgSel.has(c.id) && fxSet(c) === (d.setor || 'Sem setor'); const tem = fxAplica(c, salvo);
+          if (quer === tem) return;
+          const base = Array.isArray(c.atividades) ? c.atividades.slice() : fxAtividades().filter((x) => fxSet(x) === fxSet(c)).map((x) => x.id);
+          const nova = quer ? [...new Set(base.concat(salvo.id))] : base.filter((x) => x !== salvo.id);
+          Store.update('rhCargos', c.id, { atividades: nova });
+        });
+      }
       toast(editing ? 'Treinamento atualizado' : 'Treinamento criado'); closeModal(); go(currentRoute);
     };
   }
@@ -4994,6 +5439,8 @@
         v: () => { let ok = 0, tot = 0; rhAtivos().forEach((u) => { const r = rhTreinoResumo(u); ok += r.ok + r.vencendo; tot += r.total; }); return { v: pctOf(ok, tot), n: tot }; } },
       { k: 'rh_poli', a: 'rh', t: 'Operações críticas cobertas', c: '7.2.2 · 6.1.2.3', u: '%', melhor: 'maior', meta: 100, atual: true, como: 'Operações críticas com habilitados (nível 3+) no mínimo definido ÷ operações críticas.',
         v: () => { const l = rhPostos().filter((p) => p.critico); return { v: pctOf(l.filter((p) => rhPostoCob(p).st === 'ok').length, l.length), n: l.length }; } },
+      { k: 'rh_flex', a: 'rh', t: 'Índice de flexibilidade (polivalência)', c: '7.2.2 · FRM-051-02', u: '%', melhor: 'maior', meta: 80, atual: true, como: 'Média da cobertura das atividades por cargo: pessoas habilitadas (nível 3+) ÷ mínimo do cargo, no máximo 100%.',
+        v: () => { const g = fxGeral(); return { v: g.v == null ? null : Math.round(g.v * 100), n: g.n }; } },
       { k: 'rh_aud', a: 'rh', t: 'Auditores internos qualificados', c: '7.2.3', u: '%', melhor: 'maior', meta: 100, atual: true, como: 'Auditores com requisitos e auditorias do ano em dia ÷ auditores ativos.',
         v: () => { const l = rhAudList().map(rhAudSt).filter((s) => s.st !== 'inativo'); return { v: pctOf(l.filter((s) => s.st === 'ok').length, l.length), n: l.length }; } },
       { k: 'rh_plano', a: 'rh', t: 'Cumprimento do plano de treinamento', c: '7.2', u: '%', melhor: 'maior', meta: 90, atual: true, como: 'Itens do plano do ano já realizados ÷ itens cujo mês já passou ou que foram realizados.',
