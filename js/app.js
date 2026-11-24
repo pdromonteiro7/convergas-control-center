@@ -3668,7 +3668,8 @@
     const ativos = rhAtivos();
     const idsSetor = new Set(ativ.map((t) => t.id));
     const apoia = (c) => fxSet(c) !== setor && Array.isArray(c.atividades) && c.atividades.some((id) => idsSetor.has(id));
-    const grupos = rhList('rhCargos').filter((c) => fxSet(c) === setor || apoia(c))
+    const doMapa = (c) => Array.isArray(c.atividades) || ativos.some((u) => u.cargoId === c.id);
+    const grupos = rhList('rhCargos').filter((c) => (fxSet(c) === setor && doMapa(c)) || apoia(c))
       .sort((a, b) => (apoia(a) ? 1 : 0) - (apoia(b) ? 1 : 0) || fxOrd(a) - fxOrd(b) || a.nome.localeCompare(b.nome))
       .map((c) => ({ c, min: fxMin(c), apoio: apoia(c) ? fxSet(c) : '', pessoas: ativos.filter((u) => u.cargoId === c.id).sort((a, b) => a.name.localeCompare(b.name)) }));
     const cel = new Map(); // `${cargoId}|${ativId}` → { hab, v }
@@ -3894,14 +3895,33 @@
     const s = setores.find((x) => fxNorm(x.nome) === fxNorm(a.sufixo)) || setores.find((x) => al.some((w) => fxNorm(x.nome).includes(w)));
     return s ? s.nome : '';
   }
+  // Mesma pessoa? O PRIMEIRO NOME tem que bater (exato, ou abreviado: "Alex" ~ "Alexandre");
+  // sobrenome só desempata. Sobrenome em comum sozinho não liga ninguém (irmãos, xarás de família).
+  const fxToks = (x) => fxNorm(x).split(' ').filter((w) => w.length > 1 && !['de', 'da', 'do', 'das', 'dos', 'e', 'ti'].includes(w));
+  // distância de edição (erro de digitação: "Monterio" ~ "Monteiro", "Podian" ~ "Pondian")
+  function fxLev(a, b) { const d = Array.from({ length: a.length + 1 }, (_, i) => [i]); for (let j = 1; j <= b.length; j++) d[0][j] = j;
+    for (let i = 1; i <= a.length; i++) for (let j = 1; j <= b.length; j++) d[i][j] = Math.min(d[i - 1][j] + 1, d[i][j - 1] + 1, d[i - 1][j - 1] + (a[i - 1] === b[j - 1] ? 0 : 1));
+    return d[a.length][b.length]; }
+  const fxIgual = (x, w) => x === w || (x.length >= 3 && w.length >= 3 && (x.startsWith(w) || w.startsWith(x))) || (x.length >= 5 && w.length >= 5 && fxLev(x, w) <= 2);
+  function fxPessoaScore(nome, u) {
+    const n = fxToks(nome), m = fxToks(u.name); if (!n.length || !m.length) return 0;
+    let s = m[0] === n[0] ? 3 : ((m[0].length >= 3 && n[0].startsWith(m[0])) || (n[0].length >= 3 && m[0].startsWith(n[0]))) ? 2 : 0;
+    if (!s) return 0;
+    n.slice(1).forEach((w) => { if (m.includes(w)) s += 1; else if (m.some((x) => fxIgual(x, w))) s += 0.5; });
+    // os dois têm sobrenome e nenhum bate = outra pessoa com o mesmo primeiro nome
+    if (m.length > 1 && n.length > 1 && !m.slice(1).some((x) => n.slice(1).some((w) => fxIgual(x, w)))) s -= 1.5;
+    return s;
+  }
   function fxPalpitePessoa(nome) {
-    const n = fxNorm(nome).split(' ').filter((w) => w.length > 1); if (!n.length) return '';
     let best = null, score = 0;
-    rhAtivos().forEach((u) => { const m = fxNorm(u.name).split(' ');
-      let s = n.filter((w) => m.includes(w)).length + (m[0] === n[0] ? 1.5 : 0);
-      n.forEach((w) => { if (w.length === 1 || (w.length <= 2)) return; if (!m.includes(w) && m.some((x) => x.startsWith(w) || w.startsWith(x))) s += 0.5; });
-      if (s > score) { score = s; best = u; } });
-    return best && score >= 2.5 ? best.id : '';
+    rhAtivos().forEach((u) => { const s = fxPessoaScore(nome, u); if (s > score) { score = s; best = u; } });
+    return best && score >= 2 ? best.id : '';
+  }
+  // vários nomes de uma vez: cada colaborador fica só com o nome mais parecido
+  function fxPalpites(nomes) {
+    const cand = nomes.map((n) => { let best = null, score = 0; rhAtivos().forEach((u) => { const s = fxPessoaScore(n, u); if (s > score) { score = s; best = u; } }); return best && score >= 2 ? { id: best.id, s: score } : null; });
+    cand.forEach((c, i) => { if (c && cand.some((o, j) => j !== i && o && o.id === c.id && (o.s > c.s || (o.s === c.s && j < i)))) cand[i] = null; });
+    return cand.map((c) => (c ? c.id : ''));
   }
   async function fxImportar() {
     if (!Perm.podeGravar('rhTreinos') || !Perm.podeGravar('rhHabil')) return toast('Sem permissão para importar', 'warn');
@@ -3990,6 +4010,15 @@
   const FX_SET_ALIAS = { 'producao': ['producao', 'operacao', 'fabrica'], 'qualidade': ['qualidade'], 'processos': ['processo'], 'ti': ['ti', 'tecnologia', 'informatica'],
     'supplychainpcp': ['supply', 'pcp', 'suprimento', 'logistica'], 'comercial': ['comercial', 'vendas'], 'engenharia': ['engenharia'], 'administrativo': ['administrativo', 'adm', 'financeiro'] };
   const fxK = (x) => fxNorm(x).replace(/\s/g, '');
+  const FX_SIN = { gerente: 'gestor', coordenador: 'gestor', coordenadora: 'gestor', encarregado: 'gestor', lider: 'gestor', supervisor: 'gestor', tecnologia: 'ti', informatica: 'ti' };
+  const fxTok = (x) => fxNorm(x).replace(/\b([a-z0-9]) (?=[a-z0-9]\b)/g, '$1').split(' ').filter((w) => w && !['de', 'da', 'do', 'das', 'dos', 'e'].includes(w)).map((w) => FX_SIN[w] || w);
+  // mesmo cargo com outro nome? (iguais, ou um contido no outro)
+  function fxParecido(a, b) {
+    const A = fxTok(a), B = fxTok(b); if (!A.length || !B.length) return false;
+    const sa = new Set(A), sb = new Set(B);
+    const contem = (x, y) => [...x].every((w) => y.has(w));
+    return contem(sa, sb) || contem(sb, sa);
+  }
   function fxSetorExistente(nome) {
     const ss = rhSetores(); const k = fxK(nome);
     return ss.find((s) => fxK(s.nome) === k) || ss.find((s) => (FX_SET_ALIAS[k] || []).some((a) => fxK(s.nome).includes(a)));
@@ -4000,7 +4029,8 @@
     let pk; try { const r = await fetch('js/seed/convergas-mapa.json', { cache: 'no-store' }); pk = await r.json(); } catch (e) { return toast('Não consegui carregar o pacote de cadastro', 'warn'); }
     const ativos = rhAtivos().slice().sort((a, b) => a.name.localeCompare(b.name));
     const setRes = pk.setores.map((n) => { const e = fxSetorExistente(n); return { n, e }; });
-    const sugest = (p) => { const id = fxPalpitePessoa(p.nome); return id || (p.soVincular ? '' : 'novo'); };
+    const palp = fxPalpites(pk.pessoas.map((p) => p.nome));
+    const sugestI = pk.pessoas.map((p, i) => palp[i] || (p.soVincular ? '' : 'novo'));
     const card = modal({
       title: 'Cadastro Convergas', sub: 'Mapa de flexibilidade FRM-051-02 + lista PJ 2026 · confira antes de gravar', wide: true,
       body: `<div class="info-grid fx-pk"><div><b>${pk.setores.length}</b><small>setores</small></div><div><b>${pk.cargos.length}</b><small>cargos</small></div><div><b>${pk.atividades.length}</b><small>atividades</small></div><div><b>${pk.pessoas.length}</b><small>pessoas</small></div><div><b>${pk.niveis.length}</b><small>níveis</small></div></div>
@@ -4008,20 +4038,55 @@
         <div class="fx-imp">${setRes.map((x) => `<div class="fx-imp-r"><span><b>${esc(x.n)}</b><small>${pk.cargos.filter((c) => c.setor === x.n).map((c) => esc(c.nome)).join(' · ') || '—'}</small></span><span class="fx-pk-st">${x.e ? `${ic('check')}usa o setor “${esc(x.e.nome)}”` : `${ic('plus')}será criado`}</span></div>`).join('')}</div>
         <div class="form-sec">${ic('users')}Pessoas → cargo</div>
         <div class="fx-imp">${pk.pessoas.map((p, i) => `<div class="fx-imp-r"><span><b>${esc(p.nome)}</b><small>${esc(p.funcao)} → ${esc(p.cargo || '—')}${p.setor ? ' · ' + esc(p.setor) : ''}</small></span>
-          <select data-pk="${i}"><option value="novo" ${sugest(p) === 'novo' ? 'selected' : ''}>Cadastrar como novo colaborador</option><option value="" ${sugest(p) === '' ? 'selected' : ''}>Não cadastrar</option>${ativos.map((u) => `<option value="${u.id}" ${sugest(p) === u.id ? 'selected' : ''}>É ${esc(u.name)}${u.sector ? ' · ' + esc(u.sector) : ''}</option>`).join('')}</select></div>`).join('')}</div>
+          <select data-pk="${i}"><option value="novo" ${sugestI[i] === 'novo' ? 'selected' : ''}>Cadastrar como novo colaborador</option><option value="" ${sugestI[i] === '' ? 'selected' : ''}>Não cadastrar</option>${ativos.map((u) => `<option value="${u.id}" ${sugestI[i] === u.id ? 'selected' : ''}>É ${esc(u.name)}${u.sector ? ' · ' + esc(u.sector) : ''}</option>`).join('')}</select></div>`).join('')}</div>
+        ${(() => { const ex = fxCargosAntigos(pk); return ex.length ? `<div class="form-sec">${ic('briefcase')}Cargos que já existiam</div>
+          <p class="fx-imp-n" style="margin:0 0 8px">Cargos do sistema que não estão no pacote. Os parecidos com um cargo do pacote (ex.: "Analista de T.I" e "Analista de TI") são juntados: pessoas e treinamentos exigidos passam para o cargo do pacote e o duplicado é apagado.</p>
+          <div class="fx-imp">${ex.map((x, i) => `<div class="fx-imp-r"><span><b>${esc(x.c.nome)}</b><small>${esc(fxSet(x.c))} · ${x.n} pessoa${x.n === 1 ? '' : 's'}${(x.c.treinos || []).length ? ` · ${(x.c.treinos || []).length} treinamento(s) exigido(s)` : ''}</small></span>
+            <select data-cx="${i}"><option value="">Manter como está</option>${pk.cargos.map((pc) => `<option value="${esc(pc.nome)}" ${x.alvo === pc.nome ? 'selected' : ''}>Juntar com “${esc(pc.nome)}” (${esc(pc.setor)})</option>`).join('')}</select></div>`).join('')}</div>` : ''; })()}
         <div class="field full" style="margin-top:14px">${sw('Atualizar o nome de quem já existe para o nome completo da lista', 'nomeCompleto', true)}</div>
         <p class="fx-imp-n">Atividades e cargos que já existirem com o mesmo nome são atualizados, não duplicados. Cada pessoa fica no cargo e setor indicados; os níveis vêm da planilha (E → 4, Q → 3, T → 2, data → treino planejado). Montadores que não estão na planilha entram em Montador GNV I, sem nível, para avaliação.</p>`,
       footer: `<button class="btn ghost" data-close>Cancelar</button><button class="btn primary" id="saveBtn">${ic('check')}Cadastrar tudo</button>`,
     });
-    Icons.apply(card); $$('[data-pk]', card).forEach((s2) => ccSelect(s2, { search: true, icon: 'users' }));
+    Icons.apply(card); $$('[data-pk]', card).forEach((s2) => ccSelect(s2, { search: true, icon: 'users' })); $$('[data-cx]', card).forEach((s2) => ccSelect(s2, { search: true, icon: 'briefcase' }));
     $('#saveBtn', card).onclick = () => {
       const escolha = pk.pessoas.map((p, i) => $(`[data-pk="${i}"]`, card).value);
       const usados = escolha.filter((x) => x && x !== 'novo'); const dup = usados.find((x, i) => usados.indexOf(x) !== i);
       if (dup) return toast(`${rhNome(dup)} foi escolhido para duas pessoas da lista`, 'warn');
+      const antigos = fxCargosAntigos(pk); const juntar = antigos.map((x, i) => ({ c: x.c, alvo: ($(`[data-cx="${i}"]`, card) || {}).value || '' })).filter((x) => x.alvo);
       const r = fxAplicarPacote(pk, escolha, $('[name="nomeCompleto"]', card).checked);
-      closeModal(); toast(`Cadastro feito: ${r.setores} setor(es) novo(s), ${r.cargos} cargo(s), ${r.ativ} atividade(s), ${r.novos} pessoa(s) nova(s), ${r.atualizados} atualizada(s), ${r.niveis} nível(is)`);
+      const j = fxJuntarCargos(juntar);
+      closeModal(); toast(`Cadastro feito: ${r.setores} setor(es) novo(s), ${r.cargos} cargo(s), ${r.ativ} atividade(s), ${r.novos} pessoa(s) nova(s), ${r.atualizados} atualizada(s), ${r.niveis} nível(is)${j ? ` · ${j} cargo(s) duplicado(s) juntado(s)` : ''}`);
       fxSetF('todos'); go(currentRoute);
     };
+  }
+  // entre cargos de mesmo nome (ex.: "Analista de T.I" e "Analista de TI"), o principal é o que tem pessoas e atividades
+  function fxPrincipal(nome) {
+    const l = rhList('rhCargos').filter((y) => fxK(y.nome) === fxK(nome));
+    const peso = (c) => 10 * rhList('team').filter((u) => u.cargoId === c.id && u.situacao !== 'desligado').length + (Array.isArray(c.atividades) ? 5 : 0) + (c.atividades || []).length / 1000;
+    return l.sort((a, b) => peso(b) - peso(a))[0] || null;
+  }
+  // cargos do sistema que não são do pacote; sugere juntar com o cargo parecido do mesmo setor
+  function fxCargosAntigos(pk) {
+    const principais = new Set(pk.cargos.map((pc) => (fxPrincipal(pc.nome) || {}).id).filter(Boolean));
+    const doPk = (c) => principais.has(c.id);
+    const setorPk = (n) => { const e = fxSetorExistente(n); return e ? e.nome : n; };
+    return rhList('rhCargos').filter((c) => !doPk(c)).map((c) => {
+      const cand = pk.cargos.filter((pc) => fxParecido(pc.nome, c.nome));
+      const alvo = (cand.find((pc) => setorPk(pc.setor) === fxSet(c)) || (c.setor ? null : cand[0]) || {}).nome || '';
+      return { c, n: rhList('team').filter((u) => u.cargoId === c.id && u.situacao !== 'desligado').length, alvo };
+    }).sort((a, b) => (b.alvo ? 1 : 0) - (a.alvo ? 1 : 0) || fxSet(a.c).localeCompare(fxSet(b.c)) || a.c.nome.localeCompare(b.c.nome));
+  }
+  // junta o cargo duplicado no cargo do pacote: pessoas, treinamentos exigidos, descrição; depois apaga o duplicado
+  function fxJuntarCargos(lista) {
+    let n = 0;
+    lista.forEach(({ c, alvo }) => {
+      const dest = fxPrincipal(alvo); if (!dest || dest.id === c.id) return;
+      rhList('team').filter((u) => u.cargoId === c.id).forEach((u) => Store.update('team', u.id, { cargoId: dest.id, role: dest.nome, sector: u.sector || dest.setor }));
+      Store.update('rhCargos', dest.id, { treinos: [...new Set((dest.treinos || []).concat(c.treinos || []))], descricao: dest.descricao || c.descricao || '', requisitos: dest.requisitos || c.requisitos || '',
+        atividades: Array.isArray(c.atividades) ? [...new Set((dest.atividades || []).concat(c.atividades))] : dest.atividades });
+      Store.remove('rhCargos', c.id); n++;
+    });
+    return n;
   }
   function fxAplicarPacote(pk, escolha, nomeCompleto) {
     const res = { setores: 0, cargos: 0, ativ: 0, novos: 0, atualizados: 0, niveis: 0 }; const hoje = rhHoje(); const quem = (typeof pvMe === 'function' && pvMe()) || '';
@@ -4041,8 +4106,9 @@
     const C = {};
     pk.cargos.forEach((x) => {
       const setor = S[x.setor] || x.setor; const ats = x.atividades.map((a) => A[kA(a)]).filter(Boolean);
-      let c = rhList('rhCargos').find((y) => fxNorm(y.nome) === fxNorm(x.nome));
-      if (c) Store.update('rhCargos', c.id, { setor, ordem: x.ordem, minimo: c.minimo || x.minimo || 2, atividades: [...new Set((Array.isArray(c.atividades) ? c.atividades : []).concat(ats))] });
+      let c = fxPrincipal(x.nome);
+      if (c) Store.update('rhCargos', c.id, { nome: x.nome, setor, ordem: x.ordem, minimo: c.minimo || x.minimo || 2, atividades: [...new Set((Array.isArray(c.atividades) ? c.atividades : []).concat(ats))] });
+      if (c && c.nome === x.nome) rhList('team').filter((u) => u.cargoId === c.id && u.role !== x.nome).forEach((u) => Store.update('team', u.id, { role: x.nome }));
       else { c = Store.add('rhCargos', { nome: x.nome, setor, treinos: [], minimo: x.minimo || 2, ordem: x.ordem, atividades: ats }); res.cargos++; }
       C[x.nome] = c;
     });
@@ -4157,7 +4223,8 @@
       $$('[data-c]', cf).forEach((b) => (b.onclick = () => { fxCargoSel = b.dataset.c; go(currentRoute); }));
     }
     const leg = document.createElement('div'); leg.className = 'pl-leg';
-    leg.innerHTML = RH_NIV.map((N) => `<span>${rhNivGlyph(N.n, 18)}<b>${N.n}</b>${esc(N.l)}</span>`).join('') + `<span class="fx-legna"><i></i>Não se aplica ao cargo</span><span class="pl-legc">${ic('alert')}Atividade crítica</span>`;
+    leg.innerHTML = RH_NIV.map((N) => `<span>${rhNivGlyph(N.n, 18)}<b>${N.n}</b>${esc(N.l)}</span>`).join('') + `<span class="fx-legna"><i></i>— não é atividade do cargo (fica fora da conta)</span><span class="pl-legc">${ic('alert')}Atividade crítica</span>
+      <span class="fx-legx"><b>Cob.</b> = pessoas do cargo habilitadas (nível 3+) ÷ mínimo do cargo. Ex.: mínimo 2 e 1 habilitado = 50%. <b>Apoio</b> = cargo de outro setor que também faz algumas atividades daqui; só conta nelas.</span>`;
     view.appendChild(leg); Icons.apply(leg);
 
     const gs = d.grupos.filter((g) => !fxCargoSel || g.c.id === fxCargoSel);

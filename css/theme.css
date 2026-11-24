@@ -3656,3 +3656,4 @@ html.th-sw *, html.th-sw *::before, html.th-sw *::after { transition: none !impo
 .fx-gh.fx-apoio { background-image: repeating-linear-gradient(135deg, color-mix(in srgb, var(--accent) 6%, transparent) 0 6px, transparent 6px 12px); }
 .fx-gh.fx-apoio small { color: var(--accent); }
 @media (max-width: 720px) { .fx-pk { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+.fx-legx { flex-basis: 100%; font-size: .74rem; color: var(--text-3); } .fx-legx b { color: var(--text-2); }
