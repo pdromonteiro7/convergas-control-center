@@ -3752,3 +3752,6 @@ html.th-sw *, html.th-sw *::before, html.th-sw *::after { transition: none !impo
 .se-mx thead th, .se-mx .se-c1, .se-mx tfoot th, .se-mx tfoot td { background: var(--bg-2); }
 .se-mx .se-et th, .se-mx .se-et td { background: color-mix(in srgb, var(--accent) 7%, var(--bg-2)) !important; }
 .se-mx tbody tr:not(.se-et):hover th { background: color-mix(in srgb, var(--text) 3%, var(--bg-2)); }
+.pc-tiles.pc-5 { grid-template-columns: repeat(5, minmax(0, 1fr)); }
+@media (max-width: 1100px) { .pc-tiles.pc-5 { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+@media (max-width: 760px) { .pc-tiles.pc-5 { grid-template-columns: 1fr 1fr; } .pc-tiles.pc-5 .pvd-tile:last-child { grid-column: 1 / -1; } }

@@ -2183,7 +2183,7 @@
     ativos.forEach((u) => { const ii = rhIntDe(u.id); if (ii.validade && rhDias(h, ii.validade) <= 30) ag.push({ d: ii.validade, i: 'shield', c: ii.st === 'vencido' ? '#FF7A7A' : '#F5B840', t: `Integração de ${u.name}`, s: ii.st === 'vencido' ? 'vencida' : 'vencendo', go: () => navTo('rh-integracao') }); });
     rhList('rhAusencias').forEach((a) => { if (a.inicio >= h && rhDias(h, a.inicio) <= 30) ag.push({ d: a.inicio, i: (RH_AUS[a.tipo] || RH_AUS.ferias).i, c: (RH_AUS[a.tipo] || RH_AUS.ferias).c, t: `${(RH_AUS[a.tipo] || RH_AUS.ferias).l} de ${rhNome(a.colaboradorId)}`, s: `até ${fmtDate(a.fim || a.inicio)}`, go: () => navTo('rh-ferias') }); });
     ativos.forEach((u) => { if (!u.aniversario) return; const [dd, mm] = u.aniversario.split('/'); let dt = `${h.slice(0, 4)}-${mm}-${dd}`; if (dt < h) dt = `${+h.slice(0, 4) + 1}-${mm}-${dd}`; if (rhDias(h, dt) <= 30) ag.push({ d: dt, i: 'sun2', c: '#F472B6', t: `Aniversário de ${u.name}`, s: u.sector || '', go: () => rhOpenPessoa(u.id) }); });
-    rhList('rhVeiculos').forEach((v) => [['licenciamento', 'Licenciamento'], ['seguro', 'Seguro'], ['revisaoData', 'Revisão']].forEach(([k, l]) => { const x = rhVenc(v[k]); if (x && x.d <= 30) ag.push({ d: v[k], i: 'car', c: x.st === 'vencido' ? '#FF7A7A' : '#F5B840', t: `${l} · ${v.placa}`, s: v.modelo || '', go: () => navTo('rh-veiculos') }); }));
+    if (!ROTAS_OCULTAS.has('rh-veiculos')) rhList('rhVeiculos').forEach((v) => [['licenciamento', 'Licenciamento'], ['seguro', 'Seguro'], ['revisaoData', 'Revisão']].forEach(([k, l]) => { const x = rhVenc(v[k]); if (x && x.d <= 30) ag.push({ d: v[k], i: 'car', c: x.st === 'vencido' ? '#FF7A7A' : '#F5B840', t: `${l} · ${v.placa}`, s: v.modelo || '', go: () => navTo('rh-veiculos') }); }));
     rhList('team').forEach((u) => { if (u.cnhValidade && u.situacao !== 'desligado') { const x = rhVenc(u.cnhValidade); if (x && x.d <= 30) ag.push({ d: u.cnhValidade, i: 'car', c: x.st === 'vencido' ? '#FF7A7A' : '#F5B840', t: `CNH de ${u.name}`, s: x.st === 'vencido' ? 'vencida' : 'vencendo', go: () => rhOpenPessoa(u.id) }); } });
     const movAb = rhList('rhMovs').filter((m) => m.status !== 'concluido');
     ag.sort((a, b) => String(a.d).localeCompare(String(b.d)));
@@ -2316,13 +2316,13 @@
       <div class="pc-sat rh-casa"><span class="pc-sat-k">Tempo de casa</span><b>${esc(rhTempoCasa(u))}</b><small>${u.admissao ? 'desde ' + fmtDate(u.admissao) : 'admissão não informada'}</small></div>`;
     view.appendChild(hero); Icons.apply(hero);
     const tile = (cls, icn, v, l, s) => `<div class="pvd-tile ${cls}"><span class="pvd-ti">${ic(icn)}</span><b>${v}</b><span>${esc(l)}</span><small>${esc(s)}</small></div>`;
-    const tiles = document.createElement('section'); tiles.className = 'pc-tiles';
+    const tiles = document.createElement('section'); tiles.className = 'pc-tiles'; if (ROTAS_OCULTAS.has('rh-veiculos')) tiles.classList.add('pc-5');
     tiles.innerHTML = [
       tile(tr.vencido + tr.faltando ? 't-danger' : 't-ok', 'award', tr.total ? `${tr.ok + tr.vencendo}/${tr.total}` : '—', 'Treinamentos em dia', tr.total ? (tr.vencido + tr.faltando ? `${tr.vencido + tr.faltando} pendente(s)` : 'todos válidos') : 'cargo sem exigências'),
       tile('t-warn', 'clock', String(tr.vencendo), 'Vencendo', 'em até 30 dias'),
       tile('t-info', 'sun2', String(feriasAno), 'Dias de férias', 'neste ano'),
       tile('', 'shield', String(epis.length), 'EPIs entregues', 'ficha da Qualidade'),
-      tile('', 'car', veics.length ? veics.map((v) => v.placa).join(', ') : '—', 'Veículo', veics.length ? 'responsável' : 'nenhum'),
+      ROTAS_OCULTAS.has('rh-veiculos') ? '' : tile('', 'car', veics.length ? veics.map((v) => v.placa).join(', ') : '—', 'Veículo', veics.length ? 'responsável' : 'nenhum'),
       tile('', 'users', String(subs.length), 'Equipe', subs.length ? 'pessoas lideradas' : 'sem liderados'),
     ].join('');
     view.appendChild(tiles); Icons.apply(tiles);
@@ -9981,6 +9981,8 @@
     const base = PAGES[r]; if (!base) return;
     PAGES[r] = () => { const ret = base(); try { sxBlocoArea(sid); } catch (e) { console.warn(e); } return ret; };
   });
+  const ROTAS_OCULTAS = new Set(['rh-veiculos']);
+  Object.keys(NAV).forEach((area) => NAV[area].groups.forEach((g) => { g.items = g.items.filter((it) => !ROTAS_OCULTAS.has(it.r)); }));
   const TITLES = {}; const ROUTE_AREA = {};
   Object.keys(NAV).forEach((area) => NAV[area].groups.forEach((g) => g.items.forEach((it) => { TITLES[it.r] = it.t; if (it.r !== 'settings') ROUTE_AREA[it.r] = area; })));
   // páginas internas (fora do menu) que pertencem a uma área
@@ -10118,6 +10120,7 @@
   function go(route) {
     if (!PAGES[route]) route = AREA_HOME[currentArea] || 'dashboard';
     if (AREAS_OCULTAS.has(ROUTE_AREA[route])) { goHome(); return; }
+    if (ROTAS_OCULTAS.has(route)) route = AREA_HOME[currentArea] || 'rh-painel';
     if (Perm.aba(route) === 'nenhum') {
       const ar = ROUTE_AREA[route] || currentArea; const alt = Perm.primeira(ar);
       if (alt && alt !== route) { toast('Você não tem acesso a essa aba', 'warn'); route = alt; }
