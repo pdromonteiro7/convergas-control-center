@@ -3612,23 +3612,19 @@
       title: u.name, sub: p.nome,
       body: `<div class="pl-niv">${RH_NIV.map((N) => `<button type="button" class="pl-nb${N.n === niv ? ' on' : ''}" data-n="${N.n}" style="--c:${N.c}">${rhNivGlyph(N.n, 30)}<b>${N.n} · ${esc(N.l)}</b><small>${esc(N.s)}</small></button>`).join('')}</div>
         ${pend.length ? `<div class="tu-alerta">${ic('alert')}<span>Treinamento ainda não registrado. Registre antes de habilitar.</span></div>` : ''}
-        <div class="form-grid">${field('Data da avaliação', 'data', h.data && niv ? h.data : rhHoje(), 'date')}
-          <div class="field"><label>Liberado por (líder)</label><select name="liberadoPor"><option value="">—</option>${lideres.map((x) => `<option value="${x.id}" ${h.liberadoPor === x.id ? 'selected' : ''}>${esc(x.name)}</option>`).join('')}</select></div>
-          <div class="field" id="plPlan" ${niv === 1 ? '' : 'hidden'}><label>Treinamento planejado para</label><input name="planejado" type="date" value="${esc(h.planejado || '')}"><span class="hint">Mapa de flexibilidade: conta na aderência ao planejamento</span></div>
-          ${field('Observação', 'obs', '', 'textarea', { full: true, ph: 'Ex.: acompanhou 3 lotes, sem desvios' })}</div>
+        <div class="form-grid">
+          <div class="field" id="plPlan" ${niv === 1 ? '' : 'hidden'}><label>Treinamento planejado para (opcional)</label><input name="planejado" type="date" value="${esc(h.planejado || '')}"><span class="hint">Mapa de flexibilidade: conta na aderência ao planejamento</span></div>
+          ${field('Observação (opcional)', 'obs', '', 'textarea', { full: true, ph: 'Ex.: acompanhou 3 lotes, sem desvios' })}</div>
         ${(h.hist || []).length ? `<div class="tu-emis"><span class="sv-msg-h">Histórico</span>${h.hist.slice().reverse().map((x) => `<div>${rhNivGlyph(x.nivel, 16)}<b>${x.nivel} · ${esc((RH_NIV[x.nivel] || RH_NIV[0]).l)}</b><span>${fmtDate(x.data)}${x.por ? ' · liberado por ' + esc(rhNome(x.por)) : ''}${x.obs ? ' · ' + esc(x.obs) : ''}</span></div>`).join('')}</div>` : ''}`,
       footer: submitFooter(true),
     });
-    ccSelect($('[name="liberadoPor"]', card), { search: true, icon: 'users' }); rhLimDates(card, { data: [rhAnos(-30), rhHoje()] });
     $$('.pl-nb', card).forEach((b) => (b.onclick = () => { niv = Number(b.dataset.n); $$('.pl-nb', card).forEach((x) => x.classList.toggle('on', x === b)); $('#plPlan', card).hidden = niv !== 1; }));
     $('#saveBtn', card).onclick = () => {
-      const d = readForm(card);
-      if (!d.data || d.data > rhHoje()) return toast('Informe a data da avaliação', 'warn');
-      if (niv >= 3 && !d.liberadoPor) return toast('Informe quem liberou a pessoa no posto', 'warn');
+      const d = readForm(card); const hoje = rhHoje();
       const planejado = niv === 1 ? d.planejado || '' : '';
-      if (niv === (Number(h.nivel) || 0) && !d.obs && h.id && planejado === (h.planejado || '')) { closeModal(); return; }
-      const hist = (h.hist || []).concat([{ nivel: niv, data: d.data, por: d.liberadoPor, obs: d.obs, em: new Date().toISOString(), reg: (typeof pvMe === 'function' && pvMe()) || '' }]);
-      const obj = { postoId: p.id, colaboradorId: u.id, nivel: niv, data: d.data, liberadoPor: d.liberadoPor, planejado, hist };
+      const mudou = !h.id || niv !== (Number(h.nivel) || 0) || planejado !== (h.planejado || '') || !!d.obs;
+      const hist = mudou ? (h.hist || []).concat([{ nivel: niv, data: hoje, obs: d.obs, em: new Date().toISOString(), reg: (typeof pvMe === 'function' && pvMe()) || '' }]) : (h.hist || []);
+      const obj = { postoId: p.id, colaboradorId: u.id, nivel: niv, data: niv !== (Number(h.nivel) || 0) || !h.data ? hoje : h.data, liberadoPor: h.liberadoPor || '', planejado, hist };
       if (h.id) Store.update('rhHabil', h.id, obj); else Store.add('rhHabil', { id: rhHabId(p.id, u.id), ...obj });
       closeModal(); toast(niv >= 3 ? `${u.name.split(' ')[0]} habilitado na operação` : 'Nível atualizado'); go(currentRoute);
     };
@@ -3637,8 +3633,8 @@
   /* =========================== MAPA DE FLEXIBILIDADE (FRM-051-02) ===========================
      A planilha FRM-051-02 dentro do Control Center. Ligação:
        Setor → Cargos (com as pessoas) → Atividades (operações), agrupadas por Etapa.
-     Regra (Votorantini): para cada atividade, o cargo precisa de N pessoas habilitadas
-     (nível 3+; mínimo do cargo, padrão 2). Cobertura = habilitados ÷ mínimo, teto 100%.
+     Regra: cada atividade precisa de N pessoas habilitadas (nível 3+; mínimo do cargo, padrão 2),
+     somando todos os cargos que a executam (inclusive cargos de apoio). Cobertura = habilitados ÷ mínimo, teto 100%.
        ex.: mínimo 2 e só 1 habilitado → 50%; 2 ou mais → 100%.
      Índices: da atividade, do cargo, da etapa e do setor = média das coberturas
      (só onde a atividade se aplica ao cargo). Da pessoa = atividades do cargo em que
@@ -3675,17 +3671,23 @@
     const grupos = rhList('rhCargos').filter((c) => (fxSet(c) === setor && doMapa(c)) || apoia(c))
       .sort((a, b) => (apoia(a) ? 1 : 0) - (apoia(b) ? 1 : 0) || fxOrd(a) - fxOrd(b) || a.nome.localeCompare(b.nome))
       .map((c) => ({ c, min: fxMin(c), apoio: apoia(c) ? fxSet(c) : '', pessoas: ativos.filter((u) => u.cargoId === c.id).sort((a, b) => a.name.localeCompare(b.name)) }));
-    const cel = new Map(); // `${cargoId}|${ativId}` → { hab, v }
+    // cobertura da ATIVIDADE: soma os habilitados de todos os cargos que a executam (inclusive apoio) ÷ mínimo
+    // ex.: mínimo 2, uma pessoa do Pós-venda e uma da Diretoria habilitadas → 100% (antes cada cargo contava sozinho: 50%)
+    const covAtiv = new Map(); // ativId → { tot, min, v }
+    ativ.forEach((t) => { const gs = grupos.filter((g) => fxAplica(g.c, t)); if (!gs.length) return;
+      const tot = gs.reduce((s, g) => s + g.pessoas.filter((u) => rhNivel(t.id, u.id) >= 3).length, 0); const min = Math.max(...gs.map((g) => g.min));
+      covAtiv.set(t.id, { tot, min, v: Math.min(1, tot / min) }); });
+    const cel = new Map(); // `${cargoId}|${ativId}` → { hab (do cargo), v (da atividade) }
     grupos.forEach((g) => ativ.forEach((t) => {
       if (!fxAplica(g.c, t)) return;
       const hab = g.pessoas.filter((u) => rhNivel(t.id, u.id) >= 3).length;
-      cel.set(g.c.id + '|' + t.id, { hab, v: Math.min(1, hab / g.min) });
+      cel.set(g.c.id + '|' + t.id, { hab, v: covAtiv.get(t.id).v });
     }));
     const cob = (g, t) => cel.get(g.c.id + '|' + t.id) || null;
-    const idxAtiv = (t) => fxAvg(grupos.map((g) => cob(g, t)).filter(Boolean).map((x) => x.v));
+    const idxAtiv = (t) => (covAtiv.has(t.id) ? covAtiv.get(t.id).v : null);
     const idxCargo = (g) => fxAvg(ativ.map((t) => cob(g, t)).filter(Boolean).map((x) => x.v));
-    const idxEtapa = (e) => fxAvg(e.ativ.flatMap((t) => grupos.map((g) => cob(g, t)).filter(Boolean).map((x) => x.v)));
-    const todas = [...cel.values()].map((x) => x.v);
+    const idxEtapa = (e) => fxAvg(e.ativ.map(idxAtiv).filter((v) => v != null));
+    const todas = ativ.map(idxAtiv).filter((v) => v != null);
     const pessoas = grupos.flatMap((g) => g.pessoas.map((u) => {
       const ap = ativ.filter((t) => fxAplica(g.c, t)); const nv = ap.map((t) => rhNivel(t.id, u.id));
       const hab = nv.filter((n) => n >= 3).length, trein = nv.filter((n) => n === 1 || n === 2).length;
@@ -3702,7 +3704,7 @@
       aderencia: plan.length ? noPrazo / plan.length : null, planejados: plan.length, atrasados: plan.length - noPrazo, risco, semNinguem, soUm };
   }
   // índice geral da empresa (todos os setores) — usado no indicador de RH
-  function fxGeral() { const v = []; fxSetores().forEach((s) => { const d = fxDados(s); d.ativ.forEach((t) => d.grupos.forEach((g) => { const c = d.cob(g, t); if (c) v.push(c.v); })); }); return { v: fxAvg(v), n: v.length }; }
+  function fxGeral() { const v = []; fxSetores().forEach((s) => { const d = fxDados(s); d.ativ.forEach((t) => { const c = d.idxAtiv(t); if (c != null) v.push(c); }); }); return { v: fxAvg(v), n: v.length }; }
 
   // ---------- gráficos (SVG/CSS leves, seguem o tema claro/escuro) ----------
   function fxRing(v, size) {
@@ -3740,7 +3742,7 @@
       tr.et td { background: #0b3d6b; color: #fff; font-weight: 700; text-transform: uppercase; letter-spacing: .04em; } td.p { font-weight: 700; } td.ok { color: #127a4b; } td.mid { color: #a26500; } td.zero { color: #b42318; } td.na { color: #99a; }
       td.x { background: #f3f5f8; color: #aab; } th.g { text-align: center; background: #dfe7f1; } tfoot td { background: #eef2f7; font-weight: 700; }</style>
       <div class="info"><div><small>Índice do setor</small><b>${fxPct(d.indice)}</b></div><div><small>Atividades</small><b>${d.ativ.length}</b></div><div><small>Em risco</small><b>${d.risco.length}</b></div><div><small>Aderência ao planejamento</small><b>${fxPct(d.aderencia)}</b></div></div>
-      <p class="cont">Legenda: ${RH_NIV.map((N) => `${sym[N.n]} ${N.n} ${N.l}`).join(' · ')} · cinza = não se aplica ao cargo. Cobertura = habilitados (nível 3+) ÷ mínimo do cargo.</p>
+      <p class="cont">Legenda: ${RH_NIV.map((N) => `${sym[N.n]} ${N.n} ${N.l}`).join(' · ')} · cinza = não se aplica ao cargo. Cobertura = habilitados (nível 3+) na atividade, somando todos os cargos, ÷ mínimo.</p>
       <table><thead><tr><th rowspan="2">Atividade</th>${gs.map((g) => `<th class="g" colspan="${Math.max(1, g.pessoas.length) + 1}">${esc(g.c.nome)}<br><small>mín. ${g.min}</small></th>`).join('')}<th rowspan="2" class="v">Índice da atividade</th></tr>
       <tr>${gs.map((g) => (g.pessoas.length ? g.pessoas.map((u) => `<th class="v">${esc(u.name)}</th>`).join('') : '<th class="v">—</th>') + '<th class="v">Cobertura</th>').join('')}</tr></thead><tbody>
       ${d.etapas.map((e) => `<tr class="et"><td colspan="${cols - 1}">${esc(e.nome)}</td><td class="c">${fxPct(d.idxEtapa(e))}</td></tr>`
@@ -3786,7 +3788,7 @@
     });
     const lr = 6 + dados.length;
     rs.getCell(`A${lr}`).value = 'Como ler'; rs.getCell(`A${lr}`).font = fonte({ bold: true });
-    ['Cobertura de um cargo numa atividade = pessoas habilitadas (E ou Q) ÷ mínimo do cargo (padrão 2), no máximo 100%. Ex.: mínimo 2 e só 1 habilitado = 50%.',
+    ['Cobertura de uma atividade = pessoas habilitadas (E ou Q), somando todos os cargos que a executam, ÷ mínimo (padrão 2), no máximo 100%. Ex.: mínimo 2, uma pessoa do Pós-venda e uma da Diretoria = 100%.',
       'Índice da atividade, do cargo, da etapa e do setor = média das coberturas onde a atividade se aplica ao cargo.',
       'Índice da pessoa = atividades do cargo em que está habilitada ÷ atividades do cargo.',
       'Aderência ao planejamento = treinamentos planejados (M1, com data) ainda no prazo ÷ planejados.']
@@ -3841,7 +3843,7 @@
       leg.forEach(([k, txt, n]) => { const a = ws.getCell(r, 2); a.value = k; a.alignment = { horizontal: 'center' }; a.border = borda; a.font = fonte({ bold: true, color: { argb: NIV[n] ? NIV[n].t : 'FF99A1AE' } }); a.fill = fill(NIV[n] ? NIV[n].f : CINZA);
         ws.mergeCells(r, 3, r, Math.max(3, Math.min(ultima, 14))); const b = ws.getCell(r, 3); b.value = txt; b.font = fonte({ size: 9 }); r++; });
       ws.mergeCells(r + 1, 1, r + 1, Math.max(3, Math.min(ultima, 14))); const nota = ws.getCell(r + 1, 1);
-      nota.value = 'Cobertura = pessoas habilitadas (E ou Q) ÷ mínimo do cargo, no máximo 100%. Índices = média das coberturas onde a atividade se aplica.'; nota.font = fonte({ size: 9, italic: true, color: { argb: 'FF667788' } });
+      nota.value = 'Cobertura = pessoas habilitadas (E ou Q) na atividade, somando todos os cargos, ÷ mínimo, no máximo 100%. Índices = média das coberturas das atividades.'; nota.font = fonte({ size: 9, italic: true, color: { argb: 'FF667788' } });
     });
     const buf = await wb.xlsx.writeBuffer();
     fxBaixar(buf, `Mapa de flexibilidade - ${setores.length === 1 ? setores[0] : 'Convergas'} - ${rhHoje()}.xlsx`);
@@ -4249,7 +4251,7 @@
     }
     const leg = document.createElement('div'); leg.className = 'pl-leg';
     leg.innerHTML = RH_NIV.map((N) => `<span>${rhNivGlyph(N.n, 18)}<b>${N.n}</b>${esc(N.l)}</span>`).join('') + `<span class="fx-legna"><i></i>— não é atividade do cargo (fica fora da conta)</span><span class="pl-legc">${ic('alert')}Atividade crítica</span>
-      <span class="fx-legx"><b>Cob.</b> = pessoas do cargo habilitadas (nível 3+) ÷ mínimo do cargo. Ex.: mínimo 2 e 1 habilitado = 50%. <b>Apoio</b> = cargo de outro setor que também faz algumas atividades daqui; só conta nelas.</span>`;
+      <span class="fx-legx"><b>Cob.</b> = pessoas habilitadas (nível 3+) na atividade, somando todos os cargos, ÷ mínimo. Ex.: mínimo 2, uma do Pós-venda e uma da Diretoria = 100%. <b>Apoio</b> = cargo de outro setor que também faz algumas atividades daqui; só conta nelas.</span>`;
     view.appendChild(leg); Icons.apply(leg);
 
     const gs = d.grupos.filter((g) => !fxCargoSel || g.c.id === fxCargoSel);
@@ -5821,7 +5823,7 @@
         v: () => { let ok = 0, tot = 0; rhAtivos().forEach((u) => { const r = rhTreinoResumo(u); ok += r.ok + r.vencendo; tot += r.total; }); return { v: pctOf(ok, tot), n: tot }; } },
       { k: 'rh_poli', a: 'rh', t: 'Operações críticas cobertas', c: '7.2.2 · 6.1.2.3', u: '%', melhor: 'maior', meta: 100, atual: true, como: 'Operações críticas com habilitados (nível 3+) no mínimo definido ÷ operações críticas.',
         v: () => { const l = rhPostos().filter((p) => p.critico); return { v: pctOf(l.filter((p) => rhPostoCob(p).st === 'ok').length, l.length), n: l.length }; } },
-      { k: 'rh_flex', a: 'rh', t: 'Índice de flexibilidade (polivalência)', c: '7.2.2 · FRM-051-02', u: '%', melhor: 'maior', meta: 80, atual: true, como: 'Média da cobertura das atividades por cargo: pessoas habilitadas (nível 3+) ÷ mínimo do cargo, no máximo 100%.',
+      { k: 'rh_flex', a: 'rh', t: 'Índice de flexibilidade (polivalência)', c: '7.2.2 · FRM-051-02', u: '%', melhor: 'maior', meta: 80, atual: true, como: 'Média da cobertura das atividades: pessoas habilitadas (nível 3+), somando todos os cargos, ÷ mínimo, no máximo 100%.',
         v: () => { const g = fxGeral(); return { v: g.v == null ? null : Math.round(g.v * 100), n: g.n }; } },
       { k: 'rh_aud', a: 'rh', t: 'Auditores internos qualificados', c: '7.2.3', u: '%', melhor: 'maior', meta: 100, atual: true, como: 'Auditores com requisitos e auditorias do ano em dia ÷ auditores ativos.',
         v: () => { const l = rhAudList().map(rhAudSt).filter((s) => s.st !== 'inativo'); return { v: pctOf(l.filter((s) => s.st === 'ok').length, l.length), n: l.length }; } },
