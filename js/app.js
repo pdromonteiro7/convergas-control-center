@@ -1180,6 +1180,91 @@
     view.appendChild(w); Icons.apply(view);
   };
 
+  /* ============ PRIVACIDADE & TERMOS (LGPD) — documento controlado dos 3 sistemas ============ */
+  const ptPend = (h) => String(h).replace(/\[\[([^\]]+)\]\]/g, '<mark class="pt-pend" title="Pendente: preencher antes da aprovação">$1</mark>');
+  const ptPendencias = (doc) => {
+    const todos = [doc.aprovado, ...doc.secoes.map((x) => x.html), ...doc.anexos.map((x) => x.html)].join(' ');
+    return [...new Set([...todos.matchAll(/\[\[([^\]]+)\]\]/g)].map((m) => m[1]))];
+  };
+  function ptImprimir(doc) {
+    const logo = location.origin + '/assets/logo-icone.png';
+    const limpa = (h) => String(h).replace(/\[\[([^\]]+)\]\]/g, '<span class="pend">$1</span>');
+    const html = `<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><title>${esc(doc.codigo)} — ${esc(doc.titulo)}</title><style>
+      @page { size: A4; margin: 16mm 15mm 18mm; @bottom-left { content: "${doc.codigo} · Rev. ${doc.revisao} · Cópia impressa não controlada"; font: 8pt Arial, sans-serif; color: #889; } @bottom-right { content: "Página " counter(page) " de " counter(pages); font: 8pt Arial, sans-serif; color: #889; } }
+      body { font: 10.5pt/1.55 Arial, Helvetica, sans-serif; color: #1a1f24; margin: 0; }
+      header { display: flex; align-items: center; gap: 14px; border-bottom: 2px solid #0b3d6b; padding-bottom: 10px; margin-bottom: 14px; }
+      header img { width: 36px; height: 36px; } header .t { flex: 1; } header h1 { font-size: 15pt; margin: 0; color: #0b3d6b; line-height: 1.2; } header .s { color: #556; font-size: 9pt; margin-top: 2px; }
+      .ctrl { display: grid; grid-template-columns: repeat(4, 1fr); border: 1px solid #c9d2de; margin-bottom: 16px; }
+      .ctrl div { padding: 6px 9px; border-right: 1px solid #c9d2de; border-bottom: 1px solid #c9d2de; } .ctrl div:nth-child(4n) { border-right: 0; }
+      .ctrl small { display: block; font-size: 7.5pt; text-transform: uppercase; letter-spacing: .05em; color: #667; } .ctrl b { font-size: 9.5pt; }
+      .sis { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin: 0 0 16px; }
+      .sis div { border: 1px solid #c9d2de; border-top: 3px solid #0b3d6b; padding: 7px 9px; font-size: 9pt; } .sis b { display: block; font-size: 10pt; } .sis small { color: #667; }
+      h2 { font-size: 11.5pt; color: #0b3d6b; margin: 16px 0 6px; break-after: avoid; } h2.anexo { break-before: page; }
+      p, li { text-align: justify; } ul, ol { padding-left: 18px; margin: 4px 0 8px; } li { margin: 2px 0; }
+      table { width: 100%; border-collapse: collapse; margin: 6px 0 10px; font-size: 9.5pt; } th, td { border: 1px solid #c9d2de; padding: 5px 7px; text-align: left; vertical-align: top; }
+      th { background: #eef2f7; font-size: 8.5pt; color: #334; } tr { break-inside: avoid; }
+      .pt-info th { width: 28%; }
+      .pend { background: #fff3c4; padding: 0 3px; border-radius: 2px; }
+      .ass { display: flex; gap: 40px; margin-top: 40px; } .ass div { flex: 1; text-align: center; border-top: 1px solid #333; padding-top: 5px; font-size: 9pt; } .ass small { display: block; color: #667; }
+    </style></head><body>
+      <header><img src="${logo}" alt=""><div class="t"><h1>${esc(doc.titulo)}</h1><div class="s">${esc(doc.controladora.razao)} · CNPJ ${esc(doc.controladora.cnpj)}</div></div></header>
+      <div class="ctrl">
+        <div><small>Código</small><b>${esc(doc.codigo)}</b></div><div><small>Revisão</small><b>${esc(doc.revisao)}</b></div>
+        <div><small>Data</small><b>${esc(fmtDate(doc.data))}</b></div><div><small>Status</small><b>${esc(doc.status)}</b></div>
+        <div><small>Elaborado por</small><b>${esc(doc.elaborado)}</b></div><div><small>Aprovado por</small><b>${limpa(doc.aprovado)}</b></div>
+        <div><small>Sistemas</small><b>${doc.sistemas.length}</b></div><div><small>Classificação</small><b>Público</b></div>
+      </div>
+      <div class="sis">${doc.sistemas.map((x) => `<div><b>${esc(x.nome)}</b><small>${esc(x.url)} · Anexo ${x.id}</small><br>${esc(x.resumo)}</div>`).join('')}</div>
+      ${doc.secoes.map((x) => `<h2>${esc(x.t)}</h2>${limpa(x.html)}`).join('')}
+      ${doc.anexos.map((x, k) => `<h2${k === 0 ? ' class="anexo"' : ''}>${esc(x.t)}</h2>${limpa(x.html)}`).join('')}
+      <h2>Histórico de revisões</h2>
+      <table><tr><th style="width:12%">Rev.</th><th style="width:18%">Data</th><th>Descrição</th></tr>${doc.historico.map((h) => `<tr><td>${esc(h.rev)}</td><td>${esc(fmtDate(h.data))}</td><td>${esc(h.desc)}</td></tr>`).join('')}</table>
+      <div class="ass"><div>${esc(doc.elaborado)}<small>Elaborado</small></div><div>&nbsp;<small>Aprovado</small></div></div>
+    </body></html>`;
+    const win = window.open('', '_blank');
+    if (!win) { toast('Permita pop-ups para gerar o PDF', 'warn'); return; }
+    win.document.open(); win.document.write(html); win.document.close();
+    setTimeout(() => { try { win.focus(); win.print(); } catch (e) {} }, 450);
+  }
+  PAGES.privacidade = () => {
+    const doc = window.POLITICA_CONVERGAS;
+    if (!doc) { pageShell('T.I.', 'Privacidade & Termos', 'Documento não carregado.'); return; }
+    pageShell('T.I.', 'Privacidade & Termos', 'Política de Privacidade (LGPD) e Termos de Uso dos sistemas Convergas — documento controlado.',
+      `<button class="btn" id="ptPdf">${ic('printer')}Gerar PDF</button>`);
+    const pend = ptPendencias(doc);
+    const box = document.createElement('div');
+    box.className = 'pt-wrap';
+    box.innerHTML = `
+      <div class="pt-ctrl">
+        <div><small>Código</small><b class="mono">${esc(doc.codigo)}</b></div>
+        <div><small>Revisão</small><b class="mono">${esc(doc.revisao)}</b></div>
+        <div><small>Data</small><b>${esc(fmtDate(doc.data))}</b></div>
+        <div><small>Status</small><b><span class="badge ${pend.length ? 'warn' : 'ok'} plain">${esc(doc.status)}</span></b></div>
+        <div><small>Elaborado por</small><b>${esc(doc.elaborado)}</b></div>
+        <div><small>Aprovado por</small><b>${ptPend(esc(doc.aprovado))}</b></div>
+      </div>
+      ${pend.length ? `<div class="pt-alerta"><span class="pt-alerta-ico">${ic('alert')}</span><div><b>${pend.length} pendência(s) antes da aprovação</b><span>Preencha os itens destacados e peça a revisão jurídica. Depois, atualize o status e a revisão em <span class="mono">js/politica.js</span>.</span><ul>${pend.map((x) => `<li>${esc(x)}</li>`).join('')}</ul></div></div>` : ''}
+      <div class="pt-sis">${doc.sistemas.map((x) => `<a class="pt-sis-c" href="#pt-anexo-${x.id}"><span class="pt-sis-ico">${ic(x.icone)}</span><b>${esc(x.nome)}</b><small>${esc(x.url)} · Anexo ${x.id}</small><span>${esc(x.resumo)}</span></a>`).join('')}</div>
+      <div class="pt-layout">
+        <nav class="pt-indice"><span class="pt-indice-t">Índice</span>
+          ${doc.secoes.map((x, k) => `<a href="#pt-s-${k}">${esc(x.t)}</a>`).join('')}
+          ${doc.anexos.map((x) => `<a href="#pt-anexo-${x.id}">${esc(x.t)}</a>`).join('')}
+          <a href="#pt-hist">Histórico de revisões</a>
+        </nav>
+        <article class="pt-doc">
+          ${doc.secoes.map((x, k) => `<section id="pt-s-${k}"><h2>${esc(x.t)}</h2>${ptPend(x.html)}</section>`).join('')}
+          ${doc.anexos.map((x) => `<section id="pt-anexo-${x.id}" class="pt-anexo"><h2>${esc(x.t)}</h2>${ptPend(x.html)}</section>`).join('')}
+          <section id="pt-hist"><h2>Histórico de revisões</h2>
+            <table class="pt-tab"><tr><th>Rev.</th><th>Data</th><th>Descrição</th></tr>${doc.historico.map((h) => `<tr><td class="mono">${esc(h.rev)}</td><td>${esc(fmtDate(h.data))}</td><td>${esc(h.desc)}</td></tr>`).join('')}</table>
+          </section>
+        </article>
+      </div>`;
+    view.appendChild(box);
+    Icons.apply(box);
+    $$('a[href^="#pt-"]', box).forEach((a) => (a.onclick = (e) => { e.preventDefault(); const el = $(a.getAttribute('href'), box); if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' }); }));
+    $('#ptPdf', view).onclick = () => ptImprimir(doc);
+  };
+
   /* ============ SHAREPOINT — portais por setor (T.I) ============ */
   PAGES.sharepoint = () => {
     pageShell('SharePoint', 'SharePoint', 'Portais de documentos por setor.', `<button class="btn primary" id="addBtn">${ic('plus')}Novo site</button>`);
@@ -9944,7 +10029,7 @@
       { label: 'Operação', items: [ { r: 'dashboard', t: 'Dashboard', s: 'Painel', i: 'grid' }, { r: 'equipe', t: 'Usuários & acessos', s: 'Acessos', i: 'users' } ] },
       { label: 'Conhecimento', items: [ { r: 'command', t: 'Command Center', s: 'Comandos', i: 'terminal' }, { r: 'runbooks', t: 'Runbooks', s: 'Runbooks', i: 'book' }, { r: 'sharepoint', t: 'SharePoint', s: 'Portais', i: 'globe' } ] },
       { label: 'Infraestrutura', items: [ { r: 'infra', t: 'Domínio & Infra', s: 'Infra', i: 'globe' }, { r: 'computadores', t: 'Computadores', s: 'PCs', i: 'monitor' }, { r: 'impressoras', t: 'Impressoras', s: 'Impr.', i: 'printer' }, { r: 'telefonia', t: 'Telefonia', s: 'Fones', i: 'phone' }, { r: 'inventario', t: 'Periféricos', s: 'Perif.', i: 'box' }, { r: 'licencas', t: 'Licenças', s: 'Licenças', i: 'key' } ] },
-      { label: 'Segurança', items: [ { r: 'cofre', t: 'Cofre', s: 'Cofre', i: 'shield' }, { r: 'bitlocker', t: 'BitLocker', s: 'BitLock', i: 'lock' } ] },
+      { label: 'Segurança', items: [ { r: 'cofre', t: 'Cofre', s: 'Cofre', i: 'shield' }, { r: 'bitlocker', t: 'BitLocker', s: 'BitLock', i: 'lock' }, { r: 'privacidade', t: 'Privacidade & Termos', s: 'LGPD', i: 'file' } ] },
       { label: 'Sistema', items: [ { r: 'usuarios', t: 'Usuários & permissões', s: 'Usuários', i: 'key' }, { r: 'settings', t: 'Settings', s: 'Config', i: 'settings' } ] },
     ] },
     qualidade: { label: 'Qualidade', groups: [
