@@ -2166,7 +2166,12 @@
     const d = rhDias(rhHoje(), r.validade);
     return { st: d < 0 ? 'vencido' : d <= 30 ? 'vencendo' : 'ok', r, dias: d };
   }
-  const rhExigidos = (u) => { const c = u && rhCargo(u.cargoId); return c && Array.isArray(c.treinos) ? c.treinos.filter((id) => { const t = Store.find('rhTreinos', id); return t && !rhEhAtiv(t); }) : []; };
+  const rhExigidos = (u) => {
+    if (!u) return []; const c = rhCargo(u.cargoId); const curso = (t) => t && !rhEhAtiv(t);
+    const ex = c && Array.isArray(c.treinos) ? c.treinos.filter((id) => curso(Store.find('rhTreinos', id))) : [];
+    rhList('rhTreinos').forEach((t) => { if (Array.isArray(t.pessoas) && t.pessoas.includes(u.id) && curso(t) && !ex.includes(t.id)) ex.push(t.id); });
+    return ex;
+  };
   const RH_TST = { ok: { cls: 'ok', l: 'Em dia', c: '#46D39A' }, vencendo: { cls: 'warn', l: 'Vencendo', c: '#F5B840' }, vencido: { cls: 'danger', l: 'Vencido', c: '#FF7A7A' }, faltando: { cls: 'danger', l: 'Pendente', c: '#FF7A7A' } };
   function rhTreinoResumo(u) {
     const ex = rhExigidos(u); const r = { ok: 0, vencendo: 0, vencido: 0, faltando: 0, total: ex.length };
@@ -3953,6 +3958,7 @@
       g.slice(1).forEach((d) => {
         ['rhTreinoReg', 'rhTurmas', 'rhPlano'].forEach((col) => rhList(col).filter((r) => r.treinoId === d.id).forEach((r) => Store.update(col, r.id, { treinoId: fica.id })));
         rhList('rhCargos').filter((c) => (c.treinos || []).includes(d.id)).forEach((c) => Store.update('rhCargos', c.id, { treinos: [...new Set(c.treinos.map((x) => (x === d.id ? fica.id : x)))] }));
+        if ((d.pessoas || []).length) Store.update('rhTreinos', fica.id, { pessoas: [...new Set((Store.find('rhTreinos', fica.id).pessoas || []).concat(d.pessoas))] });
         Store.remove('rhTreinos', d.id); n++;
       });
     });
@@ -5146,14 +5152,14 @@
     const cnt = { ok: 0, vencendo: 0, vencido: 0, faltando: 0 }; ps.forEach((p) => cnt[p.st]++);
     const exig = ps.filter((p) => p.req); const exOk = exig.filter((p) => p.st === 'ok' || p.st === 'vencendo').length;
     const cobertura = exig.length ? Math.round((100 * exOk) / exig.length) : null;
-    const cargos = rhList('rhCargos').filter((c) => (c.treinos || []).includes(t.id));
+    const cargos = rhList('rhCargos').filter((c) => (c.treinos || []).includes(t.id)); const nPrec = rhAtivos().filter((u) => rhExigidos(u).includes(t.id)).length;
     const turmas = rhTurmas(t.id); const prox = turmas.filter((x) => x.status === 'programada').sort((a, b) => String(a.data).localeCompare(String(b.data)))[0];
     const cor = nr ? '#F5B840' : RH_COR;
     const R = 46, C = 2 * Math.PI * R; const f = cobertura == null ? 0 : cobertura / 100;
     const hero = document.createElement('section'); hero.className = 'tp-hero'; hero.style.setProperty('--c', cor);
     hero.innerHTML = `
       <div class="tp-id"><span class="tp-ic">${ic(nr ? 'shield' : 'award')}</span><div><div class="tp-chips">${nr ? `<span class="tp-nr">${esc((t.nome.match(/NR[\s-]?\d+/i) || ['NR'])[0].toUpperCase().replace(/\s/, '-'))}</span>` : ''}</div>
-        <div class="tp-facts"><span>${ic('refresh')}<b>${esc(rhValTx(t.validadeMeses))}</b><small>periodicidade</small></span><span>${ic('clock')}<b>${t.cargaHoras || 0} h</b><small>carga horária</small></span><span>${ic('briefcase')}<b>${cargos.length}</b><small>${cargos.length === 1 ? 'cargo exige' : 'cargos exigem'}</small></span>${op ? `<span>${ic('grid')}<b>${opCob.hab}/${opCob.min}</b><small>habilitados na prática${t.critico ? ' · crítica' : ''}</small></span>` : ''}</div>
+        <div class="tp-facts"><span>${ic('refresh')}<b>${esc(rhValTx(t.validadeMeses))}</b><small>periodicidade</small></span><span>${ic('clock')}<b>${t.cargaHoras || 0} h</b><small>carga horária</small></span><span>${ic('users')}<b>${nPrec}</b><small>${nPrec === 1 ? 'pessoa precisa' : 'pessoas precisam'}</small></span>${op ? `<span>${ic('grid')}<b>${opCob.hab}/${opCob.min}</b><small>habilitados na prática${t.critico ? ' · crítica' : ''}</small></span>` : ''}</div>
         ${cargos.length ? `<div class="tp-cargos">${cargos.map((c) => `<em>${esc(c.nome)}</em>`).join('')}</div>` : ''}</div></div>
       <div class="tp-ring"><svg viewBox="0 0 110 110"><circle r="${R}" cx="55" cy="55" class="kp-trk" fill="none" stroke-width="10"/><circle r="${R}" cx="55" cy="55" fill="none" stroke="${cobertura == null ? '#94A3B8' : cobertura >= 95 ? '#46D39A' : cobertura >= 80 ? '#F5B840' : '#FF7A7A'}" stroke-width="10" stroke-linecap="round" stroke-dasharray="${(f * C).toFixed(1)} ${C.toFixed(1)}" transform="rotate(-90 55 55)" class="kp-arc"/></svg>
         <div class="kp-core"><b>${cobertura == null ? '—' : cobertura + '%'}</b><span>cobertura</span></div></div>`;
@@ -5198,17 +5204,25 @@
   function rhFormTreino(t, opts = {}) {
     const editing = !!(t && t.id); t = t || {};
     const ativ = !!opts.ativ || rhEhAtiv(t); // atividade da polivalência × curso do catálogo
-    const cgReq = new Set(rhList('rhCargos').filter((c) => editing && (c.treinos || []).includes(t.id)).map((c) => c.id));
-    const cargosTodos = rhList('rhCargos').slice().sort((x, y) => (x.setor || '').localeCompare(y.setor || '') || x.nome.localeCompare(y.nome));
+    // quem precisa: escolhidos no treinamento + quem já precisava pelo cargo
+    const ppl = rhAtivos().slice().sort((x, y) => x.name.localeCompare(y.name));
+    const pReq = new Set(editing ? ppl.filter((u) => (t.pessoas || []).includes(u.id) || ((rhCargo(u.cargoId) || {}).treinos || []).includes(t.id)).map((u) => u.id) : []);
+    const porSetor = {}; ppl.forEach((u) => { const s = u.sector || (rhCargo(u.cargoId) || {}).setor || 'Sem setor'; (porSetor[s] = porSetor[s] || []).push(u); });
+    const setoresP = Object.keys(porSetor).sort((x, y) => (x === 'Sem setor') - (y === 'Sem setor') || x.localeCompare(y));
+    const nomeCurto = (n) => { const w = String(n || '').trim().split(/\s+/); return w.length > 1 ? w[0] + ' ' + w[w.length - 1] : w[0] || ''; };
     const card = modal({
-      title: editing ? (ativ ? 'Editar atividade' : 'Editar treinamento') : ativ ? 'Nova atividade' : 'Novo treinamento', sub: ativ ? 'Mapa de polivalência' : 'Catálogo de treinamentos',
+      wide: !ativ, title: editing ? (ativ ? 'Editar atividade' : 'Editar treinamento') : ativ ? 'Nova atividade' : 'Novo treinamento', sub: ativ ? 'Mapa de polivalência' : 'Catálogo de treinamentos',
       body: `<div class="form-grid">${field('Nome', 'nome', t.nome, 'text', { full: true, ph: 'Ex.: NR-35 · Trabalho em altura' })}
         <div class="field"><label>Tipo</label><select name="tipo">${RH_TIPOS_TREINO.map((x) => `<option ${t.tipo === x ? 'selected' : ''}>${esc(x)}</option>`).join('')}</select></div>
         ${field('Carga horária (horas)', 'cargaHoras', t.cargaHoras || '', 'text', { ph: 'Ex.: 8' })}
         <div class="field full"><label>Reciclagem</label><select name="validadeMeses">${[['0', 'Não vence'], ['6', 'A cada 6 meses'], ['12', 'A cada 12 meses'], ['24', 'A cada 24 meses'], ['36', 'A cada 36 meses']].map(([v, l]) => `<option value="${v}" ${String(t.validadeMeses || 0) === v ? 'selected' : ''}>${l}</option>`).join('')}</select></div></div>
-        ${ativ ? '' : `<div class="form-sec">${ic('briefcase')}Obrigatório para os cargos</div>
-          ${cargosTodos.length ? `<div class="pl-chips" id="trCg">${cargosTodos.map((c) => `<button type="button" class="pl-chip${cgReq.has(c.id) ? ' on' : ''}" data-rq="${c.id}">${ic('check')}${esc(c.nome)}${c.setor ? `<small>${esc(c.setor)}</small>` : ''}</button>`).join('')}</div>
-          <span class="hint tr-cg-h">Quem tem esses cargos passa a precisar deste treinamento (aparece na Matriz).</span>` : '<span class="hint">Nenhum cargo cadastrado ainda.</span>'}`}
+        ${ativ ? '' : `<div class="form-sec">${ic('users')}Quem precisa deste treinamento</div>
+          ${ppl.length ? `<div class="trp">
+            <div class="trp-top"><label class="rh-pk-q">${ic('search')}<input placeholder="Buscar colaborador ou cargo…" autocomplete="off"></label><span class="trp-n"></span></div>
+            <div class="trp-g">${setoresP.map((s, si) => `<section class="trp-s" data-s="${si}">
+              <header><span><b>${esc(s)}</b><small>${porSetor[s].length} pessoa${porSetor[s].length > 1 ? 's' : ''}</small></span><button type="button" class="trp-all" data-all="${si}">Todos</button></header>
+              <div class="trp-l">${porSetor[s].map((u) => { const c = rhCargo(u.cargoId); return `<button type="button" class="trp-p${pReq.has(u.id) ? ' on' : ''}" data-u="${u.id}" data-q="${esc((u.name + ' ' + ((c && c.nome) || u.role || '') + ' ' + s).toLowerCase())}" title="${esc(u.name)}">${rhAvatar(u.name)}<span><b>${esc(nomeCurto(u.name))}</b><small>${esc((c && c.nome) || u.role || 'Sem cargo')}</small></span><i>${ic('check')}</i></button>`; }).join('')}</div>
+            </section>`).join('')}</div><p class="trp-none" hidden>Ninguém encontrado.</p></div>` : '<span class="hint">Nenhum colaborador ativo.</span>'}`}
         ${ativ ? `<div id="opBox" ${t.tipo === RH_OP ? '' : 'hidden'}><div class="form-sec">${ic('grid')}Operação (polivalência)</div><div class="form-grid">
           ${field('Setor', 'setor', t.setor || '', 'select', { options: [{ v: '', t: 'Sem setor' }].concat(rhSetores().map((s) => ({ v: s.nome, t: s.nome }))) })}
           <div class="field"><label>Etapa</label><input name="etapa" list="fxEtapas" value="${esc(t.etapa || '')}" placeholder="Ex.: Pré-montagem" autocomplete="off"><datalist id="fxEtapas"></datalist><span class="hint">Agrupa as atividades no mapa de flexibilidade</span></div>
@@ -5219,7 +5233,19 @@
     });
     ccSelect($('[name="tipo"]', card), { icon: 'award' }); ccSelect($('[name="validadeMeses"]', card), { icon: 'refresh' });
     rhMaskNum($('[name="cargaHoras"]', card), 400);
-    $$('[data-rq]', card).forEach((b) => (b.onclick = () => { const k = b.dataset.rq; cgReq.has(k) ? cgReq.delete(k) : cgReq.add(k); b.classList.toggle('on', cgReq.has(k)); }));
+    const trp = $('.trp', card);
+    if (trp) {
+      const conta = () => { $('.trp-n', trp).innerHTML = pReq.size ? `<b>${pReq.size}</b> selecionad${pReq.size > 1 ? 'as' : 'a'}` : 'Ninguém selecionado';
+        $$('.trp-s', trp).forEach((sec) => { const bs = $$('.trp-p', sec).filter((b) => !b.hidden); const all = bs.length && bs.every((b) => pReq.has(b.dataset.u)); const bt = $('.trp-all', sec); bt.textContent = all ? 'Limpar' : 'Todos'; bt.classList.toggle('on', all);
+          const n = $$('.trp-p', sec).filter((b) => pReq.has(b.dataset.u)).length; sec.classList.toggle('has', n > 0); }); };
+      const marca = (b, on) => { const k = b.dataset.u; on ? pReq.add(k) : pReq.delete(k); b.classList.toggle('on', on); };
+      $$('.trp-p', trp).forEach((b) => (b.onclick = () => { marca(b, !pReq.has(b.dataset.u)); conta(); }));
+      $$('.trp-all', trp).forEach((bt) => (bt.onclick = () => { const bs = $$('.trp-p', bt.closest('.trp-s')).filter((b) => !b.hidden); const all = bs.every((b) => pReq.has(b.dataset.u)); bs.forEach((b) => marca(b, !all)); conta(); }));
+      $('.trp-top input', trp).oninput = (e) => { const q = e.target.value.trim().toLowerCase(); let vis = 0;
+        $$('.trp-s', trp).forEach((sec) => { let n = 0; $$('.trp-p', sec).forEach((b) => { b.hidden = !!q && !b.dataset.q.includes(q); if (!b.hidden) n++; }); sec.hidden = !n; vis += n; });
+        $('.trp-none', trp).hidden = vis > 0; conta(); };
+      conta();
+    }
     if (ativ) { ccSelect($('[name="setor"]', card), { icon: 'grid' }); rhMaskNum($('[name="minimo"]', card), 20);
     $('[name="tipo"]', card).addEventListener('change', (e) => { $('#opBox', card).hidden = e.target.value !== RH_OP; }); }
     // Mapa de flexibilidade: etapas sugeridas e cargos do setor escolhido
@@ -5248,8 +5274,11 @@
       let salvo; if (editing) salvo = Store.update('rhTreinos', t.id, obj); else salvo = Store.add('rhTreinos', obj);
       // vínculo cargo → atividade (lista sem definição = "todas do setor"; ao mexer, vira lista explícita)
       // curso: cargos que o exigem
-      if (!ativ && salvo) rhList('rhCargos').forEach((c) => { const tem = (c.treinos || []).includes(salvo.id), quer = cgReq.has(c.id);
-        if (tem !== quer) Store.update('rhCargos', c.id, { treinos: quer ? (c.treinos || []).concat(salvo.id) : c.treinos.filter((x) => x !== salvo.id) }); });
+      // curso: a escolha por pessoa substitui a exigência pelo cargo deste treinamento
+      if (!ativ && salvo) {
+        Store.update('rhTreinos', salvo.id, { pessoas: Array.from(pReq) });
+        rhList('rhCargos').filter((c) => (c.treinos || []).includes(salvo.id)).forEach((c) => Store.update('rhCargos', c.id, { treinos: c.treinos.filter((x) => x !== salvo.id) }));
+      }
       if (opAtiv && salvo) {
         rhList('rhCargos').forEach((c) => {
           const quer = cgSel.has(c.id) && fxSet(c) === (d.setor || 'Sem setor'); const tem = fxAplica(c, salvo);
