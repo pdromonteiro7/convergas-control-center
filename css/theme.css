@@ -3967,3 +3967,7 @@ html.th-sw *, html.th-sw *::before, html.th-sw *::after { transition: none !impo
 .eng-fin-x { margin-top: 4px; border: 0; background: none; color: var(--text-3); font: inherit; font-size: .8rem; cursor: pointer; padding: 6px 10px; border-radius: 8px; }
 .eng-fin-x:hover { color: var(--text); background: color-mix(in srgb, var(--text) 6%, transparent); }
 @media (max-width: 420px) { .eng-fin-b, .eng-fin-d { flex-direction: column; } }
+#trCg { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 6px; }
+#trCg .pl-chip small { font-size: .68rem; color: var(--text-3); margin-left: 2px; }
+.tr-cg-h { display: block; margin-bottom: 4px; }
+.tr-cg-h { font-size: .76rem; color: var(--text-3); }
