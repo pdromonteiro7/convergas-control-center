@@ -1181,45 +1181,57 @@
   };
 
   /* ============ PRIVACIDADE & TERMOS (LGPD) — documento controlado dos 3 sistemas ============ */
-  const ptPend = (h) => String(h).replace(/\[\[([^\]]+)\]\]/g, '<mark class="pt-pend" title="Pendente: preencher antes da aprovação">$1</mark>');
-  const ptPendencias = (doc) => {
-    const todos = [doc.aprovado, ...doc.secoes.map((x) => x.html), ...doc.anexos.map((x) => x.html)].join(' ');
-    return [...new Set([...todos.matchAll(/\[\[([^\]]+)\]\]/g)].map((m) => m[1]))];
-  };
+  const ptNum = (k) => String(k + 1).padStart(2, '0');
   function ptImprimir(doc) {
     const logo = location.origin + '/assets/logo-icone.png';
-    const limpa = (h) => String(h).replace(/\[\[([^\]]+)\]\]/g, '<span class="pend">$1</span>');
     const html = `<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><title>${esc(doc.codigo)} — ${esc(doc.titulo)}</title><style>
-      @page { size: A4; margin: 16mm 15mm 18mm; @bottom-left { content: "${doc.codigo} · Rev. ${doc.revisao} · Cópia impressa não controlada"; font: 8pt Arial, sans-serif; color: #889; } @bottom-right { content: "Página " counter(page) " de " counter(pages); font: 8pt Arial, sans-serif; color: #889; } }
-      body { font: 10.5pt/1.55 Arial, Helvetica, sans-serif; color: #1a1f24; margin: 0; }
-      header { display: flex; align-items: center; gap: 14px; border-bottom: 2px solid #0b3d6b; padding-bottom: 10px; margin-bottom: 14px; }
-      header img { width: 36px; height: 36px; } header .t { flex: 1; } header h1 { font-size: 15pt; margin: 0; color: #0b3d6b; line-height: 1.2; } header .s { color: #556; font-size: 9pt; margin-top: 2px; }
-      .ctrl { display: grid; grid-template-columns: repeat(4, 1fr); border: 1px solid #c9d2de; margin-bottom: 16px; }
-      .ctrl div { padding: 6px 9px; border-right: 1px solid #c9d2de; border-bottom: 1px solid #c9d2de; } .ctrl div:nth-child(4n) { border-right: 0; }
-      .ctrl small { display: block; font-size: 7.5pt; text-transform: uppercase; letter-spacing: .05em; color: #667; } .ctrl b { font-size: 9.5pt; }
+      @page { size: A4; margin: 14mm 14mm 18mm; @bottom-left { content: "${doc.codigo} · Rev. ${doc.revisao} · ${doc.status}"; font: 7.5pt Arial, sans-serif; color: #8a94a3; } @bottom-right { content: "Página " counter(page) " de " counter(pages); font: 7.5pt Arial, sans-serif; color: #8a94a3; } }
+      * { -webkit-print-color-adjust: exact; print-color-adjust: exact; box-sizing: border-box; }
+      body { font: 9.8pt/1.6 Arial, Helvetica, sans-serif; color: #1d2733; margin: 0; }
+      .capa { border-radius: 10px; overflow: hidden; border: 1px solid #d7dee8; margin-bottom: 14px; }
+      .faixa { background: linear-gradient(110deg, #0b3d6b 0%, #0f5f86 55%, #12a07b 100%); color: #fff; padding: 16px 18px; display: flex; align-items: center; gap: 14px; }
+      .faixa .lg { width: 44px; height: 44px; border-radius: 10px; background: #fff; display: grid; place-items: center; flex: none; } .faixa .lg img { width: 30px; height: 30px; }
+      .faixa .t { flex: 1; } .faixa .k { font-size: 7.5pt; letter-spacing: .16em; text-transform: uppercase; opacity: .85; }
+      .faixa h1 { margin: 2px 0 2px; font-size: 16pt; line-height: 1.15; } .faixa .s { font-size: 9pt; opacity: .9; }
+      .selo { flex: none; padding: 5px 12px; border-radius: 99px; background: rgba(255,255,255,.16); border: 1px solid rgba(255,255,255,.5); font-weight: 700; font-size: 8.5pt; letter-spacing: .04em; }
+      .meta { display: grid; grid-template-columns: repeat(5, 1fr); background: #f6f8fb; }
+      .meta div { padding: 8px 12px; border-right: 1px solid #e1e7ef; } .meta div:last-child { border-right: 0; }
+      .meta small { display: block; font-size: 6.8pt; letter-spacing: .12em; text-transform: uppercase; color: #7a8696; } .meta b { font-size: 9pt; }
+      .dest { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin: 0 0 12px; }
+      .dest div { border: 1px solid #e1e7ef; border-radius: 8px; padding: 8px 10px; background: #fbfcfe; } .dest b { display: block; font-size: 9pt; color: #0b3d6b; } .dest span { font-size: 8pt; color: #5b6676; line-height: 1.4; display: block; }
       .sis { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin: 0 0 16px; }
-      .sis div { border: 1px solid #c9d2de; border-top: 3px solid #0b3d6b; padding: 7px 9px; font-size: 9pt; } .sis b { display: block; font-size: 10pt; } .sis small { color: #667; }
-      h2 { font-size: 11.5pt; color: #0b3d6b; margin: 16px 0 6px; break-after: avoid; } h2.anexo { break-before: page; }
-      p, li { text-align: justify; } ul, ol { padding-left: 18px; margin: 4px 0 8px; } li { margin: 2px 0; }
-      table { width: 100%; border-collapse: collapse; margin: 6px 0 10px; font-size: 9.5pt; } th, td { border: 1px solid #c9d2de; padding: 5px 7px; text-align: left; vertical-align: top; }
-      th { background: #eef2f7; font-size: 8.5pt; color: #334; } tr { break-inside: avoid; }
-      .pt-info th { width: 28%; }
-      .pend { background: #fff3c4; padding: 0 3px; border-radius: 2px; }
-      .ass { display: flex; gap: 40px; margin-top: 40px; } .ass div { flex: 1; text-align: center; border-top: 1px solid #333; padding-top: 5px; font-size: 9pt; } .ass small { display: block; color: #667; }
+      .sis div { border: 1px solid #e1e7ef; border-top: 3px solid var(--c); border-radius: 8px; padding: 8px 10px; font-size: 8.4pt; color: #4a5565; line-height: 1.45; }
+      .sis b { display: block; font-size: 10pt; color: #1d2733; } .sis small { display: block; color: #8a94a3; margin-bottom: 3px; }
+      .sec { margin: 0 0 12px; }
+      .sec h2 { display: flex; align-items: center; gap: 9px; font-size: 11pt; color: #0b3d6b; margin: 0 0 6px; padding-bottom: 5px; border-bottom: 1px solid #e1e7ef; break-after: avoid; }
+      .sec h2 i { font-style: normal; font-size: 8pt; font-weight: 700; color: #fff; background: linear-gradient(110deg, #0b3d6b, #12a07b); border-radius: 5px; padding: 2px 6px; }
+      p { margin: 0 0 6px; text-align: justify; } ul, ol { padding-left: 18px; margin: 2px 0 6px; } li { margin: 2px 0; text-align: justify; }
+      table { width: 100%; border-collapse: collapse; margin: 4px 0 8px; font-size: 8.8pt; } th, td { border: 1px solid #dfe5ee; padding: 5px 8px; text-align: left; vertical-align: top; }
+      th { background: #eef3f8; color: #2a3646; font-size: 8pt; } tr { break-inside: avoid; } .pt-info th { width: 24%; }
+      .anexos h2.at { font-size: 11pt; color: #0b3d6b; margin: 16px 0 8px; break-after: avoid; }
+      .anx { border: 1px solid #e1e7ef; border-left: 4px solid var(--c); border-radius: 8px; padding: 9px 12px; margin-bottom: 8px; break-inside: avoid; }
+      .anx b.n { font-size: 10pt; color: #1d2733; } .anx small { color: #8a94a3; margin-left: 6px; }
+      .fecho { break-inside: avoid; } .hist { margin-top: 14px; }
+      .ass { display: flex; gap: 36px; margin-top: 26px; } .ass div { flex: 1; text-align: center; border-top: 1px solid #3a4655; padding-top: 6px; font-size: 9pt; } .ass small { display: block; color: #7a8696; font-size: 8pt; }
     </style></head><body>
-      <header><img src="${logo}" alt=""><div class="t"><h1>${esc(doc.titulo)}</h1><div class="s">${esc(doc.controladora.razao)} · CNPJ ${esc(doc.controladora.cnpj)}</div></div></header>
-      <div class="ctrl">
-        <div><small>Código</small><b>${esc(doc.codigo)}</b></div><div><small>Revisão</small><b>${esc(doc.revisao)}</b></div>
-        <div><small>Data</small><b>${esc(fmtDate(doc.data))}</b></div><div><small>Status</small><b>${esc(doc.status)}</b></div>
-        <div><small>Elaborado por</small><b>${esc(doc.elaborado)}</b></div><div><small>Aprovado por</small><b>${limpa(doc.aprovado)}</b></div>
-        <div><small>Sistemas</small><b>${doc.sistemas.length}</b></div><div><small>Classificação</small><b>Público</b></div>
+      <div class="capa">
+        <div class="faixa"><span class="lg"><img src="${logo}" alt=""></span>
+          <div class="t"><div class="k">Documento controlado · ${esc(doc.codigo)}</div><h1>${esc(doc.titulo)}</h1><div class="s">${esc(doc.subtitulo)}</div></div>
+          <span class="selo">${esc(doc.status).toUpperCase()}</span></div>
+        <div class="meta">
+          <div><small>Código</small><b>${esc(doc.codigo)}</b></div><div><small>Revisão</small><b>${esc(doc.revisao)}</b></div>
+          <div><small>Vigência</small><b>${esc(fmtDate(doc.data))}</b></div><div><small>Elaborado</small><b>${esc(doc.elaborado)}</b></div>
+          <div><small>Aprovado</small><b>${esc(doc.aprovado)}</b></div>
+        </div>
       </div>
-      <div class="sis">${doc.sistemas.map((x) => `<div><b>${esc(x.nome)}</b><small>${esc(x.url)} · Anexo ${x.id}</small><br>${esc(x.resumo)}</div>`).join('')}</div>
-      ${doc.secoes.map((x) => `<h2>${esc(x.t)}</h2>${limpa(x.html)}`).join('')}
-      ${doc.anexos.map((x, k) => `<h2${k === 0 ? ' class="anexo"' : ''}>${esc(x.t)}</h2>${limpa(x.html)}`).join('')}
-      <h2>Histórico de revisões</h2>
-      <table><tr><th style="width:12%">Rev.</th><th style="width:18%">Data</th><th>Descrição</th></tr>${doc.historico.map((h) => `<tr><td>${esc(h.rev)}</td><td>${esc(fmtDate(h.data))}</td><td>${esc(h.desc)}</td></tr>`).join('')}</table>
-      <div class="ass"><div>${esc(doc.elaborado)}<small>Elaborado</small></div><div>&nbsp;<small>Aprovado</small></div></div>
+      <div class="dest">${doc.destaques.map((d) => `<div><b>${esc(d.t)}</b><span>${esc(d.s)}</span></div>`).join('')}</div>
+      <div class="sis">${doc.sistemas.map((x) => `<div style="--c:${x.cor}"><b>${esc(x.nome)}</b><small>${esc(x.url)} · Anexo ${x.id}</small>${esc(x.resumo)}</div>`).join('')}</div>
+      ${doc.secoes.map((x, k) => `<div class="sec"><h2><i>${ptNum(k)}</i>${esc(x.t)}</h2>${x.html}</div>`).join('')}
+      <div class="anexos"><h2 class="at">Anexos — particularidades de cada sistema</h2>
+        ${doc.anexos.map((x) => { const s = doc.sistemas.find((y) => y.id === x.id) || {}; return `<div class="anx" style="--c:${s.cor || '#0b3d6b'}"><b class="n">Anexo ${x.id} · ${esc(x.t)}</b><small>${esc(s.url || '')}</small>${x.html}</div>`; }).join('')}
+      </div>
+      <div class="fecho"><div class="hist"><table><tr><th style="width:10%">Rev.</th><th style="width:16%">Data</th><th>Descrição</th></tr>${doc.historico.map((h) => `<tr><td>${esc(h.rev)}</td><td>${esc(fmtDate(h.data))}</td><td>${esc(h.desc)}</td></tr>`).join('')}</table></div>
+      <div class="ass"><div>${esc(doc.elaborado)}<small>Elaborado · ${esc(fmtDate(doc.data))}</small></div><div>${esc(doc.aprovado)}<small>Aprovado · ${esc(fmtDate(doc.data))}</small></div></div></div>
     </body></html>`;
     const win = window.open('', '_blank');
     if (!win) { toast('Permita pop-ups para gerar o PDF', 'warn'); return; }
@@ -1229,39 +1241,55 @@
   PAGES.privacidade = () => {
     const doc = window.POLITICA_CONVERGAS;
     if (!doc) { pageShell('T.I.', 'Privacidade & Termos', 'Documento não carregado.'); return; }
-    pageShell('T.I.', 'Privacidade & Termos', 'Política de Privacidade (LGPD) e Termos de Uso dos sistemas Convergas — documento controlado.',
-      `<button class="btn" id="ptPdf">${ic('printer')}Gerar PDF</button>`);
-    const pend = ptPendencias(doc);
-    const box = document.createElement('div');
-    box.className = 'pt-wrap';
-    box.innerHTML = `
-      <div class="pt-ctrl">
-        <div><small>Código</small><b class="mono">${esc(doc.codigo)}</b></div>
-        <div><small>Revisão</small><b class="mono">${esc(doc.revisao)}</b></div>
-        <div><small>Data</small><b>${esc(fmtDate(doc.data))}</b></div>
-        <div><small>Status</small><b><span class="badge ${pend.length ? 'warn' : 'ok'} plain">${esc(doc.status)}</span></b></div>
-        <div><small>Elaborado por</small><b>${esc(doc.elaborado)}</b></div>
-        <div><small>Aprovado por</small><b>${ptPend(esc(doc.aprovado))}</b></div>
-      </div>
-      ${pend.length ? `<div class="pt-alerta"><span class="pt-alerta-ico">${ic('alert')}</span><div><b>${pend.length} pendência(s) antes da aprovação</b><span>Preencha os itens destacados e peça a revisão jurídica. Depois, atualize o status e a revisão em <span class="mono">js/politica.js</span>.</span><ul>${pend.map((x) => `<li>${esc(x)}</li>`).join('')}</ul></div></div>` : ''}
-      <div class="pt-sis">${doc.sistemas.map((x) => `<a class="pt-sis-c" href="#pt-anexo-${x.id}"><span class="pt-sis-ico">${ic(x.icone)}</span><b>${esc(x.nome)}</b><small>${esc(x.url)} · Anexo ${x.id}</small><span>${esc(x.resumo)}</span></a>`).join('')}</div>
+    crumb.textContent = 'Privacidade & Termos';
+    view.innerHTML = `<div class="pt-wrap">
+      <header class="pt-hero">
+        <div class="pt-hero-main">
+          ${navBackHtml()}
+          <span class="pt-hero-ico">${ic('shield')}</span>
+          <div class="pt-hero-tx">
+            <span class="pt-eyebrow">Documento controlado · ${esc(doc.codigo)}</span>
+            <h1>${esc(doc.titulo)}</h1>
+            <p>${esc(doc.subtitulo)}</p>
+          </div>
+        </div>
+        <div class="pt-hero-acoes">
+          <span class="pt-selo">${ic('check')}${esc(doc.status)}</span>
+          <button class="btn" id="ptPdf">${ic('printer')}Gerar PDF</button>
+        </div>
+        <div class="pt-meta">
+          <div><small>Código</small><b class="mono">${esc(doc.codigo)}</b></div>
+          <div><small>Revisão</small><b class="mono">${esc(doc.revisao)}</b></div>
+          <div><small>Vigência</small><b>${esc(fmtDate(doc.data))}</b></div>
+          <div><small>Elaborado por</small><b>${esc(doc.elaborado)}</b></div>
+          <div><small>Aprovado por</small><b>${esc(doc.aprovado)}</b></div>
+        </div>
+      </header>
+
+      <div class="pt-dest">${doc.destaques.map((d) => `<div class="pt-dest-c"><span class="pt-dest-ico">${ic(d.icone)}</span><b>${esc(d.t)}</b><span>${esc(d.s)}</span></div>`).join('')}</div>
+
+      <div class="pt-sis">${doc.sistemas.map((x) => `<a class="pt-sis-c" style="--c:${x.cor}" href="#pt-anexo-${x.id}"><span class="pt-sis-ico">${ic(x.icone)}</span><span class="pt-sis-tx"><b>${esc(x.nome)}</b><small>${esc(x.url)} · Anexo ${x.id}</small><span>${esc(x.resumo)}</span></span></a>`).join('')}</div>
+
       <div class="pt-layout">
-        <nav class="pt-indice"><span class="pt-indice-t">Índice</span>
-          ${doc.secoes.map((x, k) => `<a href="#pt-s-${k}">${esc(x.t)}</a>`).join('')}
-          ${doc.anexos.map((x) => `<a href="#pt-anexo-${x.id}">${esc(x.t)}</a>`).join('')}
-          <a href="#pt-hist">Histórico de revisões</a>
+        <nav class="pt-indice"><span class="pt-indice-t">Conteúdo</span>
+          ${doc.secoes.map((x, k) => `<a href="#pt-s-${k}"><i>${ptNum(k)}</i>${esc(x.t)}</a>`).join('')}
+          <a href="#pt-anexos"><i>${ic('grid')}</i>Anexos</a>
+          <a href="#pt-hist"><i>${ic('clock')}</i>Histórico</a>
         </nav>
-        <article class="pt-doc">
-          ${doc.secoes.map((x, k) => `<section id="pt-s-${k}"><h2>${esc(x.t)}</h2>${ptPend(x.html)}</section>`).join('')}
-          ${doc.anexos.map((x) => `<section id="pt-anexo-${x.id}" class="pt-anexo"><h2>${esc(x.t)}</h2>${ptPend(x.html)}</section>`).join('')}
-          <section id="pt-hist"><h2>Histórico de revisões</h2>
+        <div class="pt-doc">
+          ${doc.secoes.map((x, k) => `<section id="pt-s-${k}" class="pt-sec"><h2><i>${ptNum(k)}</i>${esc(x.t)}</h2><div class="pt-sec-b">${x.html}</div></section>`).join('')}
+          <section id="pt-anexos" class="pt-sec"><h2><i>${ic('grid')}</i>Anexos — particularidades de cada sistema</h2>
+            <div class="pt-anexos">${doc.anexos.map((x) => { const s = doc.sistemas.find((y) => y.id === x.id) || {}; return `<div id="pt-anexo-${x.id}" class="pt-anx" style="--c:${s.cor || 'var(--accent)'}"><div class="pt-anx-h"><b>Anexo ${x.id} · ${esc(x.t)}</b><small>${esc(s.url || '')}</small></div>${x.html}</div>`; }).join('')}</div>
+          </section>
+          <section id="pt-hist" class="pt-sec"><h2><i>${ic('clock')}</i>Histórico de revisões</h2>
             <table class="pt-tab"><tr><th>Rev.</th><th>Data</th><th>Descrição</th></tr>${doc.historico.map((h) => `<tr><td class="mono">${esc(h.rev)}</td><td>${esc(fmtDate(h.data))}</td><td>${esc(h.desc)}</td></tr>`).join('')}</table>
           </section>
-        </article>
-      </div>`;
-    view.appendChild(box);
-    Icons.apply(box);
-    $$('a[href^="#pt-"]', box).forEach((a) => (a.onclick = (e) => { e.preventDefault(); const el = $(a.getAttribute('href'), box); if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' }); }));
+        </div>
+      </div>
+    </div>`;
+    Icons.apply(view);
+    const pb = $('#pgBack', view); if (pb) pb.onclick = navBack;
+    $$('a[href^="#pt-"]', view).forEach((a) => (a.onclick = (e) => { e.preventDefault(); const el = $(a.getAttribute('href'), view); if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' }); }));
     $('#ptPdf', view).onclick = () => ptImprimir(doc);
   };
 
