@@ -2237,6 +2237,7 @@
           ${field('Data de admissão', 'admissao', u.admissao, 'date')}
           ${field('Validade da CNH', 'cnhValidade', u.cnhValidade, 'date', { hint: '' })}
         </div>
+        ${Perm.podeGravar('rhDocs') ? `<div class="form-sec">${ic('lock')}Documentos do colaborador</div><div id="rpDocs"></div>` : ''}
         `,
       footer: (editing && Perm.podeGravar('team') ? `<button class="btn danger ghost" id="delBtn" style="margin-right:auto">${ic('trash')}Excluir cadastro</button>` : '') + submitFooter(editing),
     });
@@ -2247,7 +2248,8 @@
     rhMaskDig($('[name="ramal"]', card), 6);
     const cpfI = $('[name="cpf"]', card); cpfI.setAttribute('inputmode', 'numeric'); cpfI.addEventListener('input', () => { cpfI.value = rhMaskCpf(cpfI.value); });
     rhLimDates(card, { admissao: [rhAnos(-60), rhAnos(1)], cnhValidade: [rhAnos(-10), rhAnos(15)] });
-    $('#saveBtn', card).onclick = () => {
+    const rpD = $('#rpDocs', card); const DW = rpD ? rhDocWidget(rpD, editing ? u.id : null, { admissao: $('[name="admissao"]', card) }) : null;
+    $('#saveBtn', card).onclick = async () => {
       const d = readForm(card);
       if (d.name.length < 3) return toast('Informe o nome completo', 'warn');
       if (!editing && !d.sexo) return toast('Selecione o sexo', 'warn');
@@ -2257,11 +2259,17 @@
       if (d.celular && pvDig(d.celular).length < 10) return toast('Celular incompleto', 'warn');
       const de = rhDateErr(d.admissao, 'Admissão', rhAnos(-60), rhAnos(1)) || rhDateErr(d.cnhValidade, 'Validade da CNH', rhAnos(-10), rhAnos(15)); if (de) return toast(de, 'warn');
       if (d.aniversario && !/^(0[1-9]|[12]\d|3[01])\/(0[1-9]|1[0-2])$/.test(d.aniversario)) return toast('Aniversário no formato dd/mm', 'warn');
+      const dErr = DW && DW.erro(); if (dErr) return toast(dErr, 'warn');
       const c = rhCargo(d.cargoId);
       const obj = { name: d.name, email: (d.email || '').toLowerCase(), celular: d.celular, ramal: d.ramal, aniversario: d.aniversario, sexo: d.sexo || u.sexo || '', sector: d.sector || (c && c.setor) || '', cargoId: d.cargoId, role: c ? c.nome : (u.role || ''), gestorId: d.gestorId, contrato: d.contrato || 'CLT', admissao: d.admissao, cnhValidade: d.cnhValidade };
       const saved = editing ? Store.update('team', u.id, obj) : Store.add('team', { ...obj, situacao: 'ativo', vpn: false, engServer: false, machineId: '' });
       if (saved && (d.cpf || (editing && rhCpf(u.id)))) rhSetCpf(saved.id, d.cpf);
-      toast(editing ? 'Colaborador atualizado' : 'Colaborador cadastrado'); closeModal();
+      let falhou = 0;
+      if (saved && DW && (DW.mudou() || (editing && rhDocDe(saved.id, 'contrato').data && rhDocDe(saved.id, 'contrato').modelo !== d.contrato))) {
+        const sv = $('#saveBtn', card); sv.disabled = true; if (DW.temArquivos()) { sv.innerHTML = `${ic('refresh')}Enviando…`; Icons.apply(sv); }
+        falhou = await DW.salvar(saved.id, { contrato: { modelo: d.contrato } });
+      }
+      toast((editing ? 'Colaborador atualizado' : 'Colaborador cadastrado') + (falhou ? ` · ${falhou} arquivo(s) ficaram só neste navegador` : ''), falhou ? 'warn' : undefined); closeModal();
       if (onDone) onDone(saved); else go(currentRoute);
     };
   }
@@ -2298,6 +2306,7 @@
     ativos.forEach((u) => { if (!u.aniversario) return; const [dd, mm] = u.aniversario.split('/'); let dt = `${h.slice(0, 4)}-${mm}-${dd}`; if (dt < h) dt = `${+h.slice(0, 4) + 1}-${mm}-${dd}`; if (rhDias(h, dt) <= 30) ag.push({ d: dt, i: 'sun2', c: '#F472B6', t: `Aniversário de ${u.name}`, s: u.sector || '', go: () => rhOpenPessoa(u.id) }); });
     if (!ROTAS_OCULTAS.has('rh-veiculos')) rhList('rhVeiculos').forEach((v) => [['licenciamento', 'Licenciamento'], ['seguro', 'Seguro'], ['revisaoData', 'Revisão']].forEach(([k, l]) => { const x = rhVenc(v[k]); if (x && x.d <= 30) ag.push({ d: v[k], i: 'car', c: x.st === 'vencido' ? '#FF7A7A' : '#F5B840', t: `${l} · ${v.placa}`, s: v.modelo || '', go: () => navTo('rh-veiculos') }); }));
     rhList('team').forEach((u) => { if (u.cnhValidade && u.situacao !== 'desligado') { const x = rhVenc(u.cnhValidade); if (x && x.d <= 30) ag.push({ d: u.cnhValidade, i: 'car', c: x.st === 'vencido' ? '#FF7A7A' : '#F5B840', t: `CNH de ${u.name}`, s: x.st === 'vencido' ? 'vencida' : 'vencendo', go: () => rhOpenPessoa(u.id) }); } });
+    ativos.forEach((u) => Object.keys(RH_DOC).forEach((t) => { const s = rhDocSt(u.id, t); if ((s.st === 'vencendo' || s.st === 'vencido') && s.d >= -60) ag.push({ d: s.x.venc, i: RH_DOC[t].i, c: RH_DOC_ST[s.st].c, t: `${RH_DOC[t].l} de ${u.name}`, s: s.st === 'vencido' ? 'vencido' : 'vencendo', go: () => rhOpenPessoa(u.id) }); }));
     const movAb = rhList('rhMovs').filter((m) => m.status !== 'concluido');
     ag.sort((a, b) => String(a.d).localeCompare(String(b.d)));
     const MES = ['jan', 'fev', 'mar', 'abr', 'mai', 'jun', 'jul', 'ago', 'set', 'out', 'nov', 'dez'];
@@ -2327,6 +2336,22 @@
     $$('[data-ag]', el).forEach((b) => (b.onclick = () => ag[+b.dataset.ag].go()));
     $$('[data-go]', el).forEach((b) => (b.onclick = () => navTo(b.dataset.go)));
     $$('[data-set]', el).forEach((b) => (b.onclick = () => { rhFilt.setor = b.dataset.set === 'Outros' ? '' : b.dataset.set; navTo('rh-colab'); }));
+
+    // documentos dos colaboradores (contrato e ASO)
+    if (ativos.length) {
+      const DR = rhDocResumo(ativos);
+      const dsec = document.createElement('section'); dsec.className = 'pvp-card rdc-pn';
+      dsec.innerHTML = `<div class="pvp-card-h"><b>Documentos dos colaboradores</b><span>contrato e ASO dos ativos</span></div>
+        <div class="rdc-pg">${Object.keys(RH_DOC).map((t) => { const T = RH_DOC[t], r = DR[t]; const val = r.ok.length + r.vencendo.length + r.sem.length; const pct = Math.round((100 * val) / ativos.length);
+          const ord = ['ok', 'sem', 'vencendo', 'vencido', 'pendente'];
+          return `<div class="rdc-pm" style="--c:${T.c}">
+            <div class="rdc-pmh"><span class="rdc-ic">${ic(T.i)}</span><span class="rdc-tt"><b>${T.l === 'ASO' ? 'ASO em dia' : 'Contratos em dia'}</b><small>${val} de ${ativos.length} colaborador${ativos.length === 1 ? '' : 'es'}</small></span><b class="rdc-pct ${pct >= 90 ? 'ok' : pct >= 70 ? 'mid' : 'low'}">${pct}%</b></div>
+            <div class="rdc-stk">${ord.map((k) => r[k].length ? `<i style="--c:${RH_DOC_ST[k].c};flex:${r[k].length}" title="${RH_DOC_ST[k].l}: ${r[k].length}"></i>` : '').join('')}</div>
+            <div class="rdc-lg">${['vencendo', 'vencido', 'pendente'].map((k) => `<button type="button" data-dl="${t}|${k}" style="--c:${RH_DOC_ST[k].c}" ${r[k].length ? '' : 'class="z"'}><i></i>${RH_DOC_ST[k].l}<b>${r[k].length}</b></button>`).join('')}</div>
+          </div>`; }).join('')}</div>`;
+      view.appendChild(dsec); Icons.apply(dsec);
+      $$('[data-dl]', dsec).forEach((b) => (b.onclick = () => { const [t, k] = b.dataset.dl.split('|'); rhDocLista(t, k, DR[t][k]); }));
+    }
 
     // segunda linha: contrato (3D), admissões x desligamentos (12 meses), treinamentos
     const contr = RH_CONTRATOS.map((c, i) => ({ k: c, l: c, n: ativos.filter((u) => (u.contrato || 'CLT') === c).length, c: RH_PAL[i] })).filter((x) => x.n);
@@ -2439,6 +2464,7 @@
       tile('', 'users', String(subs.length), 'Equipe', subs.length ? 'pessoas lideradas' : 'sem liderados'),
     ].join('');
     view.appendChild(tiles); Icons.apply(tiles);
+    view.appendChild(rhDocCard(u));
     // treinamentos exigidos + realizados
     const regs = rhList('rhTreinoReg').filter((r) => r.colaboradorId === u.id && !r.anulado);
     const ids = Array.from(new Set(rhExigidos(u).concat(regs.map((r) => r.treinoId))));
@@ -2756,6 +2782,189 @@
     else if (v) Store.add('rhDocs', { id: 'doc_' + id, colaboradorId: id, cpf: v });
   }
   const rhCpfDup = (cpf, exceto) => { const d = rhCpfDig(cpf); return d && rhList('rhDocs').some((x) => x.colaboradorId !== exceto && rhCpfDig(x.cpf) === d); };
+
+  /* ---------- documentos do colaborador (contrato e ASO) — ficam no registro restrito do RH (rhDocs) ----------
+     Arquivos vão para o bucket privado `rhdocs` (só quem vê o RH baixa). ASO: só datas e arquivo, nunca resultado. */
+  const RH_DOC = {
+    contrato: { l: 'Contrato', i: 'file', dl: 'Início', vl: 'Vencimento', c: '#3FA9F5' },
+    aso: { l: 'ASO', i: 'shield', dl: 'Realização', vl: 'Validade', c: '#46D39A' },
+  };
+  const RH_DOC_ST = { ok: { l: 'Em dia', cls: 'ok', c: '#46D39A' }, vencendo: { l: 'Vencendo', cls: 'warn', c: '#F5B840' }, vencido: { l: 'Vencido', cls: 'danger', c: '#FF7A7A' }, pendente: { l: 'Pendente', cls: 'neutral', c: '#94A3B8' }, sem: { l: 'Sem vencimento', cls: 'info', c: '#3FA9F5' } };
+  const rhDocRec = (id) => Store.find('rhDocs', 'doc_' + id) || null;
+  const rhDocDe = (id, tipo) => (rhDocRec(id) || {})[tipo] || {};
+  function rhDocSt(id, tipo) {
+    const x = rhDocDe(id, tipo);
+    if (!x.data && !(x.arquivos || []).length) return { st: 'pendente', x };
+    if (!x.venc) return { st: 'sem', x };
+    const v = rhVenc(x.venc); return { st: v.st, d: v.d, x };
+  }
+  const rhDocFalta = (s) => s.st === 'vencido' ? `venceu há ${-s.d} dia${-s.d === 1 ? '' : 's'}` : s.d === 0 ? 'vence hoje' : `vence em ${s.d} dia${s.d === 1 ? '' : 's'}`;
+  function rhDocPatch(id, tipo, patch) {
+    const cur = rhDocRec(id); const novo = { ...((cur || {})[tipo] || {}), ...patch, em: new Date().toISOString(), por: (typeof pvMe === 'function' && pvMe()) || '' };
+    if (cur) Store.update('rhDocs', cur.id, { [tipo]: novo }); else Store.add('rhDocs', { id: 'doc_' + id, colaboradorId: id, cpf: '', [tipo]: novo });
+  }
+  async function rhDocUpload(id, tipo, files) {
+    const out = []; let falhou = 0;
+    for (const f of files) {
+      const fid = Store.uid('rd'); const cloudName = fid + '__' + f.name.replace(/[^\w.\-]+/g, '_');
+      try { await Store.blobs.put(fid, f, { name: f.name, type: f.type, size: f.size }); } catch (e) {}
+      let ok = false; try { if (window.Cloud && window.Cloud.ok && window.Cloud.privAdd) { await window.Cloud.privAdd(`${id}/${tipo}/${cloudName}`, new File([f], cloudName, { type: f.type || 'application/octet-stream' })); ok = true; } } catch (e) { console.warn('rhdocs', e); }
+      if (!ok) falhou++;
+      out.push({ id: fid, name: f.name, cloudName, type: f.type || '', size: f.size, em: new Date().toISOString() });
+    }
+    return { out, falhou };
+  }
+  async function rhDocAbrir(id, tipo, f) {
+    let blob = null; try { const rec = await Store.blobs.get(f.id); if (rec && rec.blob) blob = rec.blob; } catch (e) {}
+    if (!blob && window.Cloud && window.Cloud.ok && window.Cloud.privGet) { blob = await window.Cloud.privGet(`${id}/${tipo}/${f.cloudName}`); if (blob) Store.blobs.put(f.id, blob, { name: f.name, type: f.type, size: f.size }); }
+    if (!blob) return toast('Arquivo indisponível', 'warn');
+    const url = URL.createObjectURL(blob.type ? blob : new Blob([blob], { type: f.type || 'application/octet-stream' })); const el = document.createElement('a'); el.href = url; el.target = '_blank'; el.rel = 'noopener';
+    if (!/^(application\/pdf|image\/)/.test(f.type || blob.type || '')) el.download = f.name; document.body.appendChild(el); el.click(); el.remove(); setTimeout(() => URL.revokeObjectURL(url), 60000);
+  }
+  function rhDocApagarArq(id, tipo, f) { Store.blobs.del(f.id); try { if (window.Cloud && window.Cloud.ok && window.Cloud.privDel) window.Cloud.privDel(`${id}/${tipo}/${f.cloudName}`).catch(() => {}); } catch (e) {} }
+  // vencimento = data + 1 ano, até a pessoa digitar outro
+  function rhDocAuto(dEl, vEl) {
+    if (!dEl || !vEl) return;
+    let manual = !!(vEl.value && dEl.value && vEl.value !== rhAddMeses(dEl.value, 12));
+    vEl.addEventListener('input', () => { manual = !!vEl.value; });
+    const fill = () => { if (manual || !/^\d{4}-\d{2}-\d{2}$/.test(dEl.value)) return; vEl.value = rhAddMeses(dEl.value, 12); const b = vEl.closest('.rdc-dt'); if (b) { b.classList.remove('flash'); void b.offsetWidth; b.classList.add('flash'); } };
+    dEl.addEventListener('input', fill); dEl.addEventListener('change', fill);
+  }
+  /* bloco de formulário (cadastro, admissão e o modal do perfil)
+     opts: { tipos, admissao: <input>, removivel } → { erro(), mudou(), salvar(id) } */
+  function rhDocWidget(host, uid, opts = {}) {
+    const tipos = opts.tipos || ['contrato', 'aso'];
+    const novos = { contrato: [], aso: [] }; const tirar = { contrato: new Set(), aso: new Set() };
+    host.innerHTML = `<div class="rdc-fg${tipos.length === 1 ? ' one' : ''}">${tipos.map((t) => { const T = RH_DOC[t]; const x = uid ? rhDocDe(uid, t) : {};
+      return `<div class="rdc-fb" data-t="${t}" style="--c:${T.c}">
+        <div class="rdc-fbh"><span class="rdc-ic">${ic(T.i)}</span><b>${T.l}</b>${opts.tipos ? '' : '<small>opcional</small>'}</div>
+        <div class="rdc-dts">
+          <label class="rdc-dt"><span>${T.dl}</span><input type="date" name="dc_${t}_data" value="${esc(x.data || '')}"></label>
+          <label class="rdc-dt"><span>${T.vl}</span><input type="date" name="dc_${t}_venc" value="${esc(x.venc || '')}"></label>
+        </div>
+        <small class="rdc-hint">${ic('clock')}Preenchimento automático: 1 ano após a data. Pode alterar.</small>
+        <label class="rdc-add"><input type="file" multiple accept=".pdf,image/*,.doc,.docx">${ic('upload')}<span><b>Anexar ${t === 'aso' ? 'ASO' : 'contrato'}</b><small>PDF ou imagem · até ${PV_MAX_MB} MB</small></span></label>
+        <div class="rdc-chips" data-fl="${t}"></div>
+      </div>`; }).join('')}</div>`;
+    Icons.apply(host);
+    tipos.forEach((t) => {
+      const box = $(`.rdc-fb[data-t="${t}"]`, host);
+      const dEl = $(`[name="dc_${t}_data"]`, box), vEl = $(`[name="dc_${t}_venc"]`, box);
+      rhLimDates(box, { [`dc_${t}_data`]: [rhAnos(-60), rhAnos(1)], [`dc_${t}_venc`]: [rhAnos(-60), rhAnos(30)] });
+      rhDocAuto(dEl, vEl);
+      // contrato acompanha a admissão enquanto a pessoa não digitar outra data
+      if (t === 'contrato' && opts.admissao) { let segue = !dEl.value; dEl.addEventListener('input', () => { segue = false; });
+        const sync = () => { if (!segue || !opts.admissao.value) return; dEl.value = opts.admissao.value; dEl.dispatchEvent(new Event('change')); };
+        opts.admissao.addEventListener('input', sync); opts.admissao.addEventListener('change', sync); sync(); }
+      const fl = $('[data-fl]', box);
+      const pinta = () => {
+        const ex = uid ? (rhDocDe(uid, t).arquivos || []).filter((f) => !tirar[t].has(f.id)) : [];
+        fl.innerHTML = ex.map((f) => `<span class="eng-fc"><button type="button" class="rdc-op" data-op="${f.id}">${ic('file')}<span>${esc(f.name)}</span></button>${opts.removivel ? `<button type="button" data-rx="${f.id}" title="Remover">${ic('x')}</button>` : ''}</span>`).join('')
+          + novos[t].map((f, i) => `<span class="eng-fc new">${ic('upload')}<span>${esc(f.name)}</span><small>${pvKb(f.size)}</small><button type="button" data-x="${i}" title="Remover">${ic('x')}</button></span>`).join('');
+        Icons.apply(fl); box.classList.toggle('has', !!(ex.length + novos[t].length));
+        $$('[data-x]', fl).forEach((b) => (b.onclick = () => { novos[t].splice(+b.dataset.x, 1); pinta(); }));
+        $$('[data-rx]', fl).forEach((b) => (b.onclick = () => { tirar[t].add(b.dataset.rx); pinta(); }));
+        $$('[data-op]', fl).forEach((b) => (b.onclick = () => { const f = (rhDocDe(uid, t).arquivos || []).find((x) => x.id === b.dataset.op); if (f) rhDocAbrir(uid, t, f); }));
+      };
+      const add = (list) => { Array.from(list || []).forEach((f) => { if (f.size > PV_MAX_MB * 1048576) toast(`"${f.name}" passa de ${PV_MAX_MB} MB`, 'warn'); else novos[t].push(f); }); pinta(); };
+      const inp = $('.rdc-add input', box); inp.onchange = () => { add(inp.files); inp.value = ''; };
+      const drop = $('.rdc-add', box);
+      drop.addEventListener('dragover', (e) => { e.preventDefault(); drop.classList.add('over'); }); drop.addEventListener('dragleave', () => drop.classList.remove('over'));
+      drop.addEventListener('drop', (e) => { e.preventDefault(); drop.classList.remove('over'); add(e.dataTransfer.files); });
+      pinta();
+    });
+    const val = (t, k) => ($(`[name="dc_${t}_${k}"]`, host) || {}).value || '';
+    return {
+      erro() {
+        for (const t of tipos) { const T = RH_DOC[t]; const d = val(t, 'data'), v = val(t, 'venc');
+          const e = rhDateErr(d, `${T.l}: ${T.dl.toLowerCase()}`, rhAnos(-60), rhAnos(1)) || rhDateErr(v, `${T.l}: ${T.vl.toLowerCase()}`, rhAnos(-60), rhAnos(30)); if (e) return e;
+          if (d && v && v < d) return `${T.l}: ${T.vl.toLowerCase()} antes da data`;
+          if (!d && novos[t].length) return `${T.l}: informe a data do documento anexado`; }
+        return '';
+      },
+      mudou() { return tipos.some((t) => { const x = uid ? rhDocDe(uid, t) : {}; return novos[t].length || tirar[t].size || val(t, 'data') !== (x.data || '') || val(t, 'venc') !== (x.venc || ''); }); },
+      temArquivos() { return tipos.some((t) => novos[t].length); },
+      async salvar(id, extra = {}) {
+        let falhou = 0;
+        for (const t of tipos) {
+          const cur = rhDocDe(id, t); const data = val(t, 'data'), venc = val(t, 'venc');
+          const ext = extra[t] || {};
+          const mud = novos[t].length || tirar[t].size || data !== (cur.data || '') || venc !== (cur.venc || '') || Object.keys(ext).some((k) => ext[k] !== cur[k]);
+          if (!mud) continue;
+          // renovação (data nova, bem depois da anterior): a versão atual vai para o histórico, com os arquivos dela
+          const renov = cur.data && data && data !== cur.data && Math.abs(rhDias(cur.data, data)) > 60;
+          let hist = cur.hist || []; let arquivos = (cur.arquivos || []).filter((f) => { if (tirar[t].has(f.id)) { rhDocApagarArq(id, t, f); return false; } return true; });
+          if (renov) { hist = hist.concat([{ data: cur.data, venc: cur.venc || '', modelo: cur.modelo || '', arquivos, em: cur.em || '' }]); arquivos = []; }
+          const up = await rhDocUpload(id, t, novos[t]); falhou += up.falhou;
+          rhDocPatch(id, t, { ...ext, data, venc, arquivos: arquivos.concat(up.out), hist });
+        }
+        return falhou;
+      },
+    };
+  }
+  // modal do perfil: atualizar um documento
+  function rhDocForm(u, tipo, onDone) {
+    const T = RH_DOC[tipo]; const s = rhDocSt(u.id, tipo); const S = RH_DOC_ST[s.st];
+    const hist = (s.x.hist || []).slice().reverse();
+    const card = modal({
+      title: `${T.l} · ${u.name.split(' ')[0]}`, sub: 'Documentos do colaborador',
+      body: `${tipo === 'contrato' ? `<div class="form-grid"><div class="field full"><label>Modelo de contrato</label><select name="contrato">${RH_CONTRATOS.map((c) => `<option value="${esc(c)}" ${(u.contrato || 'CLT') === c ? 'selected' : ''}>${esc(c)}</option>`).join('')}</select></div></div>` : ''}
+        <div id="rdcW"></div>
+        ${hist.length ? `<div class="rdc-hist"><b>${ic('clock')}Versões anteriores</b>${hist.map((h, hi) => `<div class="rdc-hr"><span>${h.data ? fmtDate(h.data) : '—'}${h.venc ? ' → ' + fmtDate(h.venc) : ''}${h.modelo ? ' · ' + esc(h.modelo) : ''}</span><span>${(h.arquivos || []).map((f, fi) => `<button type="button" class="eng-fc" data-hop="${hi}|${fi}">${ic('file')}<span>${esc(f.name)}</span></button>`).join('') || '<small>sem arquivo</small>'}</span></div>`).join('')}</div>` : ''}`,
+      footer: submitFooter(!!s.x.data),
+    });
+    card.classList.add('rdc-modal'); card.style.setProperty('--c', S.c);
+    const ct = $('[name="contrato"]', card); if (ct) ccSelect(ct, { icon: 'file' });
+    const W = rhDocWidget($('#rdcW', card), u.id, { tipos: [tipo], removivel: true });
+    $$('[data-hop]', card).forEach((b) => (b.onclick = () => { const [hi, fi] = b.dataset.hop.split('|').map(Number); const f = (hist[hi].arquivos || [])[fi]; if (f) rhDocAbrir(u.id, tipo, f); }));
+    const sv = $('#saveBtn', card);
+    sv.onclick = async () => {
+      const e = W.erro(); if (e) return toast(e, 'warn');
+      const modelo = ct ? ct.value : '';
+      if (ct && modelo !== (u.contrato || 'CLT')) Store.update('team', u.id, { contrato: modelo });
+      if (!W.mudou() && !(ct && modelo !== (s.x.modelo || ''))) { closeModal(); if (onDone) onDone(); return; }
+      sv.disabled = true; if (W.temArquivos()) { sv.innerHTML = `${ic('refresh')}Enviando…`; Icons.apply(sv); }
+      const falhou = await W.salvar(u.id, tipo === 'contrato' ? { contrato: { modelo } } : {});
+      toast(falhou ? `${T.l} salvo · ${falhou} arquivo(s) ficaram só neste navegador` : `${T.l} atualizado`, falhou ? 'warn' : undefined);
+      closeModal(); if (onDone) onDone();
+    };
+  }
+  // card do perfil
+  function rhDocCard(u) {
+    const pode = Perm.podeGravar('rhDocs');
+    const box = (t) => { const T = RH_DOC[t]; const s = rhDocSt(u.id, t); const S = RH_DOC_ST[s.st]; const x = s.x; const arqs = x.arquivos || [];
+      const pct = x.data && x.venc ? Math.max(0, Math.min(100, Math.round((100 * rhDias(x.data, rhHoje())) / Math.max(1, rhDias(x.data, x.venc))))) : 0;
+      const sub = t === 'contrato' ? (u.contrato || 'CLT') : 'Atestado de saúde ocupacional';
+      return `<div class="rdc-doc st-${s.st}" data-doc="${t}" style="--c:${S.c}" ${pode ? 'tabindex="0" role="button"' : ''}>
+        <div class="rdc-dh"><span class="rdc-ic">${ic(T.i)}</span><span class="rdc-tt"><b>${T.l}</b><small>${esc(sub)}</small></span><span class="badge ${S.cls} plain">${S.l}</span></div>
+        <div class="rdc-dd"><span><small>${T.dl}</small><b>${x.data ? fmtDate(x.data) : '—'}</b></span><i>${ic('chevron')}</i><span><small>${T.vl}</small><b>${x.venc ? fmtDate(x.venc) : '—'}</b></span></div>
+        ${x.venc ? `<div class="rdc-bar"><i style="width:${s.st === 'vencido' ? 100 : pct}%"></i></div><small class="rdc-left">${rhDocFalta(s)}</small>` : `<small class="rdc-left">${s.st === 'pendente' ? 'Nada registrado ainda' : 'Sem data de vencimento'}</small>`}
+        <div class="rdc-files">${arqs.length ? arqs.map((f) => `<button type="button" class="eng-fc" data-op="${f.id}">${ic('file')}<span>${esc(f.name)}</span></button>`).join('') : `<span class="rdc-nf">${ic('upload')}Nenhum arquivo anexado</span>`}</div>
+        ${pode ? `<span class="rdc-cta">${s.st === 'pendente' ? 'Registrar' : s.st === 'vencido' || s.st === 'vencendo' ? 'Renovar' : 'Atualizar'}${ic('chevron')}</span>` : ''}
+      </div>`; };
+    const sec = document.createElement('section'); sec.className = 'pvp-card rdc';
+    sec.innerHTML = `<div class="pvp-card-h"><b>Documentos do colaborador</b><span>${ic('lock')}acesso restrito ao RH</span></div><div class="rdc-g">${box('contrato')}${box('aso')}</div>`;
+    Icons.apply(sec);
+    $$('.rdc-doc', sec).forEach((el) => { const t = el.dataset.doc;
+      $$('[data-op]', el).forEach((b) => (b.onclick = (ev) => { ev.stopPropagation(); const f = (rhDocDe(u.id, t).arquivos || []).find((x) => x.id === b.dataset.op); if (f) rhDocAbrir(u.id, t, f); }));
+      if (!pode) return;
+      const abrir = () => rhDocForm(u, t, () => go('rh-pessoa'));
+      el.onclick = abrir; el.onkeydown = (ev) => { if (ev.key === 'Enter' || ev.key === ' ') { ev.preventDefault(); abrir(); } }; });
+    return sec;
+  }
+  // resumo para o Painel do RH
+  function rhDocResumo(ativos) {
+    const r = {}; Object.keys(RH_DOC).forEach((t) => { r[t] = { ok: [], vencendo: [], vencido: [], pendente: [], sem: [] }; ativos.forEach((u) => r[t][rhDocSt(u.id, t).st].push(u)); });
+    return r;
+  }
+  function rhDocLista(tipo, st, pessoas) {
+    const T = RH_DOC[tipo], S = RH_DOC_ST[st];
+    const card = modal({ title: `${T.l} · ${S.l.toLowerCase()}`, sub: `${pessoas.length} colaborador${pessoas.length === 1 ? '' : 'es'}`,
+      body: pessoas.length ? `<div class="rdc-pl">${pessoas.map((u) => { const s = rhDocSt(u.id, tipo); return `<button type="button" class="rdc-pr" data-p="${u.id}" style="--c:${S.c}">${rhAvatar(u.name)}<span><b>${esc(u.name)}</b><small>${esc(u.sector || u.role || 'Sem setor')}</small></span><em>${s.x.venc ? (s.st === 'sem' ? '' : rhDocFalta(s)) : 'sem registro'}</em>${ic('chevron')}</button>`; }).join('')}</div>`
+        : `<div class="qf-empty">${ic('check')}<span>Ninguém nesta situação.</span></div>`,
+      footer: '<button class="btn" data-close>Fechar</button>' });
+    $$('[data-p]', card).forEach((b) => (b.onclick = () => { closeModal(); rhOpenPessoa(b.dataset.p); }));
+  }
   const RH_INT_ST = { ok: { l: 'Em dia', cls: 'ok', c: '#46D39A' }, vencendo: { l: 'Vencendo', cls: 'warn', c: '#F5B840' }, vencido: { l: 'Vencida', cls: 'danger', c: '#FF7A7A' }, pendente: { l: 'Pendente', cls: 'neutral', c: '#94A3B8' } };
   const rhIntStOf = (validade) => { const x = rhVenc(validade); return !x ? 'pendente' : x.st === 'vencido' ? 'vencido' : x.st === 'vencendo' ? 'vencendo' : 'ok'; };
   // última integração da pessoa
@@ -5158,7 +5367,8 @@
           <div class="field"><label>Gestor imediato</label><select name="gestorId"><option value="">Sem gestor</option>${ativos.map((p) => opt(p.id, p.name)).join('')}</select></div>
           <div class="field"><label>Tipo de contrato</label><select name="contrato">${RH_CONTRATOS.map((c) => opt(c, c)).join('')}</select></div>
           ${field('Data de admissão', 'admissao', todayISO(), 'date')}${field('Validade da CNH', 'cnhValidade', '', 'date', { hint: '' })}</div>
-          <div class="wz-tip" id="rmExp">${ic('clock')}<span></span></div>`,
+          <div class="wz-tip" id="rmExp">${ic('clock')}<span></span></div>
+          ${Perm.podeGravar('rhDocs') ? `<div class="form-sec">${ic('lock')}Documentos do colaborador</div><div id="rmDocs"></div>` : ''}`,
         `<div id="rmCk"></div>`,
         `<div id="rmRev"></div>`,
       ];
@@ -5184,6 +5394,7 @@
     };
     let colab = dr.colabId || '';
     let devItems = []; const devOk = new Set(); // itens com a pessoa que precisam voltar (desligamento)
+    const rmD = adm && $('#rmDocs', w); const DWa = rmD ? rhDocWidget(rmD, null, { admissao: $('[name="admissao"]', w) }) : null;
     if (adm) {
       const cel = $('[name="celular"]', w); cel.addEventListener('input', () => { cel.value = pvMaskFone(cel.value); });
       rhMaskDig($('[name="ramal"]', w), 6);
@@ -5257,6 +5468,7 @@
           const c = rhCargo(d.cargoId);
           const p = Store.add('team', { name: d.name, email: (d.email || '').toLowerCase(), celular: d.celular, ramal: d.ramal, aniversario: d.aniversario, sexo: d.sexo, sector: d.sector || (c && c.setor) || '', cargoId: d.cargoId, role: c ? c.nome : '', gestorId: d.gestorId, contrato: d.contrato || 'CLT', admissao: d.admissao, cnhValidade: d.cnhValidade, situacao: 'ativo', vpn: false, engServer: false, machineId: '' });
           pid = p.id; rhSetCpf(pid, d.cpf);
+          if (DWa && DWa.mudou() && !DWa.erro()) DWa.salvar(pid, { contrato: { modelo: d.contrato || 'CLT' } }).then((f) => { if (f) toast(`${f} arquivo(s) ficaram só neste navegador`, 'warn'); });
           Store.add('rhMovs', { tipo: 'admissao', colaboradorId: pid, nome: d.name, data: d.admissao, checklist, status, criadoEm: new Date().toISOString() });
         } else {
           Store.add('rhMovs', { tipo: 'desligamento', colaboradorId: pid, nome: rhNome(pid), data: d.data, motivo: d.motivo, aviso: d.aviso, obs: d.obs, checklist, status, criadoEm: new Date().toISOString() });

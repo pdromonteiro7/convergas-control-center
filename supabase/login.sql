@@ -193,6 +193,18 @@ drop policy if exists cc_ent_select on public.entities;
 create policy cc_ent_select on public.entities for select to authenticated
   using (public.cc_ativo() and (entity <> 'rhDocs' or public.cc_pode_ver('rh')));
 
+-- RH: arquivos de contrato e ASO — bucket PRIVADO "rhdocs" (sem link público; só quem vê o RH baixa)
+insert into storage.buckets (id, name, public, file_size_limit) values ('rhdocs', 'rhdocs', false, 15728640)
+  on conflict (id) do update set public = false, file_size_limit = 15728640;
+drop policy if exists cc_rhdocs_select on storage.objects;
+drop policy if exists cc_rhdocs_insert on storage.objects;
+drop policy if exists cc_rhdocs_update on storage.objects;
+drop policy if exists cc_rhdocs_delete on storage.objects;
+create policy cc_rhdocs_select on storage.objects for select to authenticated using (bucket_id = 'rhdocs' and public.cc_pode_ver('rh'));
+create policy cc_rhdocs_insert on storage.objects for insert to authenticated with check (bucket_id = 'rhdocs' and public.cc_pode_gravar('rhDocs'));
+create policy cc_rhdocs_update on storage.objects for update to authenticated using (bucket_id = 'rhdocs' and public.cc_pode_gravar('rhDocs'));
+create policy cc_rhdocs_delete on storage.objects for delete to authenticated using (bucket_id = 'rhdocs' and public.cc_pode_gravar('rhDocs'));
+
 
 -- =============================================================================
 -- Indicadores IATF: metas (coleção "qaKpi") gravadas por quem edita a Qualidade

@@ -166,6 +166,24 @@
       try { const { data, error } = await SB.storage.from('files').list(`${entity}/${id}/${field}`, { limit: 20, sortBy: { column: 'updated_at', order: 'desc' } });
         if (error) return []; return (data || []).filter((o) => o && o.name && o.id !== null && !o.name.startsWith('.')).map((o) => o.name); } catch (e) { return []; }
     },
+    /* ---------- bucket privado `rhdocs` (documentos de colaboradores; só o RH lê) ---------- */
+    async privAdd(path, file) {
+      if (!SB || !file) return false;
+      const { error } = await SB.storage.from('rhdocs').upload(path, file, { upsert: true, contentType: file.type || 'application/octet-stream' });
+      if (error) throw error;
+      return true;
+    },
+    async privGet(path) {
+      if (!SB || !path) return null;
+      try { const { data, error } = await SB.storage.from('rhdocs').download(path); if (!error && data && data.size) return data; } catch (e) {}
+      return null;
+    },
+    async privDel(path) {
+      if (!SB || !path) return false;
+      const { error } = await SB.storage.from('rhdocs').remove([path]);
+      if (error) throw error;
+      return true;
+    },
     async fetchFileBlob(entity, id, field, name) {
       if (!SB || !name) return null;
       try { const { data, error } = await SB.storage.from('files').download(this.filePath(entity, id, field, name)); if (!error && data && data.size) return data; } catch (e) {}
