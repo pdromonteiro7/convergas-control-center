@@ -3205,12 +3205,12 @@
 
   // Qualidade: painel com os setores da casa
   // visão geral de todos os setores (consulta e análise crítica); cada setor lança na própria área
-  PAGES['qa-setores'] = () => sxPagina({ rota: 'qa-setores', crumb: 'Qualidade', titulo: 'Painel por setor', sub: 'Visão geral dos indicadores de todos os setores.', lista: SX,
+  PAGES['qa-setores'] = () => sxPagina({ rota: 'qa-setores', crumb: 'Qualidade', titulo: 'Painel por setor', sub: 'Visão geral dos indicadores de todos os setores.', lista: SX.filter((S) => !(S.id === 'log' && AREAS_OCULTAS.has('suprimentos'))),
     lancarEm: { eng: 'eng-painel', man: 'manutencao-home', log: 'sup-painel' }, lancLista: SX.filter((S) => S.id === 'prod'),
-    tiles: ({ pick, vals, rncTot, tile }) => { const disp = pick(vals['man.disp']); const comp = pick(vals['rh.pct_comp']); const ent = pick(vals['log.entregas']);
+    tiles: ({ pick, vals, rncTot, tile }) => { const disp = pick(vals['man.disp']); const comp = pick(vals['rh.pct_comp']); const supOff = AREAS_OCULTAS.has('suprimentos'); const ent = supOff || !vals['log.entregas'] ? null : pick(vals['log.entregas']); const ac = pick(vals['qual.acoes'], true);
       const engPz = (() => { const a = pick(vals['eng.prazo_real']), b = pick(vals['eng.prazo_est']); return a != null && b != null ? a - b : null; })();
       return tile(rncTot ? 't-warn' : 't-ok', 'alert', rncTot, 'RNCs no período', 'todos os setores')
-        + tile(ent == null ? '' : ent >= 95 ? 't-ok' : ent >= 85 ? 't-warn' : 't-danger', 'box', sxFmt(ent, '%'), 'Entregas no prazo', 'Suprimentos')
+        + (supOff ? tile('t-info', 'check', ac || 0, 'Ações corretivas', 'respondidas no período') : tile(ent == null ? '' : ent >= 95 ? 't-ok' : ent >= 85 ? 't-warn' : 't-danger', 'box', sxFmt(ent, '%'), 'Entregas no prazo', 'Suprimentos'))
         + tile(disp == null ? '' : disp >= 95 ? 't-ok' : 't-warn', 'wrench', sxFmt(disp, '%'), 'Disponibilidade', 'Manutenção')
         + tile(comp == null ? '' : comp >= 95 ? 't-ok' : comp >= 80 ? 't-warn' : 't-danger', 'users', sxFmt(comp, '%'), 'Equipe competente', 'RH')
         + tile(engPz == null ? '' : engPz <= 0 ? 't-ok' : 't-warn', 'settings', engPz == null ? '—' : (engPz > 0 ? '+' : '') + sxFmt(engPz, 'd'), 'Desvio de prazo', 'Engenharia · real − previsto'); } });
@@ -5858,7 +5858,7 @@
      Tudo calculado a partir do que já é registrado no sistema (chamados, avaliações, certificados,
      OS, RH e Programação). Metas guardadas na coleção "qaKpi" (registro "metas"). */
   // áreas fora de uso no momento: somem da Home, do menu, das permissões e dos indicadores (o código e os dados ficam)
-  const AREAS_OCULTAS = new Set(['programacao']);
+  const AREAS_OCULTAS = new Set(['programacao', 'suprimentos']);
   const KPI_AREAS = {
     'pos-vendas': { l: 'Pós-Vendas', i: 'phone' }, qualidade: { l: 'Qualidade', i: 'award' }, manutencao: { l: 'Manutenção', i: 'wrench' },
     rh: { l: 'RH', i: 'users' }, programacao: { l: 'Programação', i: 'calendar' }, engenharia: { l: 'Engenharia', i: 'settings' }, suprimentos: { l: 'Suprimentos', i: 'box' },
