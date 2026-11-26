@@ -5180,7 +5180,7 @@
             return `<button type="button" class="tp-row${op ? ' op' : ''}" data-p="${p.u.id}" style="--c:${S.c}">${rhAvatar(p.u.name)}<span class="tp-rt"><b>${esc(p.u.name)}</b><small>${esc([(rhCargo(p.u.cargoId) || {}).nome, p.u.sector].filter(Boolean).join(' · ') || '—')}${p.req ? '' : ' · extra'}</small></span>
               <span class="tp-rd"><small>Realizado</small><b>${p.data ? fmtDate(p.data) : '—'}</b></span><span class="tp-rd"><small>Validade</small><b>${p.validade ? fmtDate(p.validade) : p.r ? 'não vence' : '—'}</b></span>
               ${op ? `<span class="tp-nv" data-nv="${p.u.id}" title="Nível prático · clique para alterar">${rhNivGlyph(nv, 22)}<small>${esc(RH_NIV[nv].l)}</small></span>` : ''}<span class="tp-rs"><span class="badge ${S.cls} plain">${S.l}</span>${dias != null && dias >= 0 && p.st !== 'ok' ? `<small>${dias} dia${dias === 1 ? '' : 's'}</small>` : dias != null && dias < 0 ? `<small>há ${-dias} dias</small>` : ''}</span></button>`; }).join('')}</div>`
-            : `<div class="qf-empty">${ic('users')}<span>${ps.length ? 'Ninguém neste filtro' : 'Nenhum cargo exige este treinamento'}</span></div>`}
+            : `<div class="qf-empty">${ic('users')}<span>${ps.length ? 'Ninguém neste filtro' : 'Ninguém foi marcado para este treinamento'}</span></div>`}
         </section>
         <section class="pvp-card tp-turmas"><div class="pvp-card-h"><b>Turmas</b><span>${turmas.length}</span></div>
           ${turmas.length ? `<div class="tp-tl">${turmas.map((tu) => { const S = RH_TURMA_ST[tu.status] || RH_TURMA_ST.programada; const emis = tu.emissoes || []; const ult = emis[emis.length - 1]; const desat = tu.status === 'programada' && ult && ult.sig !== rhConvSig(tu);
@@ -5353,7 +5353,7 @@
     $('#rtReg').onclick = () => rhFormTreinoReg({});
     if (rhUnificarCursos()) toast('Treinamentos repetidos foram unificados', 'info');
     const tr = rhCursos(), ativos = rhAtivos(), regs = rhList('rhTreinoReg').slice().sort((a, b) => String(b.data).localeCompare(String(a.data)));
-    const tabs = [['matriz', 'Matriz', ativos.length], ['catalogo', 'Catálogo', tr.length], ['nr', 'Normas regulamentadoras', tr.filter(rhIsNR).length], ['registros', 'Registros', regs.filter((r) => !r.anulado).length]];
+    const tabs = [['matriz', 'Matriz', ativos.length], ['catalogo', 'Catálogo', tr.filter((t) => !rhIsNR(t)).length], ['nr', 'Normas regulamentadoras', tr.filter(rhIsNR).length], ['registros', 'Registros', regs.filter((r) => !r.anulado).length]];
     const tb = document.createElement('div'); tb.className = 'pvf';
     tb.innerHTML = `<div class="pvf-tabs" id="rtTabs"><span class="pvf-thumb"></span>${tabs.map(([k, l, n]) => `<button data-s="${k}" class="${rhTreinoTab === k ? 'on' : ''}">${l}<span class="pvf-n">${n}</span></button>`).join('')}</div>`;
     view.appendChild(tb);
@@ -5388,21 +5388,21 @@
         $('#mxQ', holder).oninput = (e) => { rhMxF.q = e.target.value; paintG(); };
         paintG();
       } else if (rhTreinoTab === 'catalogo' || rhTreinoTab === 'nr') {
-        const isNr = rhTreinoTab === 'nr'; const trAll = tr; const tr2 = isNr ? trAll.filter(rhIsNR) : trAll;
+        const isNr = rhTreinoTab === 'nr'; const trAll = tr; const tr2 = isNr ? trAll.filter(rhIsNR) : trAll.filter((t) => !rhIsNR(t));
         if (isNr && !tr2.length) {
           holder.innerHTML = `<div class="tbl-wrap">${emptyState('shield', 'Nenhuma NR no catálogo', '')}<div class="rh-sug"><button type="button" class="btn" id="rtNr">${ic('plus')}Cadastrar NR</button></div></div>`;
           Icons.apply(holder); $('#rtNr', holder).onclick = () => rhFormTreino({ tipo: 'Norma Regulamentadora (NR)' }); return;
         }
         const valTx = (m) => !m ? 'não vence' : m % 12 ? `${m} meses` : `${m / 12} ano${m > 12 ? 's' : ''}`;
-        if (!tr.length) {
+        if (!tr2.length) {
           holder.innerHTML = `<div class="tbl-wrap">${emptyState('award', 'Catálogo vazio', '')}<div class="rh-sug"><button type="button" class="btn" id="rtSug">${ic('award')}Usar sugestões</button></div></div>`;
           Icons.apply(holder); $('#rtSug', holder).onclick = () => { rhTreinosSugestoes(); toast('Sugestões adicionadas — edite ou apague as que não servirem'); go('rh-treinos'); };
           return;
         }
-        holder.innerHTML = `<div class="rh-cards">${tr2.map((t, i) => { const nrT = rhIsNR(t); const tst = rhTreinoPessoas(t); const venc = tst.filter((p) => p.st === 'vencido' || p.st === 'faltando').length; const quem = new Set(regs.filter((r) => r.treinoId === t.id && !r.anulado).map((r) => r.colaboradorId)).size; const exige = rhList('rhCargos').filter((c) => (c.treinos || []).includes(t.id)).length;
+        holder.innerHTML = `<div class="rh-cards">${tr2.map((t, i) => { const nrT = rhIsNR(t); const tst = rhTreinoPessoas(t); const venc = tst.filter((p) => p.st === 'vencido' || p.st === 'faltando').length; const quem = new Set(regs.filter((r) => r.treinoId === t.id && !r.anulado).map((r) => r.colaboradorId)).size; const exige = rhAtivos().filter((u) => rhExigidos(u).includes(t.id)).length;
           return `<button type="button" class="rh-card rh-tc${nrT ? ' is-nr' : ''}" data-t="${t.id}" style="--d:${i * 40}ms;--c:${nrT ? '#F5B840' : RH_PAL[RH_TIPOS_TREINO.indexOf(t.tipo) % RH_PAL.length] || RH_COR}">
             <span class="rh-card-h"><span class="rh-card-ic">${ic(nrT ? 'shield' : 'award')}</span><span><b>${esc(t.nome)}</b><small>${esc(t.tipo || '')}</small></span>${venc ? `<em class="rh-tc-al">${venc} pendente${venc > 1 ? 's' : ''}</em>` : ''}</span>
-            <span class="rh-tc-k"><span>${ic('clock')}<b>${t.cargaHoras || 0} h</b><small>carga horária</small></span><span>${ic('refresh')}<b>${valTx(t.validadeMeses)}</b><small>reciclagem</small></span><span>${ic('users')}<b>${quem}</b><small>${quem === 1 ? 'pessoa treinada' : 'pessoas treinadas'}</small></span><span>${ic('briefcase')}<b>${exige}</b><small>${exige === 1 ? 'cargo exige' : 'cargos exigem'}</small></span></span></button>`; }).join('')}</div>`;
+            <span class="rh-tc-k"><span>${ic('clock')}<b>${t.cargaHoras || 0} h</b><small>carga horária</small></span><span>${ic('refresh')}<b>${valTx(t.validadeMeses)}</b><small>reciclagem</small></span><span>${ic('users')}<b>${quem}</b><small>${quem === 1 ? 'pessoa treinada' : 'pessoas treinadas'}</small></span><span>${ic('briefcase')}<b>${exige}</b><small>${exige === 1 ? 'pessoa precisa' : 'pessoas precisam'}</small></span></span></button>`; }).join('')}</div>`;
         $$('[data-t]', holder).forEach((b) => (b.onclick = () => rhOpenTreino(b.dataset.t)));
       } else {
         const EF = { eficaz: ['ok', 'Eficaz'], nao: ['danger', 'Não eficaz'], pendente: ['neutral', 'A avaliar'] };
