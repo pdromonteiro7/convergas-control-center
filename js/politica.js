@@ -24,12 +24,12 @@
     revisao: '00',
     data: '2026-11-26',
     status: 'Minuta — aguardando revisão jurídica e aprovação',
-    elaborado: 'T.I · Convergas',
-    aprovado: '[[Nome e cargo de quem aprova]]',
+    elaborado: 'Pedro Monteiro',
+    aprovado: 'Matheus Monteiro',
     controladora: CONTROLADORA,
 
     historico: [
-      { rev: '00', data: '2026-11-26', desc: 'Emissão inicial (minuta). Abrange Convergasapp, LifeGas e Control Center.' },
+      { rev: '00', data: '2026-11-26', desc: 'Emissão inicial (minuta). Abrange Convergasapp, LifeGas e Control Center. Elaborado por Pedro Monteiro (encarregado); aprovação: Matheus Monteiro. Sistemas operados exclusivamente por colaboradores.' },
     ],
 
     sistemas: [
@@ -44,14 +44,17 @@
     secoes: [
       { t: '1. Objetivo e abrangência', html: `
         <p>Este documento estabelece como a ${CONTROLADORA.razao} ("Convergas") trata dados pessoais e quais são as regras de uso dos seus sistemas, em conformidade com a Lei nº 13.709/2018 (Lei Geral de Proteção de Dados Pessoais — LGPD).</p>
-        <p>Aplica-se aos três sistemas da Convergas — <b>Convergasapp</b>, <b>LifeGas</b> e <b>Control Center</b> — e a todas as pessoas que os utilizam: colaboradores, prestadores de serviço, clientes e seus representantes. As particularidades de cada sistema estão nos Anexos A, B e C.</p>` },
+        <p>Aplica-se aos três sistemas da Convergas — <b>Convergasapp</b>, <b>LifeGas</b> e <b>Control Center</b>. As particularidades de cada sistema estão nos Anexos A, B e C.</p>
+        <p><b>Quem usa os sistemas:</b> os três sistemas são operados <b>exclusivamente por colaboradores da Convergas</b>, com login criado pela T.I. A Convergas <b>não coleta dados diretamente de clientes ou do público</b>: não há cadastro aberto, formulário público nem contas para pessoas de fora da empresa.</p>
+        <p><b>Dados de terceiros:</b> os únicos dados de pessoas de fora da Convergas são os que a própria equipe registra ao executar o serviço — o contato comercial da empresa cliente e, no recebimento e na entrega do veículo, o nome e a assinatura do motorista. Eles existem apenas para comprovar e rastrear o serviço prestado.</p>` },
 
       { t: '2. Controladora e encarregado', html: `
         <table class="pt-info">
           <tr><th>Controladora</th><td>${CONTROLADORA.razao} · CNPJ ${CONTROLADORA.cnpj}</td></tr>
           <tr><th>Endereço</th><td>${CONTROLADORA.endereco}</td></tr>
-          <tr><th>Encarregado (DPO)</th><td>[[Nome do encarregado]] · [[privacidade@convergas.com.br]]</td></tr>
-          <tr><th>Canal do titular</th><td>Solicitações relativas a dados pessoais devem ser enviadas ao e-mail do encarregado.</td></tr>
+          <tr><th>Encarregado (DPO)</th><td>Pedro Monteiro · pedro@convergas.com.br</td></tr>
+          <tr><th>Aprovação do documento</th><td>Matheus Monteiro · matheus@convergas.com.br</td></tr>
+          <tr><th>Canal do titular</th><td>Solicitações relativas a dados pessoais devem ser enviadas ao e-mail do encarregado (pedro@convergas.com.br).</td></tr>
         </table>` },
 
       { t: '3. Definições', html: `
@@ -61,15 +64,15 @@
           <li><b>Tratamento:</b> qualquer operação com dados pessoais (coleta, registro, armazenamento, consulta, compartilhamento, eliminação etc.).</li>
           <li><b>Controladora:</b> a Convergas, que decide sobre o tratamento.</li>
           <li><b>Operador:</b> quem trata dados em nome da Convergas (ex.: provedores de hospedagem e banco de dados).</li>
-          <li><b>Usuário:</b> quem acessa os sistemas com login e senha, ou por link de acesso fornecido pela Convergas.</li>
+          <li><b>Usuário:</b> colaborador da Convergas que acessa os sistemas com login e senha criados pela T.I.</li>
         </ul>` },
 
       { t: '4. Dados pessoais tratados e finalidades', html: `
         <p>A Convergas trata apenas os dados necessários às finalidades abaixo (princípio da necessidade):</p>
         <table class="pt-tab">
           <tr><th>Categoria</th><th>Exemplos</th><th>Finalidade</th></tr>
-          <tr><td>Identificação de usuários</td><td>Nome, e-mail corporativo, perfil de acesso, foto de perfil (opcional)</td><td>Autenticação, controle de acesso e registro de quem executou cada ação</td></tr>
-          <tr><td>Contatos de clientes</td><td>Nome do responsável, telefone, e-mail</td><td>Execução do contrato, comunicação técnica e envio de relatórios</td></tr>
+          <tr><td>Identificação dos colaboradores (usuários)</td><td>Nome, e-mail corporativo, perfil de acesso, foto de perfil (opcional)</td><td>Autenticação, controle de acesso e registro de quem executou cada ação</td></tr>
+          <tr><td>Contato comercial das empresas clientes</td><td>Nome do responsável, telefone e e-mail corporativos, registrados pela equipe a partir do pedido/contrato</td><td>Execução do contrato, comunicação técnica e envio de relatórios</td></tr>
           <tr><td>Registros de serviço</td><td>Nome e assinatura do técnico e do motorista, data e hora, fotos do veículo e dos componentes</td><td>Rastreabilidade, comprovação do serviço, emissão do Atestado de Conformidade (Portaria Inmetro nº 130/2022) e garantia</td></tr>
           <tr><td>Dados de colaboradores (Control Center)</td><td>Cadastro funcional, treinamentos, integrações, equipamentos atribuídos</td><td>Gestão de pessoas, qualificação (ISO 9001 7.2 / IATF 7.2) e gestão de ativos de T.I.</td></tr>
           <tr><td>Registros técnicos de acesso</td><td>Data e hora de login, ações realizadas</td><td>Segurança da informação e auditoria</td></tr>
@@ -108,7 +111,7 @@
 
       { t: '8. Segurança da informação', html: `
         <ul>
-          <li>Acesso por login individual e senha, com <b>perfis e permissões por função</b> (ex.: administrador, comercial, técnico, cliente);</li>
+          <li>Acesso por login individual e senha, com <b>perfis e permissões por função</b> (ex.: administrador, comercial, técnico), concedidos somente a colaboradores;</li>
           <li>Comunicação <b>criptografada (HTTPS)</b> e banco de dados com regras de acesso por linha (RLS);</li>
           <li>Arquivos e fotos em armazenamento privado, liberados por <b>links assinados e temporários</b>;</li>
           <li><b>Registro de autoria</b>: cada etapa registra quem executou, com data e hora automáticas;</li>
@@ -128,8 +131,8 @@
 
       { t: '12. Termos de uso', html: `
         <ol>
-          <li><b>Acesso.</b> Os sistemas são de uso restrito. O acesso é concedido pela Convergas a colaboradores, prestadores e clientes, de forma pessoal e intransferível.</li>
-          <li><b>Credenciais.</b> O usuário é responsável pela guarda da sua senha e por todas as ações realizadas com o seu login. Suspeita de uso indevido deve ser comunicada à T.I imediatamente.</li>
+          <li><b>Acesso.</b> Os sistemas são de uso restrito aos colaboradores da Convergas. As contas são criadas pela T.I com o e-mail corporativo — individual (<i>nome</i>@convergas.com.br, ex.: pedro@convergas.com.br) ou, para colaboradores sem e-mail próprio, a conta geral colaborador@convergas.com.br.</li>
+          <li><b>Credenciais.</b> O usuário é responsável pela guarda da sua senha e por todas as ações realizadas com o seu login. Na conta geral (colaborador@convergas.com.br), cada etapa registra o <b>responsável pela execução</b>, que deve ser sempre preenchido com o nome de quem executou. Suspeita de uso indevido deve ser comunicada à T.I imediatamente.</li>
           <li><b>Uso permitido.</b> Os sistemas devem ser usados apenas para as finalidades profissionais a que se destinam. É proibido inserir informações falsas, tentar acessar dados de outros clientes, contornar controles de segurança ou extrair dados em massa sem autorização.</li>
           <li><b>Veracidade dos registros.</b> Os registros de serviço (checklists, fotos, números de série, assinaturas) têm valor de evidência da qualidade. Devem refletir fielmente o que foi executado.</li>
           <li><b>Links de relatório.</b> Links de acompanhamento enviados ao cliente dão acesso aos dados da frota daquele cliente. Devem ser compartilhados apenas com pessoas autorizadas pela empresa cliente.</li>
@@ -145,13 +148,13 @@
     anexos: [
       { id: 'A', t: 'Anexo A — Convergasapp', html: `
         <p><b>Finalidade:</b> rastreabilidade dos conjuntos fornecidos às montadoras (Volkswagen e IVECO): identificação de componentes, números de série, lotes e registros de inspeção.</p>
-        <p><b>Usuários:</b> colaboradores da Convergas e, quando aplicável, representantes das montadoras.</p>
-        <p><b>Dados pessoais:</b> nome e login dos usuários, registros de autoria (quem inspecionou e quando) e eventuais contatos de representantes das montadoras.</p>
+        <p><b>Usuários:</b> exclusivamente colaboradores da Convergas.</p>
+        <p><b>Dados pessoais:</b> nome e login dos colaboradores e registros de autoria (quem inspecionou e quando). Não há coleta de dados de pessoas das montadoras.</p>
         <p><b>Requisitos específicos:</b> os registros de rastreabilidade atendem a requisitos específicos de clientes (CSR) das montadoras e à IATF 16949 (8.5.2.1 — identificação e rastreabilidade).</p>` },
       { id: 'B', t: 'Anexo B — LifeGas', html: `
         <p><b>Finalidade:</b> rastreabilidade dos serviços de aumento de autonomia (sistema dual-fuel diesel/GNV) para transportadoras e demais clientes: processos de instalação, desinstalação e manutenção, visitas técnicas, chamados, vencimentos e revisões, emissão do Atestado de Conformidade e relatórios da frota.</p>
-        <p><b>Usuários:</b> equipe da Convergas (administração, comercial, técnicos) e clientes, por login próprio ou por link de relatório da frota.</p>
-        <p><b>Dados pessoais:</b> nome, telefone e e-mail do contato do cliente; nome e <b>assinatura desenhada</b> do técnico e do motorista no recebimento e na entrega do veículo, com data e hora; fotos do veículo e dos componentes; leituras de quilometragem informadas pelo cliente.</p>
+        <p><b>Usuários:</b> exclusivamente colaboradores da Convergas (administração, comercial e técnicos). O cliente não tem login: recebe, quando solicitado, um <b>link de relatório da frota</b> gerado pela Convergas, apenas para consulta dos dados da sua própria frota. <i>Caso a Convergas venha a liberar acesso de consulta a um cliente, esse acesso fica restrito à frota dele e sujeito aos Termos de Uso (seção 12).</i></p>
+        <p><b>Dados pessoais:</b> nome, telefone e e-mail do contato comercial da empresa cliente (registrados pela equipe); nome e <b>assinatura desenhada</b> do técnico e do motorista no recebimento e na entrega do veículo, com data e hora; fotos do veículo e dos componentes.</p>
         <p><b>Aviso no ato da assinatura:</b> ao assinar na tela, o motorista e o técnico são informados de que os dados serão usados para registro e comprovação do serviço, conforme esta Política.</p>` },
       { id: 'C', t: 'Anexo C — Control Center', html: `
         <p><b>Finalidade:</b> gestão interna da Convergas: documentos da qualidade, setores, pessoas (RH), treinamentos e integrações, pós-vendas, infraestrutura e ativos de T.I.</p>
