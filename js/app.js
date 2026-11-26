@@ -2312,6 +2312,11 @@
     if (!ROTAS_OCULTAS.has('rh-veiculos')) rhList('rhVeiculos').forEach((v) => [['licenciamento', 'Licenciamento'], ['seguro', 'Seguro'], ['revisaoData', 'Revisão']].forEach(([k, l]) => { const x = rhVenc(v[k]); if (x && x.d <= 30) ag.push({ d: v[k], i: 'car', c: x.st === 'vencido' ? '#FF7A7A' : '#F5B840', t: `${l} · ${v.placa}`, s: v.modelo || '', go: () => navTo('rh-veiculos') }); }));
     rhList('team').forEach((u) => { if (u.cnhValidade && u.situacao !== 'desligado') { const x = rhVenc(u.cnhValidade); if (x && x.d <= 30) ag.push({ d: u.cnhValidade, i: 'car', c: x.st === 'vencido' ? '#FF7A7A' : '#F5B840', t: `CNH de ${u.name}`, s: x.st === 'vencido' ? 'vencida' : 'vencendo', go: () => rhOpenPessoa(u.id) }); } });
     ativos.forEach((u) => Object.keys(RH_DOC).forEach((t) => { const s = rhDocSt(u.id, t); if ((s.st === 'vencendo' || s.st === 'vencido') && s.d >= -60) ag.push({ d: s.x.venc, i: RH_DOC[t].i, c: RH_DOC_ST[s.st].c, t: `${RH_DOC[t].l} de ${u.name}`, s: s.st === 'vencido' ? 'vencido' : 'vencendo', go: () => rhOpenPessoa(u.id) }); }));
+    rhList('rhTurmas').forEach((tu) => { const T = Store.find('rhTreinos', tu.treinoId); if (!T) return;
+      const abrir = () => { rhOpenTreino(T.id); setTimeout(() => rhVerTurma(tu.id), 380); };
+      if (tu.status === 'programada') { const dd = rhDias(h, tu.data); if (dd <= 30 && dd >= -60) ag.push({ d: tu.data, i: 'calendar', c: dd < 0 ? '#F5B840' : '#A78BFA', t: `${T.nome} · ${tu.numero}`, s: dd < 0 ? 'turma realizada? falta concluir' : `turma programada · ${(tu.convocados || []).length} convocado${(tu.convocados || []).length === 1 ? '' : 's'}`, go: abrir }); }
+      else if (tu.status === 'realizada' && !(tu.listaAssinada || []).length && rhDias(tu.data, h) <= 60) ag.push({ d: tu.data, i: 'file', c: '#F5B840', t: `Lista assinada · ${tu.numero}`, s: `${T.nome} · anexar a lista de presença`, go: abrir });
+    });
     const movAb = rhList('rhMovs').filter((m) => m.status !== 'concluido');
     ag.sort((a, b) => String(a.d).localeCompare(String(b.d)));
     const MES = ['jan', 'fev', 'mar', 'abr', 'mai', 'jun', 'jul', 'ago', 'set', 'out', 'nov', 'dez'];
@@ -5091,50 +5096,115 @@
     const ps = (tu.convocados || []).map((id) => rhPessoa(id)).filter(Boolean).sort((a, b) => a.name.localeCompare(b.name));
     const pres = new Set(ps.map((u) => u.id));
     const card = modal({
-      title: `Presença · ${tu.numero}`, sub: `${t.nome} · ${fmtDate(tu.data)}`, wide: true,
-      body: `<div class="form-grid">${field('Data de realização', 'data', tu.data <= rhHoje() ? tu.data : rhHoje(), 'date')}<div class="field"><label>Avaliação de eficácia</label><select name="eficacia"><option value="pendente">A avaliar</option><option value="eficaz">Eficaz</option></select></div></div>
+      title: `Concluir turma ${tu.numero}`, sub: `${t.nome} · ${fmtDate(tu.data)}`, wide: true,
+      body: `<div class="tq-cbar"><span>${ic('file')}<span><b>Lista para assinatura</b><small>Imprima, colha as assinaturas e anexe abaixo (pode anexar depois também).</small></span></span><button type="button" class="btn sm" id="tqPrint">${ic('file')}Imprimir lista</button></div>
+        <div class="form-grid">${field('Data de realização', 'data', tu.data <= rhHoje() ? tu.data : rhHoje(), 'date')}<div class="field"><label>Avaliação de eficácia</label><select name="eficacia"><option value="pendente">A avaliar</option><option value="eficaz">Eficaz</option></select></div></div>
         <div class="form-sec">${ic('check')}Quem compareceu</div>
         <div class="tu-l tu-pres">${ps.map((u) => `<button type="button" class="tu-p on" data-id="${u.id}">${rhAvatar(u.name)}<span class="tu-t"><b>${esc(u.name)}</b><small>${esc(u.sector || '—')}</small></span><span class="tu-s pres">Presente</span><i>${ic('check')}</i></button>`).join('')}</div>
-        <p class="sv-note" id="tuFalt"></p>`,
+        <p class="sv-note" id="tuFalt"></p>
+        <div class="form-sec">${ic('upload')}Lista de presença assinada <small class="tq-opc">opcional</small></div><div id="tqUp"></div>`,
       footer: `<button class="btn ghost" data-close>Cancelar</button><button class="btn primary" id="saveBtn">${ic('check')}Concluir turma</button>`,
     });
+    $('#tqPrint', card).onclick = () => rhEmitirLista(Store.find('rhTurmas', tu.id));
+    const novos = []; const up = $('#tqUp', card);
+    const pintaUp = () => { up.innerHTML = `<label class="rdc-add tq-add" style="--c:#46D39A"><input type="file" multiple accept=".pdf,image/*">${ic('upload')}<span><b>Anexar lista assinada</b><small>PDF ou foto · até ${PV_MAX_MB} MB</small></span></label>
+        ${novos.length ? `<div class="rdc-chips">${novos.map((f, i) => `<span class="eng-fc new">${ic('file')}<span>${esc(f.name)}</span><small>${pvKb(f.size)}</small><button type="button" data-x="${i}" title="Remover">${ic('x')}</button></span>`).join('')}</div>` : ''}`;
+      Icons.apply(up); const inp = $('input', up);
+      inp.onchange = () => { Array.from(inp.files || []).forEach((f) => { if (f.size > PV_MAX_MB * 1048576) toast(`"${f.name}" passa de ${PV_MAX_MB} MB`, 'warn'); else novos.push(f); }); pintaUp(); };
+      $$('[data-x]', up).forEach((b) => (b.onclick = () => { novos.splice(+b.dataset.x, 1); pintaUp(); })); };
+    pintaUp();
     ccSelect($('[name="eficacia"]', card), { icon: 'check' }); rhLimDates(card, { data: [rhAnos(-1), rhHoje()] });
     const nf = () => { const f = ps.length - pres.size; const el = $('#tuFalt', card); el.innerHTML = f ? `${ic('alert')}<span>${f} falta${f > 1 ? 's' : ''}: continua${f > 1 ? 'm' : ''} pendente${f > 1 ? 's' : ''} para a próxima turma.</span>` : ''; Icons.apply(el); };
     $$('.tu-p', card).forEach((b) => (b.onclick = () => { const id = b.dataset.id; pres.has(id) ? pres.delete(id) : pres.add(id); b.classList.toggle('on', pres.has(id)); $('.tu-s', b).textContent = pres.has(id) ? 'Presente' : 'Faltou'; $('.tu-s', b).classList.toggle('pres', pres.has(id)); nf(); }));
     nf();
-    $('#saveBtn', card).onclick = () => {
+    $('#saveBtn', card).onclick = async () => {
       const d = readForm(card); if (!d.data || d.data > rhHoje()) return toast('A data de realização não pode ser futura', 'warn');
       if (!pres.size) return toast('Marque quem compareceu', 'warn');
+      const sv = $('#saveBtn', card); sv.disabled = true; let falhou = 0;
+      if (novos.length) { sv.innerHTML = `${ic('refresh')}Enviando…`; Icons.apply(sv); falhou = await rhTurmaAnexar(tu.id, novos); }
       const validade = t.validadeMeses ? rhAddMeses(d.data, t.validadeMeses) : '';
       pres.forEach((id) => Store.add('rhTreinoReg', { treinoId: t.id, colaboradorId: id, data: d.data, validade, instrutor: tu.instrutor, cargaHoras: tu.cargaHoras || t.cargaHoras, eficacia: d.eficacia, turmaId: tu.id }));
       Store.update('rhTurmas', tu.id, { status: 'realizada', data: d.data, presentes: Array.from(pres), faltas: (tu.convocados || []).filter((id) => !pres.has(id)), realizadaEm: new Date().toISOString() });
-      closeModal(); toast(`${pres.size} registro${pres.size > 1 ? 's' : ''} lançado${pres.size > 1 ? 's' : ''}`); if (done) done();
+      closeModal(); toast(`Turma concluída · ${pres.size} participante${pres.size > 1 ? 's' : ''}${falhou ? ` · ${falhou} arquivo(s) ficaram só neste navegador` : ''}`, falhou ? 'warn' : undefined); if (done) done();
     };
   }
+  // lista de presença assinada: bucket privado (contém CPF e assinaturas)
+  async function rhTurmaAnexar(tid, files) {
+    const out = []; let falhou = 0;
+    for (const f of files) {
+      const fid = Store.uid('tl'); const cloudName = fid + '__' + f.name.replace(/[^\w.\-]+/g, '_');
+      try { await Store.blobs.put(fid, f, { name: f.name, type: f.type, size: f.size }); } catch (e) {}
+      let ok = false; try { if (window.Cloud && window.Cloud.ok && window.Cloud.privAdd) { await window.Cloud.privAdd(`turmas/${tid}/${cloudName}`, new File([f], cloudName, { type: f.type || 'application/octet-stream' })); ok = true; } } catch (e) { console.warn('lista', e); }
+      if (!ok) falhou++;
+      out.push({ id: fid, name: f.name, cloudName, type: f.type || '', size: f.size, em: new Date().toISOString(), por: (typeof pvMe === 'function' && pvMe()) || '' });
+    }
+    const cur = Store.find('rhTurmas', tid); Store.update('rhTurmas', tid, { listaAssinada: (cur.listaAssinada || []).concat(out) });
+    return falhou;
+  }
+  async function rhTurmaAbrirArq(tid, f) {
+    let blob = null; try { const rec = await Store.blobs.get(f.id); if (rec && rec.blob) blob = rec.blob; } catch (e) {}
+    if (!blob && window.Cloud && window.Cloud.ok && window.Cloud.privGet) { blob = await window.Cloud.privGet(`turmas/${tid}/${f.cloudName}`); if (blob) Store.blobs.put(f.id, blob, { name: f.name, type: f.type, size: f.size }); }
+    if (!blob) return toast('Arquivo indisponível', 'warn');
+    const url = URL.createObjectURL(blob.type ? blob : new Blob([blob], { type: f.type || 'application/octet-stream' })); const el = document.createElement('a'); el.href = url; el.target = '_blank'; el.rel = 'noopener';
+    if (!/^(application\/pdf|image\/)/.test(f.type || blob.type || '')) el.download = f.name; document.body.appendChild(el); el.click(); el.remove(); setTimeout(() => URL.revokeObjectURL(url), 60000);
+  }
+  const RH_MES3 = ['JAN', 'FEV', 'MAR', 'ABR', 'MAI', 'JUN', 'JUL', 'AGO', 'SET', 'OUT', 'NOV', 'DEZ'];
   function rhVerTurma(id) {
     const tu = Store.find('rhTurmas', id); if (!tu) return; const t = Store.find('rhTreinos', tu.treinoId) || { nome: '—' };
     const S = RH_TURMA_ST[tu.status] || RH_TURMA_ST.programada; const emis = tu.emissoes || []; const ult = emis[emis.length - 1];
-    const desat = tu.status === 'programada' && ult && ult.sig !== rhConvSig(tu);
-    const ids = tu.status === 'realizada' ? (tu.convocados || []) : (tu.convocados || []);
-    const ps = ids.map((x) => rhPessoa(x)).filter(Boolean).sort((a, b) => a.name.localeCompare(b.name));
+    const prog = tu.status === 'programada', real = tu.status === 'realizada';
+    const desat = prog && ult && ult.sig !== rhConvSig(tu);
+    const dd = rhDias(rhHoje(), tu.data); const atras = prog && dd < 0;
+    const cor = real ? '#46D39A' : tu.status === 'cancelada' ? '#94A3B8' : atras ? '#F5B840' : '#3FA9F5';
+    const quando = prog ? (dd > 1 ? `em ${dd} dias` : dd === 1 ? 'amanhã' : dd === 0 ? 'hoje' : `era para ${fmtDate(tu.data)} · falta concluir`) : real ? `realizada em ${fmtDate(tu.data)}` : `cancelada${tu.canceladaEm ? ' em ' + fmtDate(String(tu.canceladaEm).slice(0, 10)) : ''}`;
+    const ps = (tu.convocados || []).map((x) => rhPessoa(x)).filter(Boolean).sort((x, y) => x.name.localeCompare(y.name));
+    const presentes = (tu.presentes || []).length, faltas = ps.length - presentes;
+    const val = real && t.validadeMeses ? rhAddMeses(tu.data, t.validadeMeses) : '';
+    const dt = new Date(tu.data + 'T00:00:00');
+    const fact = (icn, v, l) => `<span>${ic(icn)}<b>${esc(v)}</b><small>${l}</small></span>`;
+    const arqs = tu.listaAssinada || [];
     const card = modal({
       title: `Turma ${tu.numero}`, sub: t.nome, wide: true,
-      body: `<div class="ri-meta"><span>${ic('calendar')}<b>${fmtDate(tu.data)}</b><small>Data</small></span><span>${ic('clock')}<b>${esc(tu.cargaHoras || '—')} h</b><small>Carga</small></span><span>${ic('users')}<b>${esc(tu.instrutor || '—')}</b><small>Instrutor</small></span><span>${ic('check')}<b><span class="badge ${S.cls} plain">${S.l}</span></b><small>Situação</small></span></div>
-        ${desat ? `<div class="tu-alerta">${ic('alert')}<span>A lista de convocados mudou depois da última emissão (v${ult.v}). Emita novamente.</span></div>` : ''}
-        <div class="tu-l tu-view">${ps.map((u) => { const fz = tu.status === 'realizada' ? ((tu.presentes || []).includes(u.id) ? '<span class="tu-s pres">Presente</span>' : '<span class="tu-s falt">Faltou</span>') : `<span class="tu-s" style="--c:#94A3B8">${esc(rhCpf(u.id) || 'sem CPF')}</span>`;
-          return `<div class="tu-p on">${rhAvatar(u.name)}<span class="tu-t"><b>${esc(u.name)}</b><small>${esc(u.sector || '—')}</small></span>${fz}</div>`; }).join('')}</div>
-        ${emis.length ? `<div class="tu-emis"><span class="sv-msg-h">Emissões da lista</span>${emis.slice().reverse().map((e) => `<div>${ic('file')}<b>v${e.v}</b><span>${esc(pvFmtDT(e.em))}${e.por ? ' · ' + esc(e.por) : ''} · ${e.qtd} convocado${e.qtd === 1 ? '' : 's'}</span></div>`).join('')}</div>` : ''}`,
-      footer: tu.status === 'programada'
-        ? `<button class="btn ghost" id="tuCanc" style="margin-right:auto">${ic('x')}Cancelar turma</button><button class="btn" id="tuEd">${ic('edit')}Convocados</button><button class="btn" id="tuLista">${ic('file')}${emis.length ? 'Emitir novamente' : 'Emitir lista de presença'}</button><button class="btn primary" id="tuPres">${ic('check')}Registrar presença</button>`
-        : tu.status === 'realizada' ? `<button class="btn ghost" data-close>Fechar</button><button class="btn primary" id="tuComp">${ic('award')}Comprovante</button>` : '<button class="btn primary" data-close>Fechar</button>',
+      body: `<div class="tq" style="--c:${cor}">
+        <div class="tq-hero">
+          <div class="tq-cal"><small>${RH_MES3[dt.getMonth()]}</small><b>${String(dt.getDate()).padStart(2, '0')}</b><em>${dt.getFullYear()}</em></div>
+          <div class="tq-ht"><span class="tq-k">${esc(tu.numero)}</span><b>${esc(t.nome)}</b><small>${ic(prog ? 'clock' : real ? 'check' : 'x')}${quando}</small></div>
+          <span class="tq-st">${S.l}</span>
+        </div>
+        <div class="tq-facts">${fact('clock', `${tu.cargaHoras || '—'} h`, 'Carga horária')}${fact('users', tu.instrutor || 'A definir', 'Instrutor')}${fact('grid', tu.local || 'A definir', 'Local')}${fact('refresh', real ? (val ? fmtDate(val) : 'Não vence') : rhValTx(t.validadeMeses), real ? 'Válido até' : 'Reciclagem')}</div>
+        ${desat ? `<div class="tu-alerta">${ic('alert')}<span>Os convocados mudaram depois da última impressão (v${ult.v}). Imprima a lista de novo.</span></div>` : ''}
+        <div class="tq-sec"><b>${real ? 'Participantes' : 'Convocados'}</b><em>${ps.length}</em>${real ? `<span class="tq-pf"><i class="ok"></i>${presentes} presente${presentes === 1 ? '' : 's'}${faltas ? `<i class="no"></i>${faltas} falta${faltas === 1 ? '' : 's'}` : ''}</span>` : ''}</div>
+        ${real && ps.length ? `<div class="tq-bar"><i style="width:${Math.round((100 * presentes) / ps.length)}%"></i></div>` : ''}
+        <div class="tq-pl">${ps.map((u) => { const pr = (tu.presentes || []).includes(u.id); const cpf = rhCpf(u.id);
+          return `<div class="tq-p${real ? (pr ? ' pres' : ' falt') : ''}">${rhAvatar(u.name)}<span><b title="${esc(u.name)}">${esc(u.name)}</b><small>${esc(u.sector || '—')}${cpf ? '' : ' · <em>sem CPF</em>'}</small></span>${real ? `<i>${ic(pr ? 'check' : 'x')}</i>` : ''}</div>`; }).join('')}</div>
+        ${real ? `<div class="tq-doc${arqs.length ? ' ok' : ''}">
+          <div class="tq-doch"><span class="tq-docic">${ic(arqs.length ? 'check' : 'file')}</span><span><b>Lista de presença assinada</b><small>${arqs.length ? `${arqs.length} arquivo${arqs.length > 1 ? 's' : ''} anexado${arqs.length > 1 ? 's' : ''}` : 'Ainda não anexada'}</small></span></div>
+          ${arqs.length ? `<div class="rdc-chips">${arqs.map((f) => `<span class="eng-fc"><button type="button" class="rdc-op" data-op="${f.id}">${ic('file')}<span>${esc(f.name)}</span></button><button type="button" data-rm="${f.id}" title="Remover">${ic('x')}</button></span>`).join('')}</div>` : ''}
+          <label class="rdc-add" style="--c:#46D39A"><input type="file" multiple accept=".pdf,image/*">${ic('upload')}<span><b>${arqs.length ? 'Anexar outro arquivo' : 'Anexar lista assinada'}</b><small>PDF ou foto · até ${PV_MAX_MB} MB</small></span></label>
+        </div>` : ''}
+        ${emis.length ? `<details class="tq-em"><summary>${ic('file')}Impressões da lista <em>${emis.length}</em></summary><div class="tu-emis">${emis.slice().reverse().map((e) => `<div>${ic('file')}<b>v${e.v}</b><span>${esc(pvFmtDT(e.em))}${e.por ? ' · ' + esc(e.por) : ''} · ${e.qtd} convocado${e.qtd === 1 ? '' : 's'}</span></div>`).join('')}</div></details>` : ''}
+      </div>`,
+      footer: prog
+        ? `<button class="btn ghost" id="tuCanc" style="margin-right:auto">${ic('x')}Cancelar turma</button><button class="btn" id="tuEd">${ic('edit')}Convocados</button><button class="btn" id="tuLista">${ic('file')}Imprimir lista</button><button class="btn primary" id="tuPres">${ic('check')}Concluir</button>`
+        : real ? `<button class="btn ghost" data-close style="margin-right:auto">Fechar</button><button class="btn" id="tuLista2">${ic('file')}Lista em branco</button><button class="btn primary" id="tuComp">${ic('award')}Comprovante</button>` : '<button class="btn primary" data-close>Fechar</button>',
     });
-    Icons.apply(card);
+    Icons.apply(card); card.classList.add('tq-modal');
+    const reabre = () => { closeModal(); setTimeout(() => { go('rh-treino'); rhVerTurma(tu.id); }, 220); };
     const on = (sel, fn) => { const b = $(sel, card); if (b) b.onclick = fn; };
-    on('#tuLista', () => { rhEmitirLista(Store.find('rhTurmas', tu.id)); closeModal(); setTimeout(() => { go('rh-treino'); rhVerTurma(tu.id); }, 200); });
+    on('#tuLista', () => { rhEmitirLista(Store.find('rhTurmas', tu.id)); reabre(); });
+    on('#tuLista2', () => rhEmitirLista(Store.find('rhTurmas', tu.id)));
     on('#tuEd', () => { closeModal(); setTimeout(() => rhFormTurma(t, Store.find('rhTurmas', tu.id)), 250); });
     on('#tuPres', () => { closeModal(); setTimeout(() => rhRegistrarPresenca(Store.find('rhTurmas', tu.id), () => { go('rh-treino'); setTimeout(() => rhVerTurma(tu.id), 300); }), 250); });
     on('#tuComp', () => rhComprovanteTurma(tu));
     on('#tuCanc', () => confirmDialog(`Cancelar a turma ${tu.numero}?`, () => { Store.update('rhTurmas', tu.id, { status: 'cancelada', canceladaEm: new Date().toISOString() }); toast('Turma cancelada', 'info'); go('rh-treino'); }));
+    $$('[data-op]', card).forEach((b) => (b.onclick = () => { const f = arqs.find((x) => x.id === b.dataset.op); if (f) rhTurmaAbrirArq(tu.id, f); }));
+    $$('[data-rm]', card).forEach((b) => (b.onclick = () => { const f = arqs.find((x) => x.id === b.dataset.rm); if (!f) return;
+      confirmDialog(`Remover "${f.name}"?`, () => { Store.blobs.del(f.id); try { if (window.Cloud && window.Cloud.ok && window.Cloud.privDel) window.Cloud.privDel(`turmas/${tu.id}/${f.cloudName}`).catch(() => {}); } catch (e) {}
+        Store.update('rhTurmas', tu.id, { listaAssinada: (Store.find('rhTurmas', tu.id).listaAssinada || []).filter((x) => x.id !== f.id) }); toast('Arquivo removido'); setTimeout(() => rhVerTurma(tu.id), 250); }, 'danger'); }));
+    const inp = $('.tq-doc input', card);
+    if (inp) inp.onchange = async () => { const fs = Array.from(inp.files || []).filter((f) => f.size <= PV_MAX_MB * 1048576); if (!fs.length) return toast(`Arquivo acima de ${PV_MAX_MB} MB`, 'warn');
+      const lb = inp.closest('.rdc-add'); lb.classList.add('busy'); $('b', lb).textContent = 'Enviando…';
+      const falhou = await rhTurmaAnexar(tu.id, fs); toast(falhou ? `${falhou} arquivo(s) ficaram só neste navegador` : 'Lista assinada anexada', falhou ? 'warn' : undefined); reabre(); };
   }
 
   /* ---------- perfil do treinamento ---------- */
