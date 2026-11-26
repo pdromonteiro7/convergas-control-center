@@ -2166,7 +2166,7 @@
     const d = rhDias(rhHoje(), r.validade);
     return { st: d < 0 ? 'vencido' : d <= 30 ? 'vencendo' : 'ok', r, dias: d };
   }
-  const rhExigidos = (u) => { const c = u && rhCargo(u.cargoId); return c && Array.isArray(c.treinos) ? c.treinos : []; };
+  const rhExigidos = (u) => { const c = u && rhCargo(u.cargoId); return c && Array.isArray(c.treinos) ? c.treinos.filter((id) => { const t = Store.find('rhTreinos', id); return t && !rhEhAtiv(t); }) : []; };
   const RH_TST = { ok: { cls: 'ok', l: 'Em dia', c: '#46D39A' }, vencendo: { cls: 'warn', l: 'Vencendo', c: '#F5B840' }, vencido: { cls: 'danger', l: 'Vencido', c: '#FF7A7A' }, faltando: { cls: 'danger', l: 'Pendente', c: '#FF7A7A' } };
   function rhTreinoResumo(u) {
     const ex = rhExigidos(u); const r = { ok: 0, vencendo: 0, vencido: 0, faltando: 0, total: ex.length };
@@ -2530,7 +2530,7 @@
           ${field('Requisitos (escolaridade, experiência)', 'requisitos', c.requisitos, 'textarea', { full: true, ph: 'Ex.: Técnico em mecânica; CNH B' })}
         </div>
         <div class="form-sec">${ic('award')}Treinamentos exigidos para o cargo</div>
-        <div class="rh-chk">${tr.filter((t) => !rhIsOp(t)).map((t) => `<button type="button" class="rh-chk-i${set.has(t.id) ? ' on' : ''}" data-t="${t.id}"><i>${ic('check')}</i><span><b>${esc(t.nome)}</b><small>${esc(t.tipo)}${t.validadeMeses ? ' · reciclagem a cada ' + t.validadeMeses + ' meses' : ' · sem vencimento'}</small></span></button>`).join('')}</div>
+        <div class="rh-chk">${tr.filter((t) => !rhEhAtiv(t)).map((t) => `<button type="button" class="rh-chk-i${set.has(t.id) ? ' on' : ''}" data-t="${t.id}"><i>${ic('check')}</i><span><b>${esc(t.nome)}</b><small>${esc(t.tipo)}${t.validadeMeses ? ' · reciclagem a cada ' + t.validadeMeses + ' meses' : ' · sem vencimento'}</small></span></button>`).join('')}</div>
         <div class="form-sec">${ic('grid')}Polivalência · atividades do cargo</div>
         <div class="form-grid">${field('Mínimo de habilitados por atividade', 'minimo', c.minimo || 2, 'text', { hint: 'Ex.: 2 → com só 1 pessoa habilitada a cobertura fica em 50%' })}</div>
         <div id="fxAt"></div>`,
@@ -2559,7 +2559,7 @@
     $('#saveBtn', card).onclick = () => {
       const d = readForm(card); if (!d.nome) return toast('Informe o nome do cargo', 'warn');
       const stC = d.setor || 'Sem setor';
-      const obj = { nome: d.nome, setor: d.setor, descricao: d.descricao, requisitos: d.requisitos, treinos: Array.from(set).filter((x) => { const T = Store.find('rhTreinos', x); return T && !rhIsOp(T); }).concat((c.treinos || []).filter((x) => { const T = Store.find('rhTreinos', x); return T && rhIsOp(T); })),
+      const obj = { nome: d.nome, setor: d.setor, descricao: d.descricao, requisitos: d.requisitos, treinos: Array.from(set).filter((x) => { const T = Store.find('rhTreinos', x); return T && !rhEhAtiv(T); }),
         minimo: Math.max(1, rhNum(d.minimo) || 2), atividades: fxAtividades().filter((t) => (fxSet(t) === stC && atSel.has(t.id)) || (fxSet(t) !== stC && apoioIds.includes(t.id))).map((t) => t.id) };
       if (editing) { Store.update('rhCargos', c.id, obj); rhList('team').filter((u) => u.cargoId === c.id && u.role !== d.nome).forEach((u) => Store.update('team', u.id, { role: d.nome })); }
       else Store.add('rhCargos', obj);
@@ -3467,7 +3467,7 @@
         ${field('Prazo previsto', 'prazo', p.prazo, 'date', editing && p.prazoOriginal && p.prazoOriginal !== p.prazo ? { hint: `Prazo original: ${fmtDate(p.prazoOriginal)}` } : {})}
         <div class="field full" id="engMot" hidden><label>Motivo da mudança de prazo</label><input name="motivo" placeholder="Ex.: aguardando amostra do cliente"></div>
         <div class="field"><label>Andamento</label><div class="eng-pr" style="--v:${Number(p.progresso) || 0}%"><div class="eng-rg"><input type="range" name="progresso" min="0" max="100" step="1" value="${Number(p.progresso) || 0}" aria-label="Andamento"><span class="eng-tk"><i></i><i></i><i></i></span></div><label class="eng-pin"><input id="engPn" inputmode="numeric" maxlength="3" value="${Number(p.progresso) || 0}" aria-label="Andamento em %"><span>%</span></label></div></div>
-        <div id="engConc" class="field" ${p.status === 'concluido' ? '' : 'hidden'}>${field('Prazo real (concluído em)', 'conclusao', p.conclusao || todayISO(), 'date').replace(/^<div class="field">|<\/div>$/g, '')}</div>
+        <div id="engConc" class="field" ${p.status === 'concluido' ? '' : 'hidden'}>${field('Data finalizada', 'conclusao', p.conclusao || todayISO(), 'date').replace(/^<div class="field">|<\/div>$/g, '')}</div>
         ${field('Observação', 'obs', p.obs, 'textarea', { full: true })}</div>
         ${(p.replan || []).length ? `<div class="tu-emis"><span class="sv-msg-h">Mudanças de prazo</span>${p.replan.slice().reverse().map((r) => `<div>${ic('calendar')}<b>${fmtDate(r.de)} → ${fmtDate(r.para)}</b><span>${esc(r.motivo || '')}${r.por ? ' · ' + esc(r.por) : ''}</span></div>`).join('')}</div>` : ''}`,
       footer: (editing ? `<button class="btn danger ghost" id="delBtn" style="margin-right:auto">${ic('trash')}Excluir</button>` : '') + submitFooter(editing),
@@ -3479,15 +3479,32 @@
     pn.oninput = () => { const d = pn.value.replace(/\D/g, '').slice(0, 3); pn.value = d && Number(d) > 100 ? '100' : d; setPr(pn.value, true); };
     pn.onblur = () => setPr(pn.value); pn.onfocus = () => pn.select();
     pn.onkeydown = (e) => { if (e.key === 'ArrowUp' || e.key === 'ArrowDown') { e.preventDefault(); setPr(Number(pn.value || 0) + (e.key === 'ArrowUp' ? 5 : -5)); } if (e.key === 'Enter') { e.preventDefault(); pn.blur(); } };
-    $('[name="status"]', card).addEventListener('change', (e) => { $('#engConc', card).hidden = e.target.value !== 'concluido'; if (e.target.value === 'concluido') setPr(100); });
+    const stSel = $('[name="status"]', card), concI = $('[name="conclusao"]', card);
+    stSel.addEventListener('change', (e) => { $('#engConc', card).hidden = e.target.value !== 'concluido'; if (e.target.value === 'concluido') setPr(100); });
+    const setSt = (v) => { if (stSel.value === v) return; stSel.value = v; stSel.dispatchEvent(new Event('change', { bubbles: true })); };
+    // chegou a 100%: pergunta a data em que foi finalizado; voltou de 100%: projeto volta a ficar em andamento
+    let antes = Number(rg.value) || 0, perguntando = false;
+    const marca = () => { if (Number(rg.value) < 100) antes = Number(rg.value) || 0; };
+    rg.addEventListener('pointerdown', marca); rg.addEventListener('keydown', marca); pn.addEventListener('focus', marca);
+    const checa100 = (depois) => {
+      const v = Number(rg.value) || 0;
+      if (v < 100) { if (stSel.value === 'concluido') setSt('andamento'); return; }
+      if (perguntando) return;
+      if (stSel.value === 'concluido') { if (depois) depois(); return; }
+      perguntando = true;
+      engFimDialog($('[name="inicio"]', card).value, (data) => { perguntando = false; setSt('concluido'); concI.value = data; if (depois) depois(); },
+        () => { perguntando = false; setPr(antes >= 100 ? 95 : antes); });
+    };
+    rg.addEventListener('change', () => checa100()); pn.addEventListener('blur', () => checa100());
     $('[name="prazo"]', card).addEventListener('change', (e) => { $('#engMot', card).hidden = !(editing && p.prazo && e.target.value !== p.prazo); });
     const del = $('#delBtn', card); if (del) del.onclick = () => confirmDialog(`Excluir o projeto ${p.codigo}?`, () => { Store.remove('engProjetos', p.id); closeModal(); toast('Projeto excluído'); go(currentRoute); }, 'danger');
     $('#saveBtn', card).onclick = () => {
       const d = readForm(card);
+      if (Number(d.progresso) >= 100 && d.status === 'andamento') return checa100(() => $('#saveBtn', card).click());
       if ((d.nome || '').length < 3) return toast('Informe o nome do projeto', 'warn');
       if (!d.inicio || !d.prazo) return toast('Informe a data de início e o prazo previsto', 'warn');
       if (d.prazo < d.inicio) return toast('O prazo previsto é anterior ao início', 'warn');
-      if (d.status === 'concluido' && (!d.conclusao || d.conclusao > todayISO())) return toast('Informe o prazo real (data de conclusão)', 'warn');
+      if (d.status === 'concluido' && (!d.conclusao || d.conclusao > todayISO())) return toast('Informe a data em que o projeto foi finalizado', 'warn');
       if (d.status === 'concluido' && d.conclusao < d.inicio) return toast('A conclusão é anterior ao início', 'warn');
       const mudouPrazo = editing && p.prazo && d.prazo !== p.prazo;
       if (mudouPrazo && (d.motivo || '').trim().length < 3) return toast('Informe o motivo da mudança de prazo', 'warn');
@@ -3496,6 +3513,28 @@
       if (editing) Store.update('engProjetos', p.id, obj); else Store.add('engProjetos', { ...obj, codigo: engCodigo(), prazoOriginal: d.prazo, criadoEm: new Date().toISOString() });
       closeModal(); toast(editing ? 'Projeto atualizado' : 'Projeto cadastrado'); if (editing) engAberto = p.id; go(currentRoute);
     };
+  }
+  function engFimDialog(inicio, ok, cancela) {
+    const hoje = todayISO();
+    const ov = document.createElement('div'); ov.className = 'eng-fin-ov';
+    ov.innerHTML = `<div class="eng-fin" role="dialog" aria-modal="true" aria-labelledby="engFinT">
+      <span class="eng-fin-ic">${ic('check')}</span>
+      <b id="engFinT">Projeto em 100%</b>
+      <p>Você finalizou esse projeto hoje ou gostaria de selecionar outra data?</p>
+      <div class="eng-fin-b"><button type="button" class="btn primary" data-hoje>${ic('check')}Finalizei hoje</button><button type="button" class="btn" data-outra>${ic('calendar')}Outra data</button></div>
+      <div class="eng-fin-d" hidden><input type="date" max="${hoje}" ${inicio ? `min="${inicio}"` : ''} value="${hoje}" aria-label="Data finalizada"><button type="button" class="btn primary" data-ok>Confirmar</button></div>
+      <button type="button" class="eng-fin-x" data-x>Ainda não terminou</button></div>`;
+    document.body.appendChild(ov); Icons.apply(ov); requestAnimationFrame(() => ov.classList.add('on'));
+    const fecha = () => { document.removeEventListener('keydown', esc_, true); ov.classList.remove('on'); setTimeout(() => ov.remove(), 220); };
+    const esc_ = (e) => { if (e.key === 'Escape') { e.stopPropagation(); e.preventDefault(); fecha(); cancela(); } };
+    document.addEventListener('keydown', esc_, true);
+    const inp = $('input', ov);
+    $('[data-hoje]', ov).onclick = () => { fecha(); ok(hoje); };
+    $('[data-outra]', ov).onclick = () => { $('.eng-fin-d', ov).hidden = false; $('.eng-fin-b', ov).hidden = true; inp.focus(); try { inp.showPicker(); } catch (e) {} };
+    $('[data-ok]', ov).onclick = () => { const v = inp.value; if (!v || v > hoje) return toast('Escolha uma data até hoje', 'warn'); if (inicio && v < inicio) return toast('A data é anterior ao início do projeto', 'warn'); fecha(); ok(v); };
+    $('[data-x]', ov).onclick = () => { fecha(); cancela(); };
+    ov.addEventListener('click', (e) => { if (e.target === ov) { fecha(); cancela(); } });
+    setTimeout(() => $('[data-hoje]', ov).focus(), 60);
   }
   const ENG_DOC = { rnc: { l: 'RNC', t: 'Relatório de não conformidade', c: '#FF7A7A', i: 'alert' }, eco: { l: 'ECO', t: 'Ordem de alteração de engenharia', c: '#3FA9F5', i: 'refresh' } };
   let engAberto = null; // projeto com o cartão expandido
@@ -3518,7 +3557,7 @@
     const u = rhPessoa(p.responsavelId), g = rhPessoa(p.gestorId);
     const info = `<div class="eng-inf"><span>${ic('users')}<small>Responsável</small><b>${esc(g ? g.name : '—')}</b></span><span>${ic('edit')}<small>Projetista</small><b>${esc(u ? u.name : '—')}</b></span>
       <span>${ic('calendar')}<small>Início</small><b>${p.inicio ? fmtDate(p.inicio) : '—'}</b></span><span>${ic('clock')}<small>Prazo previsto</small><b>${p.prazo ? fmtDate(p.prazo) : '—'}</b></span>
-      <span>${ic('check')}<small>Prazo real</small><b>${p.status === 'concluido' && p.conclusao ? fmtDate(p.conclusao) : '—'}</b></span></div>`;
+      <span>${ic('check')}<small>Data finalizada</small><b>${p.status === 'concluido' && p.conclusao ? fmtDate(p.conclusao) : '—'}</b></span></div>`;
     const acoes = pode ? `<div class="eng-acts">${['rnc', 'eco'].map((k) => `<button type="button" class="eng-act${modo === k ? ' on' : ''}" data-act="${k}" style="--c:${ENG_DOC[k].c}"><span>${ic(ENG_DOC[k].i)}</span><b>${ENG_DOC[k].l}</b><small>${ENG_DOC[k].t}</small></button>`).join('')}
       <button type="button" class="eng-act" data-act="edit" style="--c:#A3E635"><span>${ic('edit')}</span><b>Editar</b><small>Dados, prazos e andamento</small></button></div>` : '';
     const form = modo && ENG_DOC[modo] ? `<div class="eng-df" style="--c:${ENG_DOC[modo].c}"><div class="eng-dfh">${ic(ENG_DOC[modo].i)}<b>Nova ${ENG_DOC[modo].l}</b><small>${esc(p.codigo)} · ${esc(p.nome)}</small></div>
@@ -3680,7 +3719,7 @@
     const out = []; const ja = new Set(rhPlanoDo(ano).map((x) => x.treinoId + '|' + x.mes));
     const abertos = new Set(rhPlanoDo(ano).filter((x) => ['plan', 'prog', 'atrasado'].includes(rhPlanoSt(x).st)).map((x) => x.treinoId));
     const hoje = rhHoje(); const mesAtual = hoje.slice(0, 4) === String(ano) ? Number(hoje.slice(5, 7)) : 1;
-    rhTreinos().forEach((t) => {
+    rhCursos().forEach((t) => {
       const porMes = {}; let pend = 0;
       rhAtivos().forEach((u) => {
         const s = rhTreinoSt(u.id, t.id); const exig = rhExigidos(u).includes(t.id);
@@ -3694,7 +3733,7 @@
   }
   function rhFormPlano(it, ano) {
     const editing = !!(it && it.id); it = it || { ano, mes: Math.min(12, Number(rhHoje().slice(5, 7))), origem: 'lnt', qtd: '' };
-    const tr = rhTreinos(); if (!tr.length) return toast('Cadastre os treinamentos primeiro', 'warn');
+    const tr = rhCursos(); if (!tr.length) return toast('Cadastre os treinamentos primeiro', 'warn');
     const card = modal({
       title: editing ? 'Item do plano' : 'Incluir no plano', sub: `Plano de treinamento ${ano}`,
       body: `<div class="form-grid"><div class="field full"><label>Treinamento</label><select name="treinoId">${tr.map((t) => `<option value="${t.id}" ${it.treinoId === t.id ? 'selected' : ''}>${esc(t.nome)}</option>`).join('')}</select></div>
@@ -3792,7 +3831,7 @@
   const rhConscCfg = () => Store.find('rhCfg', 'consc') || {};
   function rhConscTreino() {
     const id = rhConscCfg().treinoId; if (id && Store.find('rhTreinos', id)) return Store.find('rhTreinos', id);
-    return rhTreinos().find((t) => /conscientiza/i.test(t.nome)) || null;
+    return rhCursos().find((t) => /conscientiza/i.test(t.nome)) || null;
   }
   function rhFormSugestao(s) {
     const editing = !!(s && s.id); s = s || { data: rhHoje(), status: 'recebida', categoria: 'Qualidade' };
@@ -3836,7 +3875,7 @@
     if (rhEngTab === 'consc') {
       const t = rhConscTreino(); const ativos = rhAtivos().slice().sort((a, b) => a.name.localeCompare(b.name));
       const podeCfg = Perm.podeGravar('rhCfg');
-      const cfgHtml = `<div class="eg-cfg"><span>${ic('award')}Treinamento de conscientização</span><select id="egT"><option value="">— escolha —</option>${rhTreinos().map((x) => `<option value="${x.id}" ${t && t.id === x.id ? 'selected' : ''}>${esc(x.nome)}</option>`).join('')}</select></div>`;
+      const cfgHtml = `<div class="eg-cfg"><span>${ic('award')}Treinamento de conscientização</span><select id="egT"><option value="">— escolha —</option>${rhCursos().map((x) => `<option value="${x.id}" ${t && t.id === x.id ? 'selected' : ''}>${esc(x.nome)}</option>`).join('')}</select></div>`;
       if (!t) {
         holder.innerHTML = `<div class="tbl-wrap">${emptyState('shield', 'Defina o treinamento de conscientização', 'Ex.: "Conscientização IATF 16949 / ISO 9001": impacto do trabalho na qualidade, requisitos do cliente e riscos do produto não conforme.')}${podeCfg ? `<div class="rh-sug">${cfgHtml}</div>` : ''}</div>`;
       } else {
@@ -3898,6 +3937,27 @@
   // Operação (coluna da matriz) = treinamento do tipo "Técnico / operação". Um cadastro só, em Treinamentos.
   const RH_OP = 'Técnico / operação';
   const rhIsOp = (t) => !!t && t.tipo === RH_OP;
+  // atividade do mapa de polivalência (operação com setor/etapa) ≠ curso do catálogo (NR, GNV, integração…)
+  const rhEhAtiv = (t) => rhIsOp(t) && !!(t.setor || t.etapa);
+  const rhCursos = () => rhTreinos().filter((t) => !rhEhAtiv(t));
+  const rhNormNome = (s) => String(s || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
+  // cursos repetidos com o mesmo nome (ex.: "NR-35 · Trabalho em altura" duas vezes) viram um só, levando registros, turmas, plano e cargos
+  function rhUnificarCursos() {
+    if (!Perm.podeGravar('rhTreinos')) return 0;
+    const grupos = {}; rhCursos().forEach((t) => { const k = rhNormNome(t.nome); if (k) (grupos[k] = grupos[k] || []).push(t); });
+    let n = 0;
+    Object.values(grupos).filter((g) => g.length > 1).forEach((g) => {
+      const uso = (t) => rhList('rhTreinoReg').filter((r) => r.treinoId === t.id).length + rhList('rhTurmas').filter((r) => r.treinoId === t.id).length;
+      g.sort((x, y) => uso(y) - uso(x) || (Number(y.validadeMeses) || 0) - (Number(x.validadeMeses) || 0) || String(x.id).localeCompare(String(y.id)));
+      const fica = g[0];
+      g.slice(1).forEach((d) => {
+        ['rhTreinoReg', 'rhTurmas', 'rhPlano'].forEach((col) => rhList(col).filter((r) => r.treinoId === d.id).forEach((r) => Store.update(col, r.id, { treinoId: fica.id })));
+        rhList('rhCargos').filter((c) => (c.treinos || []).includes(d.id)).forEach((c) => Store.update('rhCargos', c.id, { treinos: [...new Set(c.treinos.map((x) => (x === d.id ? fica.id : x)))] }));
+        Store.remove('rhTreinos', d.id); n++;
+      });
+    });
+    return n;
+  }
   const rhPostos = () => rhList('rhTreinos').filter(rhIsOp).map((t) => ({ id: t.id, nome: t.nome, setor: t.setor || '', minimo: Number(t.minimo) || 2, critico: !!t.critico, treinos: [t.id] }))
     .sort((a, b) => (a.setor || '').localeCompare(b.setor || '') || a.nome.localeCompare(b.nome));
   // postos cadastrados na 1ª versão viram treinamentos de operação (uma vez)
@@ -5137,7 +5197,7 @@
   function rhFormTreino(t) {
     const editing = !!(t && t.id); t = t || {};
     const card = modal({
-      title: editing ? 'Editar treinamento' : 'Novo treinamento', sub: 'Catálogo de treinamentos',
+      title: editing ? (rhEhAtiv(t) ? 'Editar atividade' : 'Editar treinamento') : t.tipo === RH_OP ? 'Nova atividade' : 'Novo treinamento', sub: rhEhAtiv(t) || (!editing && t.tipo === RH_OP) ? 'Mapa de polivalência' : 'Catálogo de treinamentos',
       body: `<div class="form-grid">${field('Nome', 'nome', t.nome, 'text', { full: true, ph: 'Ex.: NR-35 · Trabalho em altura' })}
         <div class="field"><label>Tipo</label><select name="tipo">${RH_TIPOS_TREINO.map((x) => `<option ${t.tipo === x ? 'selected' : ''}>${esc(x)}</option>`).join('')}</select></div>
         ${field('Carga horária (horas)', 'cargaHoras', t.cargaHoras || '', 'text', { ph: 'Ex.: 8' })}
@@ -5189,7 +5249,7 @@
     };
   }
   function rhFormTreinoReg(pre, onDone) {
-    pre = pre || {}; const tr = rhTreinos();
+    pre = pre || {}; const tr = rhCursos();
     const card = modal({
       title: 'Registrar treinamento', sub: 'Turma',
       body: `<div class="form-grid">
@@ -5248,7 +5308,8 @@
       `<button class="btn" id="rtNovo">${ic('plus')}Treinamento</button><button class="btn primary" id="rtReg">${ic('award')}Registrar treinamento</button>`);
     $('#rtNovo').onclick = () => rhFormTreino(null);
     $('#rtReg').onclick = () => rhFormTreinoReg({});
-    const tr = rhTreinos(), ativos = rhAtivos(), regs = rhList('rhTreinoReg').slice().sort((a, b) => String(b.data).localeCompare(String(a.data)));
+    if (rhUnificarCursos()) toast('Treinamentos repetidos foram unificados', 'info');
+    const tr = rhCursos(), ativos = rhAtivos(), regs = rhList('rhTreinoReg').slice().sort((a, b) => String(b.data).localeCompare(String(a.data)));
     const tabs = [['matriz', 'Matriz', ativos.length], ['catalogo', 'Catálogo', tr.length], ['nr', 'Normas regulamentadoras', tr.filter(rhIsNR).length], ['registros', 'Registros', regs.filter((r) => !r.anulado).length]];
     const tb = document.createElement('div'); tb.className = 'pvf';
     tb.innerHTML = `<div class="pvf-tabs" id="rtTabs"><span class="pvf-thumb"></span>${tabs.map(([k, l, n]) => `<button data-s="${k}" class="${rhTreinoTab === k ? 'on' : ''}">${l}<span class="pvf-n">${n}</span></button>`).join('')}</div>`;

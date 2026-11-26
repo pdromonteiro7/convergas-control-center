@@ -3949,3 +3949,21 @@ html.th-sw *, html.th-sw *::before, html.th-sw *::after { transition: none !impo
 }
 @media (max-width: 420px) { .rdc-dts { grid-template-columns: 1fr; } }
 .pvp-card.rdc .pvp-card-h, .pvp-card.rdc-pn .pvp-card-h { flex-wrap: wrap; row-gap: 4px; } .pvp-card.rdc .pvp-card-h b, .pvp-card.rdc-pn .pvp-card-h b { white-space: nowrap; }
+
+/* Engenharia: confirmação de projeto finalizado (100%) */
+.eng-fin-ov { position: fixed; inset: 0; z-index: 3000; display: grid; place-items: center; padding: 16px; background: rgba(2,6,12,.55); backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px); opacity: 0; transition: opacity .2s; }
+.eng-fin-ov.on { opacity: 1; }
+.eng-fin { width: min(420px, 100%); display: flex; flex-direction: column; align-items: center; text-align: center; gap: 10px; padding: 26px 22px 18px; border-radius: 22px; background: var(--pl-solid); border: 1px solid color-mix(in srgb, #46D39A 30%, var(--line)); box-shadow: 0 30px 80px -30px rgba(0,0,0,.6), 0 0 0 1px rgba(255,255,255,.03) inset; transform: translateY(10px) scale(.97); transition: transform .28s var(--ease); }
+.eng-fin-ov.on .eng-fin { transform: none; }
+.eng-fin-ic { width: 54px; height: 54px; border-radius: 50%; display: grid; place-items: center; color: #46D39A; background: rgba(70,211,154,.14); box-shadow: 0 0 0 6px rgba(70,211,154,.07); margin-bottom: 4px; }
+.eng-fin-ic svg { width: 24px; height: 24px; stroke-width: 2.4; }
+.eng-fin > b { font-size: 1.1rem; font-weight: 600; color: var(--text); }
+.eng-fin p { margin: 0 0 6px; font-size: .9rem; line-height: 1.45; color: var(--text-2); }
+.eng-fin-b, .eng-fin-d { display: flex; gap: 8px; width: 100%; }
+.eng-fin-b .btn, .eng-fin-d .btn { flex: 1; justify-content: center; }
+.eng-fin-b[hidden], .eng-fin-d[hidden] { display: none; }
+.eng-fin-d input { flex: 1.4; min-width: 0; height: 40px; padding: 0 10px; border-radius: 10px; border: 1px solid var(--line); background: var(--field); color: var(--text); font: inherit; color-scheme: dark; }
+[data-theme="light"] .eng-fin-d input { color-scheme: light; }
+.eng-fin-x { margin-top: 4px; border: 0; background: none; color: var(--text-3); font: inherit; font-size: .8rem; cursor: pointer; padding: 6px 10px; border-radius: 8px; }
+.eng-fin-x:hover { color: var(--text); background: color-mix(in srgb, var(--text) 6%, transparent); }
+@media (max-width: 420px) { .eng-fin-b, .eng-fin-d { flex-direction: column; } }
